@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Linear Attention via Kernel Feature Maps}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathbf{o}_t = \frac{\phi(\mathbf{q}_t)^\top \mathbf{S}_t}{\phi(\mathbf{q}_t)^\top \mathbf{z}_t}, \quad \mathbf{S}_t = \mathbf{S}_{t-1} + \phi(\mathbf{k}_t)\mathbf{v}_t^\top, \quad \mathbf{z}_t = \mathbf{z}_{t-1} + \phi(\mathbf{k}_t)
+\end{equation}
+\end{document}

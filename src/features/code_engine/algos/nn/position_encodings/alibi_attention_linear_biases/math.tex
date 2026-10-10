@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{ALiBi Linear Attention Biases}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\text{Score}_{i,j}^h = \frac{\mathbf{q}_i^\top \mathbf{k}_j}{\sqrt{d_k}} - m_h |i - j|
+\end{equation}
+\end{document}

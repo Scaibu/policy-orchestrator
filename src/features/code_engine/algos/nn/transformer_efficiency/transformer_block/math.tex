@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Pre-LN Transformer Block}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathbf{x}^{(1)} = \mathbf{x} + \text{MHA}(\text{LN}(\mathbf{x})), \quad \mathbf{x}^{(2)} = \mathbf{x}^{(1)} + \text{FFN}(\text{LN}(\mathbf{x}^{(1)}))
+\end{equation}
+\end{document}

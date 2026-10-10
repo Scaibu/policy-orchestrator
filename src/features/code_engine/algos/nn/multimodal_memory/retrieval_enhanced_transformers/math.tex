@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{RETRO Chunked Cross-Attention}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathbf{H}_i = \text{CrossAttention}(\mathbf{Q}=\mathbf{X}_i, \mathbf{K}=\text{Neighbors}(\mathbf{X}_{i-1}), \mathbf{V}=\text{Neighbors}(\mathbf{X}_{i-1}))
+\end{equation}
+\end{document}

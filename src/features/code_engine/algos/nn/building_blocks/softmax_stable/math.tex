@@ -152,7 +152,7 @@ Consider logits $z = [1000.0, 1002.0, 999.0]$ at $T=1.0$.
 \section{Numerical Considerations and Edge Cases}
 
 \begin{itemize}
-    \item \textbf{Online Softmax (Milakov \& Gimelshein 2018)}: Updates running maximum $m_{\text{new}} = \max(m_{\text{old}}, x_i)$ and rescales accumulator $S_{\text{new}} = S_{\text{old}} e^{m_{\text{old}} - m_{\text{new}}} + e^{x_i - m_{\text{new}}}$, enabling fused attention kernels (FlashAttention).
+    \item \textbf{Online Softmax (Milakov & Gimelshein 2018)}: Updates running maximum $m_{\text{new}} = \max(m_{\text{old}}, x_i)$ and rescales accumulator $S_{\text{new}} = S_{\text{old}} e^{m_{\text{old}} - m_{\text{new}}} + e^{x_i - m_{\text{new}}}$, enabling fused attention kernels (FlashAttention).
 \end{itemize}
 
 \begin{thebibliography}{9}

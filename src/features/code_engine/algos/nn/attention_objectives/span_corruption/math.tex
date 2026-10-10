@@ -1,0 +1,14 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Span Corruption Denoising Objective (T5)}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+Replaces spans of length $L$ with sentinel tokens $S_k$:
+\begin{equation}
+\mathbf{x}_{\text{corrupt}} = [x_1, \dots, S_1, x_i, \dots], \quad \mathbf{y}_{\text{target}} = [S_1, x_{\text{span}_1}, S_2, x_{\text{span}_2}, \dots]
+\end{equation}
+\end{document}

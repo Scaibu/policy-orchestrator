@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Cross-Attention Context Conditioning}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathbf{Z}_{\text{cond}} = \text{softmax}\left(\frac{\mathbf{Q}_{\text{latent}}\mathbf{K}_{\text{text}}^\top}{\sqrt{d}}\right)\mathbf{V}_{\text{text}}
+\end{equation}
+\end{document}

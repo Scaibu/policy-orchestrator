@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{StreamingLLM Attention Sinks \& Cache Eviction}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\text{Cache}(t) = \text{Tokens}[0 : S] \cup \text{Tokens}[t - W : t]
+\end{equation}
+\end{document}

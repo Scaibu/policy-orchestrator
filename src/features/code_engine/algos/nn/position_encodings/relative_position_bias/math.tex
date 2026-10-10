@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{T5 Relative Position Bucketing}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+b(d) = \begin{cases} d & \text{if } |d| < d_{\text{exact}} \\ d_{\text{exact}} + \left\lfloor \frac{\log(|d|/d_{\text{exact}})}{\log(d_{\max}/d_{\text{exact}})} (B - d_{\text{exact}}) \right\rfloor & \text{otherwise} \end{cases}
+\end{equation}
+\end{document}

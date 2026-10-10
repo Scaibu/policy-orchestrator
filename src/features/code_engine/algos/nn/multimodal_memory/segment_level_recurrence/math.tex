@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Segment-Level Recurrence (Transformer-XL)}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\tilde{\mathbf{h}}_\tau^n = [\text{SG}(\mathbf{h}_{\tau-1}^n) \circ \mathbf{h}_\tau^n], \quad \mathbf{q}_\tau^n = \mathbf{h}_\tau^n \mathbf{W}_q, \quad \mathbf{k}_\tau^n = \tilde{\mathbf{h}}_\tau^n \mathbf{W}_k
+\end{equation}
+\end{document}

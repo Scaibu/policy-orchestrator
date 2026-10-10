@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Swin Transformer Shifted Window Attention}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\text{ShiftedGrid}(x, y) = \text{Grid}\left((x + \lfloor M/2 \rfloor) \pmod H, (y + \lfloor M/2 \rfloor) \pmod W\right)
+\end{equation}
+\end{document}

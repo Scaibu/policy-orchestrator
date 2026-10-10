@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Top-$k$ Truncated Probability Sampling}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+P'(x) = \begin{cases} \frac{P(x)}{\sum_{x' \in V^{(k)}} P(x')} & \text{if } x \in V^{(k)} \\ 0 & \text{otherwise} \end{cases}
+\end{equation}
+\end{document}

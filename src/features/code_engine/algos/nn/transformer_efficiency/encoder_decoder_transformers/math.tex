@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Encoder-Decoder Cross-Attention}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\text{CrossAttention}(\mathbf{H}_{\text{dec}}, \mathbf{H}_{\text{enc}}) = \text{softmax}\left(\frac{\mathbf{H}_{\text{dec}}\mathbf{H}_{\text{enc}}^\top}{\sqrt{d}}\right)\mathbf{H}_{\text{enc}}
+\end{equation}
+\end{document}

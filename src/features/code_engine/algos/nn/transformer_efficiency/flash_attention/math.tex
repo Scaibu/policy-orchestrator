@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{FlashAttention Tiled Online Softmax}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+m_{\text{new}} = \max(m^{(j-1)}, m^{(j)}), \quad \ell^{(j)} = e^{m^{(j-1)} - m_{\text{new}}}\ell^{(j-1)} + \sum e^{S_{i,:} - m_{\text{new}}}
+\end{equation}
+\end{document}

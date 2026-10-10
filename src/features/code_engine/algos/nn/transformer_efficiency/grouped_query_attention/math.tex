@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Grouped-Query Attention (GQA)}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\text{Group}(\text{head}_i) = \text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\lfloor i/g \rfloor}, \mathbf{V}_{\lfloor i/g \rfloor})
+\end{equation}
+\end{document}

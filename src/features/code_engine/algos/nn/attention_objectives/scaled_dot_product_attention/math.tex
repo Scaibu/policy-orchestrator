@@ -1,0 +1,14 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb, amsthm, bm}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Scaled Dot-Product Attention}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\section{Formulation}
+\begin{equation}
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}
+\end{equation}
+\end{document}

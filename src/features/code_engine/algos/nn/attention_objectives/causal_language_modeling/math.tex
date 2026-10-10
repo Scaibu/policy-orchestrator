@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Causal Language Modeling Objective}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathcal{L}_{\text{CLM}} = -\frac{1}{T}\sum_{t=1}^T \log P(x_t \mid x_{<t}; \theta)
+\end{equation}
+\end{document}

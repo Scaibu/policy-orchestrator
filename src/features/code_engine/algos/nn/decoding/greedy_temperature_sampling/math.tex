@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Temperature-Scaled Autoregressive Sampling}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+P(x_i) = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}, \quad \lim_{T \to 0^+} P(x_i) = \mathbb{I}(i = \text{argmax}_j z_j)
+\end{equation}
+\end{document}

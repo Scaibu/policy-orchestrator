@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Logit Stabilization Auxiliary $z$-Loss}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathcal{L}_z = \alpha \cdot \frac{1}{B}\sum_{i=1}^B \left(\log \sum_{j=1}^V e^{z_{i, j}}\right)^2
+\end{equation}
+\end{document}

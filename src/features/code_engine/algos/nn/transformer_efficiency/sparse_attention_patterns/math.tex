@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Sparse Attention Graphs (BigBird / Longformer)}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+A_{i, j} = \mathbb{I}(|i - j| \leq r) \lor \mathbb{I}(i \in \mathcal{G} \lor j \in \mathcal{G}) \lor \mathbb{I}(j \in \mathcal{R}_i)
+\end{equation}
+\end{document}

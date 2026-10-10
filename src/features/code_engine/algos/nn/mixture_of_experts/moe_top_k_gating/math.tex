@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Top-$k$ MoE Gating Formulation}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+G(x)_i = \begin{cases} \frac{\exp(H(x)_i)}{\sum_{j \in \text{Top-k}} \exp(H(x)_j)} & \text{if } i \in \text{Top-k}(H(x)) \\ 0 & \text{otherwise} \end{cases}
+\end{equation}
+\end{document}

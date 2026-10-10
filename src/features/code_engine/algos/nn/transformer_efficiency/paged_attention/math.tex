@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{PagedAttention Virtual Memory Mapping}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathbf{K}[t] = \text{Pool}[\text{BlockTable}[\lfloor t/B \rfloor]][t \pmod B]
+\end{equation}
+\end{document}

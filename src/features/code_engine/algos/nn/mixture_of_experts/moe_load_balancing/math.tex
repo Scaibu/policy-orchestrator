@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{MoE Auxiliary Load Balancing Loss}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathcal{L}_{\text{aux}} = E \sum_{e=1}^E f_e \cdot P_e, \quad f_e = \frac{1}{T}\sum_{t=1}^T \mathbb{I}(\text{token } t \to e), \quad P_e = \frac{1}{T}\sum_{t=1}^T p_{t, e}
+\end{equation}
+\end{document}

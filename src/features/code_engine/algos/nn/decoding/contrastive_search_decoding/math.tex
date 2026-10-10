@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{Contrastive Search Objective}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+x_t = \text{argmax}_{v \in V^{(k)}} \left\{ (1 - \alpha) P(v \mid \mathbf{x}_{<t}) - \alpha \max_{j < t} \text{CosineSim}(\mathbf{h}_v, \mathbf{h}_j) \right\}
+\end{equation}
+\end{document}

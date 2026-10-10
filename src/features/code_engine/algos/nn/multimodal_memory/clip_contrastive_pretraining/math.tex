@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{CLIP Symmetric Contrastive InfoNCE Loss}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathcal{L} = \frac{1}{2N}\sum_{i=1}^N \left(-\log \frac{e^{\mathbf{I}_i^\top \mathbf{T}_i / \tau}}{\sum_j e^{\mathbf{I}_i^\top \mathbf{T}_j / \tau}} - \log \frac{e^{\mathbf{I}_i^\top \mathbf{T}_i / \tau}}{\sum_j e^{\mathbf{I}_j^\top \mathbf{T}_i / \tau}}\right)
+\end{equation}
+\end{document}

@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{RetNet Recurrent Retention Mechanism}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+\mathbf{S}_n = \gamma \mathbf{S}_{n-1} + \mathbf{k}_n \mathbf{v}_n^\top, \quad \text{Retention}(\mathbf{q}_n) = \mathbf{q}_n^\top \mathbf{S}_n
+\end{equation}
+\end{document}

@@ -1,0 +1,13 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+\usepackage{geometry}
+\geometry{margin=1in}
+\title{\textbf{UL2 Prefix Language Modeling Attention Mask}}
+\author{Architecture Policy Engine}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{equation}
+M_{i, j} = \begin{cases} 0 & \text{if } i, j < L_{\text{prefix}} \lor j \leq i \\ -\infty & \text{otherwise} \end{cases}
+\end{equation}
+\end{document}
