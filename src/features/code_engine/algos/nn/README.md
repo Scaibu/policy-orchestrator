@@ -1,20 +1,20 @@
 # Neural Network Foundation & Frontier Engine (`algos/nn`)
 
-[![Algorithms](https://img.shields.io/badge/Algorithms-250%20%2F%20250%20(100%25)-success.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
+[![Algorithms](https://img.shields.io/badge/Algorithms-Core%20Catalog-success.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
 [![Domains](https://img.shields.io/badge/Domains-29%20Architectural%20Slices-blueviolet.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0%20External%20(Pure%20Python)-brightgreen.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
 [![Contracts](https://img.shields.io/badge/Contracts-26--Key%20YAML%20Strict-blue.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
-[![LaTeX & PDF](https://img.shields.io/badge/Math%20PDFs-250%20Formal%20Proofs%20Compiled-orange.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
+[![LaTeX & PDF](https://img.shields.io/badge/Math%20PDFs-Formal%20Proofs%20Compiled-orange.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/src/features/code_engine/algos/nn)
 [![Unit Tests](https://img.shields.io/badge/Unit%20Tests-100%25%20Passing-brightgreen.svg)](file:///home/btpl-lap-22/live/llm-obs-infra/policies/policy-orchestrator/tests/unit/algos)
 
-> **Complete, Deterministic Scalar Neural Network Engine (Algorithms #001 to #250)**  
+> **Complete, Deterministic Scalar Neural Network Engine (Core Component Catalog)**  
 > *Every mathematical operator, transformer micro-architecture, distributed 5D parallel scaling primitive, post-training alignment recipe, PEFT adapter, and inference optimization algorithm implemented from first principles with zero external dependencies (`torch`, `numpy` free).*
 
 ---
 
-## 1. System Architecture: How All 250 Components Combine Into One
+## 1. System Architecture: How All Components Combine Into One
 
-The **250 algorithms** in this repository are not isolated routines; they form an interconnected, production-grade computational graph spanning the entire life cycle of frontier foundation models and Large Language Models (LLMs).
+The algorithms in this repository are not isolated routines; they form an interconnected, production-grade computational graph spanning the entire life cycle of frontier foundation models and Large Language Models (LLMs).
 
 Below is the complete architectural specification across:
 1. **Master End-to-End System Blueprint** (Unified Lifecycle Data Flow)
@@ -30,7 +30,6 @@ Below is the complete architectural specification across:
 The diagram below illustrates the end-to-end journey of building, scaling, aligning, compressing, and serving a frontier LLM using the components in this repository:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef data fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef arch fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -169,7 +168,6 @@ flowchart TD
 ### 1.1.1 Phase 1 Detailed Architecture: Data Ingestion, Mixture Optimization & Packing
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef source fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef filter fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -205,7 +203,6 @@ flowchart TD
 ### 1.1.2 Phase 2 Detailed Architecture: Transformer Block Micro-Architecture & Activation Dynamics
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef act fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef norm fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -246,7 +243,6 @@ flowchart TD
 ### 1.1.3 Phase 3 Detailed Architecture: 5D Distributed Cluster Scaling & Hardware Execution Mesh
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef nvlink fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef ib fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -283,7 +279,6 @@ flowchart TD
 ### 1.1.4 Phase 4 Detailed Architecture: Objective Loss Optimization, Autodiff & Recovery Engine
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef loss fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef grad fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -321,7 +316,6 @@ flowchart TD
 ### 1.1.5 Phase 5 Detailed Architecture: Post-Training Dual-Track Alignment & Verifiable Reasoning Loop
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef base fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef pref fill:#4a154b,stroke:#f5c2e7,stroke-width:2px,color:#cdd6f4;
@@ -360,7 +354,6 @@ flowchart TD
 ### 1.1.6 Phase 6 Detailed Architecture: Parameter-Efficiency, Compression & Hardware Sparsification
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef peft fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef distill fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -389,7 +382,6 @@ flowchart TD
 ### 1.1.7 Phase 7 Detailed Architecture: Ultra-Fast Production Serving & Constrained Generation
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef req fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef paged fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -427,7 +419,6 @@ The **Control Plane** orchestrates cluster topology assignment, elastic state sy
 #### 1.2.1 High-Level Control Plane & Cluster Orchestration
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef cplane fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
     classDef worker fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
@@ -482,7 +473,6 @@ flowchart TD
 Inside every single optimization step, five low-level control loops dynamically tune execution parameters based on real-time mathematical telemetry:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef telemetry fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef controller fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -532,7 +522,6 @@ The **Data Plane** handles high-throughput numerical tensor computation, collect
 Frontier models partition tensor representations across five orthogonal communication planes:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef nvlink fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
     classDef ib_ring fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
@@ -580,7 +569,6 @@ A single Transformer layer does two main jobs:
 2. **The Backward Pass (Learning from Errors)**: The model checks how far off its prediction was, sends error signals (gradients) backward through each step, and updates its weights using AdamW so it makes fewer mistakes next time.
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef input fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef step fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -615,7 +603,6 @@ flowchart TD
 Post-training splits into two parallel pipelines: **Human Preference Alignment** and **Verifiable Mathematical/Code Reasoning**, which synthesize into unified frontier checkpoints:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef base fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef pref fill:#4a154b,stroke:#f5c2e7,stroke-width:2px,color:#cdd6f4;
@@ -674,7 +661,6 @@ flowchart TD
 The diagram below maps the inference pipeline from continuous request ingestion to token streaming:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart LR
     classDef req fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef mem fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
@@ -745,7 +731,7 @@ Every stage of a production LLM's life cycle is directly mapped to concrete algo
 
 ---
 
-## 3. Exhaustive Architectural Domain Catalog (250 Algorithms)
+## 3. Exhaustive Architectural Domain Catalog
 
 | # | Domain Directory | Algos | Focus & Capabilities | Representative Algorithms |
 |---|---|:---:|---|---|
@@ -813,7 +799,6 @@ Every algorithm implementation adheres to strict architectural guarantees:
 The diagram below maps the complete end-to-end algorithmic data transmission architecture in Mermaid, covering data curation, micro-architecture, 5D scaling, loss optimization, post-training reasoning alignment, hardware compression, and high-throughput serving:
 
 ```mermaid
-%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
     classDef curation fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
     classDef arch fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
@@ -983,4 +968,254 @@ The table below details the exact input fields, output fields, data types, and c
 | **Alignment (Reasoning)** | `Group Relative Policy Optimization (GRPO)` | Candidate Rollout Sampler & Ground Truth Verifier | • `group_rewards`: `List[float]`<br>• `group_policy_log_probs`: `List[List[float]]`<br>• `group_old_log_probs`: `List[List[float]]`<br>• `group_ref_log_probs`: `List[List[float]]`<br>• `clip_epsilon`: `float`<br>• `kl_coeff`: `float` | • `group_advantages`: `List[float]`<br>• `mean_group_reward`: `float`<br>• `std_group_reward`: `float`<br>• `grpo_loss`: `float`<br>• `approx_kl`: `float` | Autodiff Policy Gradient Engine | Group advantages are normalized to zero-mean and unit-variance across group rollouts without a critic. |
 | **Hardware Sparsity** | `Semi-Structured 2:4 Sparse Tensor Cores` | Trained Dense Weight Matrix | • `dense_vector`: `List[float]`<br>• `importance_metric`: `str` | • `sparse_vector`: `List[float]`<br>• `compressed_values`: `List[float]`<br>• `group_2bit_indices`: `List[List[int]]`<br>• `compression_ratio`: `float`<br>• `block_count`: `int` | NVIDIA Sparse Tensor Core GEMM | Exactly 2 out of every 4 contiguous elements are zeroed, achieving 50% storage compression. |
 | **Serving Decoding** | `Greedy Temperature Sampling` | Logit Projection Layer | • `logits`: `List[float]`<br>• `temperature`: `float` | • `selected_token`: `int`<br>• `probabilities`: `List[float]`<br>• `is_greedy`: `bool` | Client Streaming Output Socket | Temperature-scaled softmax distribution produces deterministic argmax at $T=0$. |
+
+---
+
+### 4.3 End-to-End Entity-Relationship Architecture & Concrete JSON Schema Contracts
+
+The Entity-Relationship Diagram below maps the data entities, primary/foreign keys, and relational cardinality across the entire computational pipeline. Each entity is accompanied by its concrete, production JSON schema:
+
+```mermaid
+erDiagram
+    DATASET_SAMPLE ||--o{ PACKED_SEQUENCE : packs_into
+    PACKED_SEQUENCE ||--|{ TENSOR_ACTIVATION : embeds_to
+    TENSOR_ACTIVATION }|--|| LAYER_WEIGHT : multiplies_with
+    LAYER_WEIGHT ||--|| OPTIMIZER_STATE : updated_by
+    LAYER_WEIGHT ||--o{ CHECKPOINT_STATE : saved_to
+    CHECKPOINT_STATE ||--o{ POLICY_ROLLOUT : generates
+    POLICY_ROLLOUT ||--|| ADVANTAGE_TARGET : evaluates_into
+    CHECKPOINT_STATE ||--o{ COMPRESSED_WEIGHT : pruned_to
+    COMPRESSED_WEIGHT ||--|{ KV_CACHE_PAGE : serves_with
+    KV_CACHE_PAGE ||--o{ GENERATION_TOKEN : emits
+
+    DATASET_SAMPLE {
+        string sample_id PK
+        string text
+        float quality_score
+        int token_count
+        float dedup_hash
+    }
+    PACKED_SEQUENCE {
+        string sequence_id PK
+        string sample_id FK
+        array token_ids
+        array segment_ids
+        array position_ids
+        array boundary_mask
+    }
+    TENSOR_ACTIVATION {
+        string activation_id PK
+        int batch_size
+        int hidden_dim
+        array normalized_tensor
+        array rms_values
+    }
+    LAYER_WEIGHT {
+        string weight_id PK
+        string layer_name
+        array dense_parameters
+        array column_shards
+        array row_shards
+    }
+    OPTIMIZER_STATE {
+        string weight_id FK
+        int step
+        float learning_rate
+        array exp_avg_m
+        array exp_avg_sq_v
+        float weight_decay
+    }
+    CHECKPOINT_STATE {
+        string checkpoint_id PK
+        int global_step
+        float loss_metric
+        array model_weights
+    }
+    POLICY_ROLLOUT {
+        string rollout_id PK
+        string checkpoint_id FK
+        string prompt
+        array reasoning_trace
+        array policy_log_probs
+        float reward_score
+    }
+    ADVANTAGE_TARGET {
+        string rollout_id FK
+        float group_advantage
+        float ppo_grpo_loss
+        float kl_divergence
+    }
+    COMPRESSED_WEIGHT {
+        string weight_id FK
+        array sparse_2_4_values
+        array group_2bit_indices
+        float compression_ratio
+    }
+    KV_CACHE_PAGE {
+        string page_id PK
+        int logical_seq_id
+        int physical_page_ptr
+        int block_capacity
+    }
+    GENERATION_TOKEN {
+        int token_id PK
+        string page_id FK
+        float probability
+        boolean is_greedy
+    }
+```
+
+#### Entity JSON Data Schemas
+
+##### 1. `DATASET_SAMPLE` (Synthetic Data Quality & Filtering Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DATASET_SAMPLE",
+  "type": "object",
+  "required": ["sample_id", "text", "quality_score", "token_count", "dedup_hash"],
+  "properties": {
+    "sample_id": { "type": "string", "description": "Unique UUID identifier for candidate sample" },
+    "text": { "type": "string", "description": "Raw string text content" },
+    "quality_score": { "type": "number", "minimum": 0.0, "maximum": 1.0, "description": "Synthetic generation heuristic or classifier quality score" },
+    "token_count": { "type": "integer", "minimum": 1, "description": "Token count under target tokenizer" },
+    "dedup_hash": { "type": "number", "description": "MinHash / SimHash 64-bit fingerprint float" }
+  }
+}
+```
+
+##### 2. `PACKED_SEQUENCE` (Causal Document Boundary Packing Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PACKED_SEQUENCE",
+  "type": "object",
+  "required": ["sequence_id", "sample_id", "token_ids", "segment_ids", "position_ids", "boundary_mask"],
+  "properties": {
+    "sequence_id": { "type": "string", "description": "Unique packed sequence batch ID" },
+    "sample_id": { "type": "string", "description": "Foreign key reference to originating dataset sample" },
+    "token_ids": { "type": "array", "items": { "type": "integer" }, "description": "Concatenated integer token IDs up to max sequence length" },
+    "segment_ids": { "type": "array", "items": { "type": "integer" }, "description": "Document segment membership index per token" },
+    "position_ids": { "type": "array", "items": { "type": "integer" }, "description": "Resetting per-document 0-indexed position coordinates" },
+    "boundary_mask": { "type": "array", "items": { "type": "array", "items": { "type": "integer" } }, "description": "Causal block-diagonal attention mask matrix" }
+  }
+}
+```
+
+##### 3. `TENSOR_ACTIVATION` (Micro-Architecture Activation State Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TENSOR_ACTIVATION",
+  "type": "object",
+  "required": ["activation_id", "batch_size", "hidden_dim", "normalized_tensor", "rms_values"],
+  "properties": {
+    "activation_id": { "type": "string", "description": "Unique activation buffer snapshot identifier" },
+    "batch_size": { "type": "integer", "minimum": 1 },
+    "hidden_dim": { "type": "integer", "minimum": 1 },
+    "normalized_tensor": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "Unit-scale activations post-RMSNorm/RoPE" },
+    "rms_values": { "type": "array", "items": { "type": "number" }, "description": "Per-row root-mean-square norm scalers" }
+  }
+}
+```
+
+##### 4. `LAYER_WEIGHT` (5D Distributed Model Parameters Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LAYER_WEIGHT",
+  "type": "object",
+  "required": ["weight_id", "layer_name", "dense_parameters", "column_shards", "row_shards"],
+  "properties": {
+    "weight_id": { "type": "string", "description": "Unique parameter tensor key" },
+    "layer_name": { "type": "string", "description": "Dot-delimited module path e.g. transformer.layers.14.attention.q_proj" },
+    "dense_parameters": { "type": "array", "items": { "type": "number" }, "description": "Unsharded flattened model parameter weights" },
+    "column_shards": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "TP column-partitioned GEMM parameter matrix" },
+    "row_shards": { "type": "array", "items": { "type": "array", "items": { "type": "number" } }, "description": "TP row-partitioned GEMM parameter matrix" }
+  }
+}
+```
+
+##### 5. `OPTIMIZER_STATE` (AdamW Decoupled Optimization State Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OPTIMIZER_STATE",
+  "type": "object",
+  "required": ["weight_id", "step", "learning_rate", "exp_avg_m", "exp_avg_sq_v", "weight_decay"],
+  "properties": {
+    "weight_id": { "type": "string", "description": "Foreign key reference to LAYER_WEIGHT" },
+    "step": { "type": "integer", "minimum": 1, "description": "Current optimization step iteration" },
+    "learning_rate": { "type": "number", "minimum": 0.0, "description": "Current effective learning rate from WSD schedule" },
+    "exp_avg_m": { "type": "array", "items": { "type": "number" }, "description": "First-moment moving average buffer vector" },
+    "exp_avg_sq_v": { "type": "array", "items": { "type": "number" }, "description": "Second-moment moving average buffer vector" },
+    "weight_decay": { "type": "number", "minimum": 0.0, "description": "Decoupled weight decay coefficient" }
+  }
+}
+```
+
+##### 6. `POLICY_ROLLOUT` (Post-Training Reasoning Trajectory Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POLICY_ROLLOUT",
+  "type": "object",
+  "required": ["rollout_id", "checkpoint_id", "prompt", "reasoning_trace", "policy_log_probs", "reward_score"],
+  "properties": {
+    "rollout_id": { "type": "string", "description": "Unique trajectory rollout identifier" },
+    "checkpoint_id": { "type": "string", "description": "Foreign key reference to CHECKPOINT_STATE" },
+    "prompt": { "type": "string", "description": "Input instruction prompt" },
+    "reasoning_trace": { "type": "array", "items": { "type": "string" }, "description": "Step-by-step thinking tokens or sub-clauses" },
+    "policy_log_probs": { "type": "array", "items": { "type": "number" }, "description": "Per-token log probabilities under active policy" },
+    "reward_score": { "type": "number", "description": "Scalar reward from verifier sandbox or reward model" }
+  }
+}
+```
+
+##### 7. `COMPRESSED_WEIGHT` (Sparse & Quantized Hardware Representation Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "COMPRESSED_WEIGHT",
+  "type": "object",
+  "required": ["weight_id", "sparse_2_4_values", "group_2bit_indices", "compression_ratio"],
+  "properties": {
+    "weight_id": { "type": "string", "description": "Foreign key reference to LAYER_WEIGHT" },
+    "sparse_2_4_values": { "type": "array", "items": { "type": "number" }, "description": "Non-zero values compressed to 50% density" },
+    "group_2bit_indices": { "type": "array", "items": { "type": "array", "items": { "type": "integer" } }, "description": "2-bit position indices for hardware Sparse Tensor Cores" },
+    "compression_ratio": { "type": "number", "default": 0.5 }
+  }
+}
+```
+
+##### 8. `KV_CACHE_PAGE` & `GENERATION_TOKEN` (Paged Serving & Output Entity)
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KV_CACHE_PAGE",
+  "type": "object",
+  "required": ["page_id", "logical_seq_id", "physical_page_ptr", "block_capacity"],
+  "properties": {
+    "page_id": { "type": "string", "description": "Physical GPU memory page index" },
+    "logical_seq_id": { "type": "integer", "description": "Active request sequence slot" },
+    "physical_page_ptr": { "type": "integer", "description": "Memory address pointer to pinned page table" },
+    "block_capacity": { "type": "integer", "default": 16, "description": "Tokens accommodated per physical cache block" }
+  }
+}
+```
+
+```json
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GENERATION_TOKEN",
+  "type": "object",
+  "required": ["token_id", "page_id", "probability", "is_greedy"],
+  "properties": {
+    "token_id": { "type": "integer", "minimum": 0, "description": "Sampled output vocabulary token ID" },
+    "page_id": { "type": "string", "description": "Foreign key reference to KV_CACHE_PAGE" },
+    "probability": { "type": "number", "minimum": 0.0, "maximum": 1.0, "description": "Softmax probability of selected token" },
+    "is_greedy": { "type": "boolean", "description": "True if selected via deterministic argmax (T=0)" }
+  }
+}
+```
 
