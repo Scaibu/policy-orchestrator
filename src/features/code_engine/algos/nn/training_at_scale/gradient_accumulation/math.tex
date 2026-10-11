@@ -1,0 +1,233 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Gradient Accumulation: Simulating Virtual Batch Sizes Under Memory Constraints}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Gradient Accumulation and Normalized Microbatching):}
+Optimal generalization and computational stability in large language model pre-training require massive global batch sizes $B_{\text{target}} \in [10^6, 8 \times 10^6]$ tokens (Kaplan et al., 2020; McCandlish et al., 2018). However, the physical GPU memory capacity bounds the maximum batch size that can be processed concurrently in a single forward-backward pass to a smaller microbatch size $b \ll B_{\text{target}}$. \textbf{Gradient Accumulation} overcomes this by summing gradients across $K$ consecutive microbatches before invoking an optimizer step:
+{\boldmath
+\begin{equation}
+g_{\text{accum}} = \sum_{k=1}^K g_k, \quad g_k = \sum_{x \in \mathcal{B}_k} \nabla_\theta \ell(x; \theta)
+\end{equation}
+}
+where the accumulation factor satisfies $K = B_{\text{target}} / (b \cdot N_{\text{devices}})$.
+
+To ensure mathematical equivalence with a true monolithic batch of size $B_{\text{target}}$, the accumulated gradient must be appropriately normalized:
+\begin{enumerate}
+    \item \textbf{Microbatch Step Averaging (Uniform Lengths)}:
+    {\boldmath
+    \begin{equation}
+    g_{\text{opt}} = \frac{1}{K} g_{\text{accum}} = \frac{1}{K} \sum_{k=1}^K g_k
+    \end{equation}
+    }
+    \item \textbf{Token-Weighted Averaging (Variable Document Lengths)}:
+    When sequence packing (#230) or unpadded batches have varying token counts $T_k = |\mathcal{B}_k|$, dividing by $K$ introduces token-weight distortion. Proper token-level normalization weights each microbatch by its token fraction:
+    {\boldmath
+    \begin{equation}
+    g_{\text{opt}} = \frac{1}{\sum_{k=1}^K T_k} \sum_{k=1}^K g_k \cdot T_k
+    \end{equation}
+    }
+\end{enumerate}
+In distributed data-parallel settings, network collective synchronizations (All-Reduce, #233) are bypassed during microbatches $1 \dots K-1$ and triggered exclusively on microbatch $K$, reducing network collective overhead by factor $K$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Paying with Coins in a Piggy Bank}: If you want to pay a \$100 bill ($B_{\text{target}}$) but your wallet only holds \$10 at a time ($b$), you don't run to the store 10 times to buy 10 separate tiny items. You drop \$10 into a piggy bank 10 times ($K=10$), and then pay the entire \$100 all at once!
+    \item \textbf{Simulating a Supercomputer on a Laptop}: Even with a single consumer graphics card that can only fit 2 sentences in memory, you can accumulate gradients 1,000 times to simulate the training dynamics of a 2,000-sentence supercomputer run.
+    \item \textbf{Saving Network Bandwidth}: In a multi-GPU cluster, GPUs only talk to each other when the piggy bank is full, keeping the network completely quiet during the accumulation steps.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine filling a large water barrel with a coffee mug:
+\begin{itemize}
+    \item \textbf{Naive Update}: Pouring one mug into the barrel, walking 100 feet to turn on the main valve, walking back, pouring another mug, walking 100 feet... You spend all your time walking!
+    \item \textbf{Gradient Accumulation}: Standing still and dumping 20 mugs into the barrel ($K=20$), and only walking to the valve once the barrel is completely full.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Effective Global Batch Size}
+{\boldmath
+\begin{equation}
+B_{\text{global}} = K \cdot N_{\text{data-parallel}} \cdot b_{\text{micro}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Total effective batch size synthesized per optimizer weight update.
+    \item \textbf{What It Means}: Enables scaling batch size independently of physical GPU count.
+    \item \textbf{Why It Is Important}: Allows small clusters to match the critical batch size (#244) of massive clusters.
+\end{itemize}
+
+\subsection{Communication Reduction Factor}
+{\boldmath
+\begin{equation}
+\mathcal{R}_{\text{comm}} = \frac{1}{K}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Network All-Reduce frequency under gradient accumulation.
+    \item \textbf{What It Means}: Suppresses inter-device communication by factor $K$.
+    \item \textbf{Why It Is Important}: Massive acceleration on clusters with slow inter-node interconnects.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $K$ (accumulation steps), $b$ (microbatch size), $g_k$ (microbatch gradient), $g_{\text{accum}}$ (accumulated sum).
+    \item \textbf{Epistemic Status}: Standardized optimization technique supported in PyTorch, JAX, and DeepSpeed.
+    \item \textbf{Dependency Graph}: Microbatch $k \to \text{Backward} \to \text{Accumulate } g_k \to \text{Check } k == K \to \text{Normalize and Step}$.
+    \item \textbf{Dimensions}: Model parameter dimension $P$.
+    \item \textbf{Regimes}: Batch size scaling under memory constraints, large language model pre-training.
+    \item \textbf{Invariants}: In the absence of stateful batch normalization, output parameter updates are identical to monolithic batch updates.
+    \item \textbf{Isomorphisms}: Isomorphic to delayed numerical integration in ODE solvers.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Linear Linearity of Stochastic Gradient Accumulation]
+Let loss $\mathcal{L}(\theta) = \frac{1}{B} \sum_{i=1}^B \ell_i(\theta)$ be the empirical risk over a monolithic batch of size $B = K \cdot b$. The normalized accumulated gradient $\bar{g}_{\text{accum}} = \frac{1}{K} \sum_{k=1}^K \left( \frac{1}{b} \sum_{j \in \mathcal{B}_k} \nabla \ell_j(\theta) \right)$ is identically equal to the monolithic batch gradient $\nabla \mathcal{L}(\theta)$:
+{\boldmath
+\begin{equation}
+\bar{g}_{\text{accum}} \equiv \nabla \mathcal{L}(\theta)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let the global batch $\mathcal{B} = \{1, \dots, B\}$ be partitioned into $K$ disjoint microbatches $\mathcal{B}_1, \dots, \mathcal{B}_K$, each of size $b$, such that $\bigcup_{k=1}^K \mathcal{B}_k = \mathcal{B}$ and $\mathcal{B}_k \cap \mathcal{B}_l = \emptyset$ for $k \neq l$.
+The gradient of the monolithic batch loss is:
+{\boldmath
+\begin{equation}
+\nabla \mathcal{L}(\theta) = \nabla_\theta \left( \frac{1}{B} \sum_{i=1}^B \ell_i(\theta) \right) = \frac{1}{B} \sum_{i=1}^B \nabla_\theta \ell_i(\theta)
+\end{equation}
+}
+By partitioning the summation over the $K$ disjoint subsets:
+{\boldmath
+\begin{equation}
+\frac{1}{B} \sum_{i=1}^B \nabla_\theta \ell_i(\theta) = \frac{1}{B} \sum_{k=1}^K \sum_{j \in \mathcal{B}_k} \nabla_\theta \ell_j(\theta)
+\end{equation}
+}
+Substituting $B = K \cdot b$:
+{\boldmath
+\begin{equation}
+\frac{1}{K \cdot b} \sum_{k=1}^K \sum_{j \in \mathcal{B}_k} \nabla_\theta \ell_j(\theta) = \frac{1}{K} \sum_{k=1}^K \left( \frac{1}{b} \sum_{j \in \mathcal{B}_k} \nabla_\theta \ell_j(\theta) \right) = \frac{1}{K} \sum_{k=1}^K g_k = \bar{g}_{\text{accum}}
+\end{equation}
+}
+Because differentiation and finite summation commute linearly, the accumulated gradient is mathematically identical to the monolithic batch gradient.
+\end{proof}
+
+\begin{theorem}[Token-Weighted Invariance Under Variable-Length Microbatches]
+If microbatches possess unequal token counts $T_k$, the token-weighted estimator $\hat{g} = \frac{\sum_{k=1}^K g_k}{\sum_{k=1}^K T_k}$ is an unbiased estimator of the global token-level loss gradient, whereas uniform step averaging $\frac{1}{K} \sum_{k=1}^K \frac{g_k}{T_k}$ introduces an asymptotic bias bounded by $\mathcal{O}(\operatorname{Cov}(T_k, g_k / T_k))$.
+\end{theorem}
+
+\begin{proof}
+Let $T_{\text{total}} = \sum_{k=1}^K T_k$ be the total tokens. The token-level loss is:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{token}} = \frac{1}{T_{\text{total}}} \sum_{k=1}^K \sum_{t=1}^{T_k} \ell_{k, t} \implies \nabla \mathcal{L}_{\text{token}} = \frac{1}{T_{\text{total}}} \sum_{k=1}^K g_k
+\end{equation}
+}
+where $g_k = \sum_{t=1}^{T_k} \nabla \ell_{k, t}$.
+Under uniform step averaging, each microbatch is first divided by its local length $T_k$: $\bar{g}_k = g_k / T_k$, and then averaged over $K$:
+{\boldmath
+\begin{equation}
+g_{\text{step}} = \frac{1}{K} \sum_{k=1}^K \bar{g}_k
+\end{equation}
+}
+Notice that:
+{\boldmath
+\begin{equation}
+\mathbb{E}[g_{\text{step}}] = \mathbb{E}\left[ \frac{1}{K} \sum_{k=1}^K \bar{g}_k \right] = \mathbb{E}[\bar{g}_k]
+\end{equation}
+}
+Whereas the true token gradient expectation is:
+{\boldmath
+\begin{equation}
+\mathbb{E}[\nabla \mathcal{L}_{\text{token}}] = \frac{\mathbb{E}[T_k \bar{g}_k]}{\mathbb{E}[T_k]} = \mathbb{E}[\bar{g}_k] + \frac{\operatorname{Cov}(T_k, \bar{g}_k)}{\mathbb{E}[T_k]}
+\end{equation}
+}
+If longer sequences have systematically higher or lower gradient magnitudes (e.g. attention perplexity), $\operatorname{Cov}(T_k, \bar{g}_k) \neq 0$, causing uniform step averaging to produce biased gradients. Token-weighted normalization eliminates this covariance term identically.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Interaction with Batch Normalization}
+\textbf{Question:} Why does gradient accumulation behave differently in architectures with BatchNorm vs. LayerNorm/RMSNorm?\\
+\textbf{Answer:} 
+\begin{itemize}
+    \item \textbf{LayerNorm / RMSNorm (Transformers)}: Normalizes across the hidden dimension of each token independently. Microbatch size $b$ has zero effect on normalization statistics, ensuring exact bit-level equivalence with large batches.
+    \item \textbf{BatchNorm (CNNs)}: Calculates mean and variance across the batch dimension. Accumulating across microbatches computes normalization over small $b$, producing noisier statistics than a monolithic batch $B$.
+\end{itemize}
+
+\subsection{Architectural Question 2: Learning Rate and Warmup Scaling}
+\textbf{Question:} Should the learning rate be scaled when increasing accumulation steps $K$?\\
+\textbf{Answer:} Yes. Increasing $K$ from 1 to 8 scales the effective global batch size by $8\times$. Following the linear scaling rule (#233, Goyal et al.), the base learning rate should be scaled proportionally ($8\times$) or using the square root scaling rule ($\sqrt{8}\times$), accompanied by an extended learning rate warmup period to prevent early optimization divergence.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Gradient Accumulation and Step Gating}
+\begin{algorithmic}[1]
+\Require Accumulated buffer $\mathbf{g}_{\text{acc}} \in \mathbb{R}^P$, microbatch grad $\mathbf{g}_{\text{mb}} \in \mathbb{R}^P$, step $k$, total $K$, mode, tokens $T_{\text{mb}}, T_{\text{tot}}$
+\Ensure Updated buffer $\mathbf{g}_{\text{acc}}'$, is\_update flag, step grad $\mathbf{g}_{\text{opt}}$, count $k$
+\State Allocate $\mathbf{g}_{\text{acc}}' \in \mathbb{R}^P$
+\If{$\text{mode} == \text{"token"}$}
+    \State $w \gets T_{\text{mb}} / \max(1, T_{\text{tot}})$
+    \For{$i = 0$ \textbf{to} $P-1$}
+        \State $\mathbf{g}_{\text{acc}}'[i] \gets \mathbf{g}_{\text{acc}}[i] + \mathbf{g}_{\text{mb}}[i] \cdot w$
+    \EndFor
+\Else
+    \For{$i = 0$ \textbf{to} $P-1$}
+        \State $\mathbf{g}_{\text{acc}}'[i] \gets \mathbf{g}_{\text{acc}}[i] + \mathbf{g}_{\text{mb}}[i]$
+    \EndFor
+\EndIf
+\State $\text{is\_update} \gets (k == K)$
+\If{$\text{is\_update}$}
+    \If{$\text{mode} == \text{"step"}$}
+        \State $\mathbf{g}_{\text{opt}} \gets (1.0 / K) \cdot \mathbf{g}_{\text{acc}}'$
+    \Else
+        \State $\mathbf{g}_{\text{opt}} \gets \mathbf{g}_{\text{acc}}'$
+    \EndIf
+\Else
+    \State $\mathbf{g}_{\text{opt}} \gets [\,]$
+\EndIf
+\State \Return $(\mathbf{g}_{\text{acc}}', \text{is\_update}, \mathbf{g}_{\text{opt}}, k)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Vector Accumulation Time}: $\Theta(P)$ additions per microbatch.
+    \item \textbf{Step Normalization Time}: $\Theta(P)$ scaling operations on step $K$.
+    \item \textbf{Total Computational Overhead}: $\Theta(P)$ linear operations.
+    \item \textbf{Memory Storage Overhead}: Exactly $\Theta(P)$ floats for the accumulation buffer.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

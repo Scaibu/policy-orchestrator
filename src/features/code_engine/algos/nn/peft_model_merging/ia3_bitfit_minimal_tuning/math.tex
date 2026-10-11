@@ -1,0 +1,255 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Minimal-Parameter Tuning: IA³ (Infused Adapter by Inhibiting and Amplifying Inner Activations) and BitFit}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Extreme Minimal Parameter Adaptation):}
+While Low-Rank Adaptation (LoRA) reduces trainable parameters to approximately $0.1\%\text{--}1\%$, extreme minimal-parameter fine-tuning paradigms such as \textbf{IA³} (Liu et al., 2022) and \textbf{BitFit} (Zaken et al., 2022) push parameter reduction to the absolute theoretical limit: adapting large neural networks by modifying fewer than $0.01\%$ (in the case of IA³) or $0.1\%$ (BitFit) of the total parameter count.
+
+\begin{enumerate}
+    \item \textbf{IA³ (Infused Adapter by Inhibiting and Amplifying Inner Activations)}:
+    IA³ freezes all pretrained weights and introduces learnable scalar vectors $l \in \mathbb{R}^d$ that rescale intermediate activations via elementwise (Hadamard) multiplication:
+    {\boldmath
+    \begin{equation}
+    y_{\text{IA}^3} = l \odot x
+    \end{equation}
+    }
+    Specifically, IA³ introduces three separate learned vectors:
+    \begin{itemize}
+        \item $l_k \in \mathbb{R}^{d_k}$ to rescale self-attention keys: $K' = l_k \odot (W_k x)$,
+        \item $l_v \in \mathbb{R}^{d_v}$ to rescale self-attention values: $V' = l_v \odot (W_v x)$,
+        \item $l_{\text{ff}} \in \mathbb{R}^{d_{\text{ff}}}$ to rescale the intermediate activations in position-wise feed-forward networks: $\text{FFN}_{\text{out}} = W_2 (l_{\text{ff}} \odot \sigma(W_1 x))$.
+    \end{itemize}
+    All vectors $l$ are initialized to exact ones ($l = \mathbf{1}$), ensuring the network starts as an exact identity relative to the pretrained baseline.
+    At inference time, each vector $l$ can be folded into the corresponding weight matrix rows/columns with zero latency overhead.
+
+    \item \textbf{BitFit (Bias-Only Fine-Tuning)}:
+    BitFit freezes all linear projection weight matrices $W \in \mathbb{R}^{d \times k}$ across all layers and trains \emph{only} the existing additive bias vectors $b \in \mathbb{R}^d$:
+    {\boldmath
+    \begin{equation}
+    y_{\text{BitFit}} = W_0 x + (b_0 + \Delta b)
+    \end{equation}
+    }
+    This requires zero architectural changes and zero new parameters, achieving strong few-shot transfer performance.
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Tuning a Stadium Sound System with Equalizer Sliders}: In an arena with 10,000 instruments ($W_0$), instead of re-training the musicians, you touch only the master graphic equalizer sliders ($l$). Sliding one frequency up and another down completely changes the acoustic vibe!
+    \item \textbf{Less than 0.01\% Storage}: An entire adapter for a 70B model requires only a few megabytes—small enough to fit on a floppy disk or be transmitted via SMS!
+    \item \textbf{Zero Extra Compute at Inference}: Because $l \odot (W x) = (l \odot W) x$, the scaling vector can be permanently multiplied into the base weight matrix once before serving. Zero latency!
+    \item \textbf{Immunity to Overfitting}: In extreme low-data regimes (5 to 50 examples), full models easily overfit. IA³ and BitFit have so few degrees of freedom that they cannot memorize noise.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a massive mechanical clock:
+\begin{itemize}
+    \item \textbf{Full Fine-Tuning}: Recasting every brass gear inside the clock!
+    \item \textbf{IA³}: Leaving every gear untouched, but placing tiny drops of oil ($l_i$) on just three select pivot pins to make them turn slightly faster or slower.
+    \item \textbf{BitFit}: Just adjusting the hour-hand tilt screw ($b$) without opening the gearbox.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{IA³ Elementwise Activation Scaling}
+{\boldmath
+\begin{equation}
+y = l \odot x, \quad l_i \in \mathbb{R}, \; x_i \in \mathbb{R}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Diagonal linear operator scaling each activation dimension independently.
+    \item \textbf{What It Means}: Amplifies relevant task features ($l_i > 1$) and inhibits irrelevant features ($l_i < 1$).
+    \item \textbf{Why It Is Important}: Extreme parameter reduction ($\Theta(d)$ parameters per layer vs. $\Theta(d \cdot k)$ in full fine-tuning).
+\end{itemize}
+
+\subsection{Zero-Cost Inference Folding}
+{\boldmath
+\begin{equation}
+W_{\text{fused}} = \operatorname{diag}(l) \cdot W_0
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Multiplicative absorption of scaling vector $l$ into matrix rows of $W_0$.
+    \item \textbf{What It Means}: Injects the adapter directly into the static weights prior to serving.
+    \item \textbf{Why It Is Important}: Incurs exactly zero latency and zero memory overhead during inference.
+\end{itemize}
+
+\subsection{Parameter Savings Fraction}
+{\boldmath
+\begin{equation}
+\mathcal{S} = \frac{d}{d \cdot k} = \frac{1}{k}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Ratio of trainable parameters in IA³ to the base weight matrix parameters.
+    \item \textbf{What It Means}: For a hidden dimension $k = 4096$, IA³ uses only $0.024\%$ of the parameters of a single weight matrix.
+    \item \textbf{Why It Is Important}: Primary metric establishing why IA³ scales to thousands of micro-adapters.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $x \in \mathbb{R}^d$ (activation), $l \in \mathbb{R}^d$ (scaling vector), $b \in \mathbb{R}^d$ (trainable bias), $W_0 \in \mathbb{R}^{d \times k}$ (frozen base).
+    \item \textbf{Epistemic Status}: Liu et al. (NeurIPS 2022); Zaken et al. (ACL 2022). Well-established extreme PEFT baseline.
+    \item \textbf{Dependency Graph}: Activation $x \to \text{Hadamard Product with } l \to \text{Additive Bias } b \to y$.
+    \item \textbf{Dimensions}: Activation dimension $d$, base projection dimension $k$.
+    \item \textbf{Regimes}: Extreme low-resource fine-tuning, multi-tenant micro-adapters, edge device on-device tuning.
+    \item \textbf{Invariants}: When $l = \mathbf{1}_d$ and $\Delta b = \mathbf{0}$, output is identically equal to base forward pass.
+    \item \textbf{Isomorphisms}: Isomorphic to diagonal rank-$d$ scaling and batch normalization scale/shift tuning.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Commutativity and Exact Inference Folding of IA³]
+Let $W_0 \in \mathbb{R}^{d \times k}$ be a linear projection matrix and $x \in \mathbb{R}^k$ be an arbitrary input vector. For any learned scaling vector $l \in \mathbb{R}^d$, the operation $y = l \odot (W_0 x)$ is mathematically equivalent to multiplying $x$ by a modified weight matrix $W_{\text{fused}}$:
+{\boldmath
+\begin{equation}
+l \odot (W_0 x) \equiv W_{\text{fused}} x
+\end{equation}
+}
+where row $i$ of $W_{\text{fused}}$ is given by $(W_{\text{fused}})_{i,:} = l_i \cdot (W_0)_{i,:}$.
+\end{theorem}
+
+\begin{proof}
+Let $z = W_0 x \in \mathbb{R}^d$. By definition of matrix-vector multiplication:
+{\boldmath
+\begin{equation}
+z_i = \sum_{j=1}^k (W_0)_{ij} x_j
+\end{equation}
+}
+Applying the elementwise multiplication $y = l \odot z$:
+{\boldmath
+\begin{equation}
+y_i = l_i \cdot z_i = l_i \cdot \sum_{j=1}^k (W_0)_{ij} x_j = \sum_{j=1}^k (l_i (W_0)_{ij}) x_j
+\end{equation}
+}
+Now define matrix $W_{\text{fused}} \in \mathbb{R}^{d \times k}$ such that $(W_{\text{fused}})_{ij} = l_i (W_0)_{ij}$.
+The $i$-th element of product $W_{\text{fused}} x$ is:
+{\boldmath
+\begin{equation}
+(W_{\text{fused}} x)_i = \sum_{j=1}^k (W_{\text{fused}})_{ij} x_j = \sum_{j=1}^k (l_i (W_0)_{ij}) x_j = y_i
+\end{equation}
+}
+Because this identity holds for every row index $i \in \{1, \dots, d\}$ and all input vectors $x \in \mathbb{R}^k$, $y \equiv W_{\text{fused}} x$ identically. Thus, IA³ scaling can be folded into base weights via a single elementwise scale per row with zero runtime computation.
+\end{proof}
+
+\begin{theorem}[BitFit Representation Shift as Subspace Translation]
+Let $\mathcal{F}_{\Theta_0}(x)$ be a deep neural network whose intermediate linear representations are $h_l = W_l a_{l-1} + b_l$. Tuning exclusively the biases $\{b_l\}$ preserves the directional orientation of all neuron feature hyperplanes while enabling arbitrary parallel translations:
+{\boldmath
+\begin{equation}
+\{ x \mid W_l x + b_l' = 0 \} \parallel \{ x \mid W_l x + b_l = 0 \}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Consider the decision boundary or activation threshold of neuron $i$ in layer $l$, defined as the affine hyperplane:
+{\boldmath
+\begin{equation}
+\mathcal{P}_i = \{ x \in \mathbb{R}^k \mid (W_l)_{i,:} x + b_{l, i} = 0 \}
+\end{equation}
+}
+The normal vector orthogonal to hyperplane $\mathcal{P}_i$ is the row vector $(W_l)_{i,:}$.
+Under BitFit, only the bias is modified to $b_{l, i}' = b_{l, i} + \Delta b_{l, i}$, while $W_l$ remains strictly frozen.
+The new hyperplane is:
+{\boldmath
+\begin{equation}
+\mathcal{P}_i' = \{ x \in \mathbb{R}^k \mid (W_l)_{i,:} x + b_{l, i}' = 0 \}
+\end{equation}
+}
+Since the normal vector $(W_l)_{i,:}$ is unchanged, hyperplanes $\mathcal{P}_i$ and $\mathcal{P}_i'$ are strictly parallel:
+{\boldmath
+\begin{equation}
+\operatorname{dist}(\mathcal{P}_i, \mathcal{P}_i') = \frac{|\Delta b_{l, i}|}{\|(W_l)_{i,:}\|_2}
+\end{equation}
+}
+Thus, BitFit shifts activation thresholds without distorting feature correlations learned during pretraining.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: IA³ vs. LoRA Trade-offs}
+\textbf{Question:} When is IA³ preferred over LoRA in production environments?\\
+\textbf{Answer:} 
+\begin{itemize}
+    \item \textbf{Ultra-Low Storage}: An IA³ adapter is approximately $10\times\text{--}50\times$ smaller than a LoRA adapter ($r=8$). If an application serves tens of thousands of personalized user adapters from an edge or RAM-limited cache, IA³ is drastically more efficient.
+    \item \textbf{Few-Shot Regime}: When fine-tuning on fewer than 100 domain examples, LoRA can still overfit; IA³'s restricted degrees of freedom act as strong structural regularization.
+\end{itemize}
+
+\textbf{Meta-Question:} Can IA³ achieve the same asymptotic performance as LoRA on large datasets?\\
+\textbf{Answer:} No. When millions of instruction tuning tokens are available, IA³'s diagonal scaling lacks the representational capacity of low-rank rotation matrices; LoRA and DoRA provide superior scaling at high data volumes.
+
+\subsection{Architectural Question 2: Combined Scaling and Bias Adaptation}
+\textbf{Question:} What is the benefit of combining IA³ scaling vectors with BitFit trainable biases?\\
+\textbf{Answer:} Combining both ($y = l \odot x + b$) gives affine modulation similar to LayerNorm/FiLM. It allows the model to both stretch/squash feature magnitudes via $l$ and shift decision thresholds via $b$ while still maintaining less than $0.05\%$ trainable parameters.
+
+\textbf{Meta-Question:} Why must IA³ scaling vectors be initialized to ones rather than zeros?\\
+\textbf{Answer:} Because IA³ scales activations multiplicatively. Initializing to zero would completely zero out all keys, values, and FFN representations at step zero, destroying pretrained representations instantly.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{IA³ and BitFit Minimal Tuning Forward Map}
+\begin{algorithmic}[1]
+\Require Activation $\mathbf{x} \in \mathbb{R}^d$, scale vector $\mathbf{l} \in \mathbb{R}^d$, bias $\mathbf{b} \in \mathbb{R}^d$, mode $\in \{\text{ia3}, \text{bitfit}, \text{combined}\}$, base dim $k$
+\Ensure Modulated output $\mathbf{y} \in \mathbb{R}^d$, parameter count $N$, savings fraction $\mathcal{S}$
+\State Allocate $\mathbf{y} \in \mathbb{R}^d$
+\If{$\text{mode} == \text{"bitfit"}$}
+    \For{$i = 0$ \textbf{to} $d-1$}
+        \State $\mathbf{y}[i] \gets \mathbf{x}[i] + \mathbf{b}[i]$
+    \EndFor
+    \State $N \gets d$
+\ElsIf{$\text{mode} == \text{"combined"}$}
+    \For{$i = 0$ \textbf{to} $d-1$}
+        \State $\mathbf{y}[i] \gets \mathbf{l}[i] \cdot \mathbf{x}[i] + \mathbf{b}[i]$
+    \EndFor
+    \State $N \gets 2 \cdot d$
+\Else
+    \For{$i = 0$ \textbf{to} $d-1$}
+        \State $\mathbf{y}[i] \gets \mathbf{l}[i] \cdot \mathbf{x}[i]$
+    \EndFor
+    \State $N \gets d$
+\EndIf
+\State $\mathcal{S} \gets N / (d \cdot k)$
+\State \Return $(\mathbf{y}, N, \mathcal{S})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Elementwise Scaling Time}: $\Theta(d)$ multiplications.
+    \item \textbf{Additive Bias Offset Time}: $\Theta(d)$ additions.
+    \item \textbf{Total Runtime Complexity}: $\Theta(d)$ operations per token.
+    \item \textbf{Storage Footprint}: $\Theta(d)$ parameters (vs $\Theta(d \cdot k)$ for standard linear layers).
+    \item \textbf{Inference Deployment Overhead}: Exactly $0$ operations after static weight fusion.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

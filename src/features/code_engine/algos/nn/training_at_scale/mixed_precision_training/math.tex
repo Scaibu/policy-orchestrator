@@ -1,0 +1,247 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Mixed-Precision Training: FP16 Loss Scaling and BF16 Dynamic Range}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Mixed-Precision Arithmetic and Dynamic Loss Scaling):}
+Mixed-precision training (Micikevicius et al., 2018) combines 16-bit floating-point formats (IEEE 754 half-precision FP16 or Brain Floating Point BF16) with 32-bit single-precision (FP32) to accelerate training throughput on hardware tensor cores while cutting activation memory footprint by 50\%.
+
+The two primary 16-bit formats possess distinct numerical properties:
+\begin{itemize}
+    \item \textbf{FP16 (1 sign, 5 exponent, 10 mantissa bits)}: Small dynamic range ($[-65504, 65504]$). Small gradient magnitudes easily underflow to exact zero ($< 2^{-24} \approx 6 \times 10^{-8}$).
+    \item \textbf{BF16 (1 sign, 8 exponent, 7 mantissa bits)}: Identical dynamic range to FP32 ($[-3.4 \times 10^{38}, 3.4 \times 10^{38}]$) with reduced precision, eliminating underflow risks without requiring loss scaling.
+\end{itemize}
+
+When using FP16, \textbf{Dynamic Loss Scaling} introduces a scale multiplier $S > 0$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{scaled}} = S \cdot \mathcal{L}
+\end{equation}
+}
+During backpropagation, all gradients are scaled by $S$:
+{\boldmath
+\begin{equation}
+g_{\text{scaled}} = \nabla_\theta \mathcal{L}_{\text{scaled}} = S \cdot \nabla_\theta \mathcal{L}
+\end{equation}
+}
+shifting small gradient magnitudes into the representable normal range of FP16. Before updating master weights $W_{\text{FP32}}$, gradients are checked for non-finite values ($\operatorname{NaN}, \pm\infty$). If finite, they are unscaled:
+{\boldmath
+\begin{equation}
+g_{\text{true}} = \frac{1}{S} g_{\text{scaled}}
+\end{equation}
+}
+If an overflow is detected, the optimizer step is skipped, and scale $S$ is halved ($S \gets S / 2$). If $N_{\text{success}}$ consecutive steps succeed without overflow, $S$ is doubled ($S \gets 2S$).
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{High-Speed 16-Lane Highway}: Computing in 16-bit is like doubling the lanes on a highway: matrix multiplications run 2x to 3x faster, and activations take up half the GPU memory.
+    \item \textbf{The Microscopic Gradient Problem (FP16)}: Neural network gradients are tiny numbers ($0.00000001$). FP16 cannot see numbers that small and rounds them to zero, stopping learning dead in its tracks.
+    \item \textbf{The Loss Scaling Magnifying Glass}: Multiplying the loss by $65536$ before computing gradients inflates all the tiny numbers by $65536$, making them clearly visible to FP16. Before updating weights, you divide by $65536$ to restore their true size.
+    \item \textbf{BF16 as the Modern Standard}: Modern GPUs (A100, H100) support BF16, which has the exact same giant dynamic range as FP32, making loss scaling completely unnecessary.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine weighing grains of sand:
+\begin{itemize}
+    \item \textbf{FP16 Underflow}: Your kitchen scale only detects items over 1 gram. A single grain of sand registers as $0.0$ grams.
+    \item \textbf{Loss Scaling}: Weighing 1,000 grains together on the scale, writing down the total weight, and dividing by 1,000. You get the exact weight of each grain without buying an expensive microscope!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Dynamic Loss Scale Adjustment Rule}
+{\boldmath
+\begin{equation}
+S_{t+1} = \begin{cases}
+\max(1.0, \, \frac{1}{2} S_t), & \text{if } \exists i \text{ s.t. } g_{t, i} \notin \text{finite} \\
+2 S_t, & \text{if finite for } N_{\text{interval}} \text{ consecutive steps} \\
+S_t, & \text{otherwise}
+\end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Discrete multiplicative hysteresis policy governing the numerical scale factor.
+    \item \textbf{What It Means}: Quickly backs off upon numerical instability and cautiously ramps up when stable.
+    \item \textbf{Why It Is Important}: Automatically tracks gradient dynamics across non-stationary loss landscapes.
+\end{itemize}
+
+\subsection{FP32 Master Weight Integration}
+{\boldmath
+\begin{equation}
+\theta_{t+1}^{\text{FP32}} = \theta_t^{\text{FP32}} - \eta \cdot \operatorname{Optimizer}\left( \frac{g_{\text{scaled}}}{S} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Parameter accumulation in full 32-bit single-precision floating point.
+    \item \textbf{What It Means}: Accumulates minute parameter updates without precision loss over millions of steps.
+    \item \textbf{Why It Is Important}: Prevents parameter stall where gradient updates smaller than the mantissa LSB round to zero.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $S$ (loss scale), $g_{\text{scaled}}$ (scaled gradient), $g_{\text{true}}$ (unscaled gradient), $\theta^{\text{FP32}}$ (master weights).
+    \item \textbf{Epistemic Status}: Micikevicius et al. (ICLR 2018). Foundational standard implemented across all deep learning frameworks.
+    \item \textbf{Dependency Graph}: Loss $\to \text{Multiply by } S \to \text{Backward} \to \text{Check Finite} \to \text{Unscale } 1/S \to \text{FP32 Update}$.
+    \item \textbf{Dimensions}: Model parameter dimension $P$.
+    \item \textbf{Regimes}: GPU tensor core training across all deep learning architectures.
+    \item \textbf{Invariants}: If no overflow occurs, the true unscaled gradient matches exact analytical gradients within rounding error.
+    \item \textbf{Isomorphisms}: Isomorphic to fixed-point scaling and dynamic gain control in digital signal processing.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Underflow Elimination Threshold for FP16 Gradients]
+Let the smallest non-zero positive subnormal number representable in IEEE 754 FP16 be $\epsilon_{\min} = 2^{-24} \approx 5.96 \times 10^{-8}$. If the true gradient component satisfies $|g_i| > 0$, choosing loss scale $S$ such that:
+{\boldmath
+\begin{equation}
+S \ge \frac{\epsilon_{\min}}{|g_i|}
+\end{equation}
+}
+guarantees that $g_{\text{scaled}, i} = S \cdot g_i$ does not underflow to zero in FP16 representation.
+\end{theorem}
+
+\begin{proof}
+In IEEE 754 half-precision (FP16):
+- Exponent bias is 15. The minimum normal positive value is $2^{-14} \approx 6.10 \times 10^{-5}$.
+- The subnormal range extends down to $2^{-14} \times 2^{-10} = 2^{-24} \approx 5.96 \times 10^{-8}$.
+Any positive real value $v < 2^{-24}$ is rounded to $+0.0$ under standard round-to-nearest even mode.
+Suppose a true gradient component is $g_i \in (0, 2^{-24})$.
+Without scaling ($S = 1$):
+{\boldmath
+\begin{equation}
+\operatorname{FP16}(g_i) = 0.0 \implies \text{underflow}
+\end{equation}
+}
+Now apply loss scaling with $S \ge \frac{2^{-24}}{g_i}$:
+{\boldmath
+\begin{equation}
+g_{\text{scaled}, i} = S \cdot g_i \ge \frac{2^{-24}}{g_i} \cdot g_i = 2^{-24} = \epsilon_{\min}
+\end{equation}
+}
+Since $g_{\text{scaled}, i} \ge \epsilon_{\min}$, its representation in FP16 is strictly non-zero:
+{\boldmath
+\begin{equation}
+\operatorname{FP16}(g_{\text{scaled}, i}) > 0
+\end{equation}
+}
+Upon unscaling in FP32: $\frac{1}{S} \operatorname{FP16}(g_{\text{scaled}, i}) > 0$, preserving the non-zero gradient update.
+\end{proof}
+
+\begin{theorem}[Asymptotic Convergence Under Skipped Overflow Steps]
+Let objective $\mathcal{L}(\theta)$ be $L$-smooth and bounded below. If the fraction of overflow iterations skipped under the dynamic scaling rule satisfies $\rho_{\text{skip}} < 1 - \frac{L \eta}{2}$, then stochastic gradient descent with learning rate $\eta \le \frac{1}{L}$ converges to a stationary point:
+{\boldmath
+\begin{equation}
+\lim_{T \to \infty} \frac{1}{T} \sum_{t=1}^T \mathbb{E}\left[ \|\nabla \mathcal{L}(\theta_t)\|_2^2 \right] = 0
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+For any step $t$:
+- If step $t$ overflows, $\theta_{t+1} = \theta_t$, so $\mathcal{L}(\theta_{t+1}) - \mathcal{L}(\theta_t) = 0$.
+- If step $t$ is successful, by the descent lemma for $L$-smooth functions with $\eta \le 1/L$:
+{\boldmath
+\begin{equation}
+\mathcal{L}(\theta_{t+1}) - \mathcal{L}(\theta_t) \le - \eta \left( 1 - \frac{L \eta}{2} \right) \|\nabla \mathcal{L}(\theta_t)\|_2^2
+\end{equation}
+}
+Let binary indicator $I_t = 1$ if step $t$ succeeds and $0$ if skipped.
+Summing over $T$ steps:
+{\boldmath
+\begin{equation}
+\mathcal{L}(\theta_{T+1}) - \mathcal{L}(\theta_1) \le - \eta \left( 1 - \frac{L \eta}{2} \right) \sum_{t=1}^T I_t \|\nabla \mathcal{L}(\theta_t)\|_2^2
+\end{equation}
+}
+Rearranging:
+{\boldmath
+\begin{equation}
+\sum_{t=1}^T I_t \|\nabla \mathcal{L}(\theta_t)\|_2^2 \le \frac{\mathcal{L}(\theta_1) - \mathcal{L}^*}{\eta (1 - L \eta / 2)} < \infty
+\end{equation}
+}
+Dividing by $T$: as $T \to \infty$, the average squared gradient norm on valid steps converges to zero, guaranteeing that skipping overflow steps does not impair asymptotic convergence.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: FP16 vs. BF16 Decision Matrix}
+\textbf{Question:} When should an engineering team use FP16 vs. BF16 for large model pre-training?\\
+\textbf{Answer:} 
+\begin{itemize}
+    \item \textbf{BF16}: Always prefer BF16 if supported by hardware (NVIDIA Ampere/Hopper, Google TPU, AMD MI250/MI300). BF16 has 8 exponent bits (same as FP32), completely eliminating underflow and overflow issues, and requires no loss scaling logic.
+    \item \textbf{FP16}: Used only on older hardware (NVIDIA Volta/Turing) that lacks native BF16 support. Requires careful tuning of loss scale intervals.
+\end{itemize}
+
+\textbf{Meta-Question:} Which operations must remain in FP32 even in BF16 training?\\
+\textbf{Answer:} Softmax reductions, LayerNorm/RMSNorm mean and variance calculations, cross-entropy loss reductions, and optimizer accumulation states (Adam first and second moments $m$ and $v$) must always remain in FP32 to avoid precision collapse.
+
+\subsection{Architectural Question 2: Frequent Overflow Diagnostics}
+\textbf{Question:} What does it indicate if FP16 training repeatedly overflows and halves the loss scale to 1.0?\\
+\textbf{Answer:} Repeated overflows indicate gradient explosion or attention logit spikes (where $Q K^T / \sqrt{d} > 65504$). Remedies include enabling QK-Norm (#57), adding z-loss regularization (#140), lowering learning rate, or switching to BF16.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Dynamic Loss Scaling and FP32 Gradient Unscaling}
+\begin{algorithmic}[1]
+\Require Scaled gradients $\mathbf{g}_{\text{raw}} \in \mathbb{R}^P$, current scale $S$, growth interval $N_{\text{int}}$, success count $C_{\text{succ}}$, mode
+\Ensure Unscaled gradients $\mathbf{g} \in \mathbb{R}^P$, overflow flag, updated scale $S'$, skipped flag, updated count $C'$
+\If{$\text{mode} == \text{"bf16"}$ \textbf{or} $\text{mode} == \text{"fp32"}$}
+    \State \Return $(\mathbf{g}_{\text{raw}}, \text{False}, 1.0, \text{False}, C_{\text{succ}} + 1)$
+\EndIf
+\State $\text{has\_overflow} \gets \text{False}$
+\For{$i = 0$ \textbf{to} $P-1$}
+    \If{$\mathbf{g}_{\text{raw}}[i] \text{ is NaN} \textbf{ or } \mathbf{g}_{\text{raw}}[i] \text{ is Inf} \textbf{ or } |\mathbf{g}_{\text{raw}}[i]| > 65504$}
+        \State $\text{has\_overflow} \gets \text{True}, \quad \textbf{break}$
+    \EndIf
+\EndFor
+\If{$\text{has\_overflow}$}
+    \State $S' \gets \max(1.0, S \cdot 0.5), \quad C' \gets 0, \quad \mathbf{g} \gets \mathbf{0}_P, \quad \text{skipped} \gets \text{True}$
+\Else
+    \State $\mathbf{g} \gets (1.0 / S) \cdot \mathbf{g}_{\text{raw}}, \quad \text{skipped} \gets \text{False}, \quad C' \gets C_{\text{succ}} + 1$
+    \If{$C' \ge N_{\text{int}}$}
+        \State $S' \gets S \cdot 2.0, \quad C' \gets 0$
+    \Else
+        \State $S' \gets S$
+    \EndIf
+\EndIf
+\State \Return $(\mathbf{g}, \text{has\_overflow}, S', \text{skipped}, C')$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Overflow Scan Time}: $\Theta(P)$ floating-point checks.
+    \item \textbf{Unscaling Multiplication Time}: $\Theta(P)$ multiply operations on finite step.
+    \item \textbf{Total Time Complexity}: $\Theta(P)$ operations per optimizer step.
+    \item \textbf{Space Complexity}: $\Theta(P)$ intermediate gradient buffer.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

@@ -1,0 +1,242 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Context Parallelism via Ring Attention and Online Softmax}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Context Parallelism and Ring Attention):}
+When scaling transformer sequence lengths to extreme horizons ($L \in [10^5, 10^7]$ tokens), activation memory for query, key, and value vectors exceeds the VRAM capacity of any single GPU accelerator. \textbf{Context Parallelism (CP)} partitions the sequence dimension across a logical ring of $N$ devices such that each device holds a local chunk of length $C = L / N$:
+{\boldmath
+\begin{equation}
+Q_i, K_i, V_i \in \mathbb{R}^{C \times d}, \quad i \in \{0, \dots, N-1\}
+\end{equation}
+}
+In standard attention, calculating global attention requires all queries to attend to all keys across all devices. \textbf{Ring Attention} (Liu et al., 2023) evaluates exact global multi-head self-attention without materializing the full sequence on any device by circulating key and value blocks around the ring across $N$ discrete steps.
+
+At step $s \in \{0, \dots, N-1\}$, device $i$ computes attention between its stationary local queries $Q_i$ and the circulating key-value block $K_{(i-s) \bmod N}, V_{(i-s) \bmod N}$. Partial attention results are accumulated using the \textbf{Online Softmax algorithm} (Milakov \& Gimelshein, 2018; Dao et al., 2022). For query token $m$, tracking the running maximum score $m^{(s)}$ and normalization denominator $\ell^{(s)}$:
+{\boldmath
+\begin{align}
+m^{(s)} &= \max\left( m^{(s-1)}, \, \max_j S_{m, j}^{(s)} \right) \\
+\ell^{(s)} &= \ell^{(s-1)} e^{m^{(s-1)} - m^{(s)}} + \sum_j e^{S_{m, j}^{(s)} - m^{(s)}} \\
+O^{(s)} &= O^{(s-1)} e^{m^{(s-1)} - m^{(s)}} + \sum_j e^{S_{m, j}^{(s)} - m^{(s)}} V_j^{(s)}
+\end{align}
+}
+Concurrently, asynchronous non-blocking point-to-point ring communication transfers key-value block $s$ to the next neighbor, overlapping communication with attention computation.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Passing the Flashcards in a Circle}: Imagine 8 students trying to cross-reference a 100,000-page historical archive. Each student holds 12,500 pages of questions ($Q_i$) and 12,500 pages of answers ($K_i, V_i$). Instead of copying the entire 100,000 pages to every desk, each student compares their questions against their current stack of answers, then passes the answer stack to the student on their right!
+    \item \textbf{Exact Global Math}: After 8 passes, every student's questions have been checked against every single page in the entire 100,000-page archive, producing the exact same mathematical answer as if a single supercomputer processed everything at once.
+    \item \textbf{Infinite Context Potential}: Because memory per GPU depends only on chunk size $C = 12500$ (not total length $L$), you can scale to 1 million or 10 million tokens simply by adding more GPUs to the ring!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine inspecting a long train of 100 cars:
+\begin{itemize}
+    \item \textbf{Monolithic}: One inspector walking down all 100 cars. Their notebook runs out of paper and their legs get tired.
+    \item \textbf{Ring Attention}: 10 inspectors stand still at 10 different stations along the track while the train slowly rolls past them. Every inspector gets to inspect every single car without walking a single step!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Online Softmax Rescaling Operator}
+{\boldmath
+\begin{equation}
+\alpha = \exp\left( m_{\text{old}} - m_{\text{new}} \right), \quad m_{\text{new}} = \max(m_{\text{old}}, \, m_{\text{block}})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Dynamic numerical re-normalization factor applied to accumulated attention moments.
+    \item \textbf{What It Means}: Compensates for previously accumulated partial sums when a larger logit is discovered in the new chunk.
+    \item \textbf{Why It Is Important}: Guarantees numerical stability and mathematical equivalence to single-pass softmax.
+\end{itemize}
+
+\subsection{Pipelined Communication-Compute Overlap}
+{\boldmath
+\begin{equation}
+T_{\text{step}} = \max\left( T_{\text{GEMM}}(C, d), \, T_{\text{transfer}}(2 C d) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Wallclock latency of an individual ring step under double-buffered asynchronous communication.
+    \item \textbf{What It Means}: If matrix multiplication time exceeds network transfer time, network overhead is 100\% hidden.
+    \item \textbf{Why It Is Important}: Explains why Ring Attention exhibits near-linear speedup on high-speed clusters.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $N$ (ring devices), $C = L/N$ (chunk size), $d$ (head dimension), $Q, K, V \in \mathbb{R}^{C \times d}$.
+    \item \textbf{Epistemic Status}: Liu et al. (NeurIPS 2023 - Ring Attention). Foundation of 1M+ token context LLMs.
+    \item \textbf{Dependency Graph}: Local $Q \to \text{Ring Steps } 0 \dots N-1 \to \text{Online Softmax Accumulate} \to \text{Normalize by } \ell \to O$.
+    \item \textbf{Dimensions}: Sequence length $L \in [32\text{k}, 10^7]$, chunk length $C \in [1024, 8192]$.
+    \item \textbf{Regimes}: Long-document analysis, full codebase reasoning, video token processing.
+    \item \textbf{Invariants}: At step $N-1$, final normalized attention output is mathematically identical to global FlashAttention.
+    \item \textbf{Isomorphisms}: Isomorphic to systolic matrix multiplication rings with online accumulation.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Bit-Level Exactness of Online Softmax Ring Accumulation]
+Let $S = [S^{(0)}, S^{(1)}, \dots, S^{(N-1)}] \in \mathbb{R}^{C \times L}$ be the complete concatenation of attention logits across all $N$ chunks of keys, and let $V = [V^{(0)}, \dots, V^{(N-1)}]^T \in \mathbb{R}^{L \times d}$ be the complete value tensor. The final vector $O_m = \frac{1}{\ell_m^{(N-1)}} \tilde{O}_m^{(N-1)}$ computed by Online Softmax is strictly identical to the monolithic softmax attention output:
+{\boldmath
+\begin{equation}
+O_m \equiv \operatorname{Softmax}(S_m) V = \frac{\sum_{j=1}^L e^{S_{m, j}} V_j}{\sum_{j=1}^L e^{S_{m, j}}}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+We prove by induction on the ring step $s \in \{0, \dots, N-1\}$.
+Let $J_s$ denote the cumulative set of token indices processed through step $s$, with $|J_s| = (s + 1) C$.
+At step $s$, the exact max logit over $J_s$ is:
+{\boldmath
+\begin{equation}
+m^{(s)} = \max_{j \in J_s} S_j
+\end{equation}
+}
+The unnormalized accumulated sum of exponentials is:
+{\boldmath
+\begin{equation}
+\ell^{(s)} = \sum_{j \in J_s} \exp\left( S_j - m^{(s)} \right)
+\end{equation}
+}
+The unnormalized weighted value vector is:
+{\boldmath
+\begin{equation}
+\tilde{O}^{(s)} = \sum_{j \in J_s} \exp\left( S_j - m^{(s)} \right) V_j
+\end{equation}
+}
+\textbf{Base Case ($s = 0$):}
+For the first block $J_0$, $m^{(0)} = \max_{j \in J_0} S_j$, $\ell^{(0)} = \sum_{j \in J_0} e^{S_j - m^{(0)}}$, and $\tilde{O}^{(0)} = \sum_{j \in J_0} e^{S_j - m^{(0)}} V_j$, satisfying the invariant.
+
+\textbf{Inductive Step:}
+Assume the formula holds for step $s - 1$.
+At step $s$, block $K^{(s)}$ contributes indices $B_s$.
+The new global max is $m^{(s)} = \max(m^{(s-1)}, \max_{j \in B_s} S_j)$.
+Multiplying previous sum $\ell^{(s-1)}$ by $\alpha = e^{m^{(s-1)} - m^{(s)}}$:
+{\boldmath
+\begin{equation}
+\ell^{(s-1)} \cdot \alpha = \left( \sum_{j \in J_{s-1}} e^{S_j - m^{(s-1)}} \right) e^{m^{(s-1)} - m^{(s)}} = \sum_{j \in J_{s-1}} e^{S_j - m^{(s)}}
+\end{equation}
+}
+Adding the new block's contributions:
+{\boldmath
+\begin{equation}
+\ell^{(s)} = \ell^{(s-1)} \alpha + \sum_{j \in B_s} e^{S_j - m^{(s)}} = \sum_{j \in J_s} e^{S_j - m^{(s)}}
+\end{equation}
+}
+Similarly, for the value accumulator:
+{\boldmath
+\begin{equation}
+\tilde{O}^{(s)} = \tilde{O}^{(s-1)} \alpha + \sum_{j \in B_s} e^{S_j - m^{(s)}} V_j = \sum_{j \in J_s} e^{S_j - m^{(s)}} V_j
+\end{equation}
+}
+At step $s = N - 1$, $J_{N-1} = \{1, \dots, L\}$. Dividing $\tilde{O}^{(N-1)}$ by $\ell^{(N-1)}$:
+{\boldmath
+\begin{equation}
+O_m = \frac{\tilde{O}^{(N-1)}}{\ell^{(N-1)}} = \frac{\sum_{j=1}^L e^{S_j - m^{(N-1)}} V_j}{\sum_{j=1}^L e^{S_j - m^{(N-1)}}} = \frac{e^{-m^{(N-1)}} \sum_{j=1}^L e^{S_j} V_j}{e^{-m^{(N-1)}} \sum_{j=1}^L e^{S_j}} = \frac{\sum_{j=1}^L e^{S_j} V_j}{\sum_{j=1}^L e^{S_j}}
+\end{equation}
+}
+The scalar scale cancels identically, proving exact mathematical identity to monolithic softmax.
+\end{proof}
+
+\begin{theorem}[Zero Bubble Overhead Under Communication Compute Parity]
+If $C \ge \frac{4 \cdot B_{\text{bytes}}}{\text{FLOPs/byte}}$, the communication latency of circulating key-value blocks around the ring is strictly completely hidden behind the forward attention tensor core computation.
+\end{theorem}
+
+\begin{proof}
+Let chunk size be $C$ tokens and head dimension be $d$.
+- Computation per chunk: computing $Q K^T$ takes $2 C^2 d$ FLOPs, and multiplying by $V$ takes $2 C^2 d$ FLOPs. Total = $4 C^2 d$ FLOPs.
+At GPU peak compute rate $R_{\text{flop}}$ (FLOPs/sec), computation time is $T_{\text{comp}} = \frac{4 C^2 d}{R_{\text{flop}}}$.
+- Communication per chunk: transferring key chunk $K$ ($C d$ floats) and value chunk $V$ ($C d$ floats) in 16-bit precision takes $M_{\text{comm}} = 4 C d$ bytes.
+At network bandwidth $B_{\text{net}}$ (bytes/sec), communication time is $T_{\text{comm}} = \frac{4 C d}{B_{\text{net}}}$.
+To completely hide communication behind computation ($T_{\text{comp}} \ge T_{\text{comm}}$):
+{\boldmath
+\begin{equation}
+\frac{4 C^2 d}{R_{\text{flop}}} \ge \frac{4 C d}{B_{\text{net}}} \implies C \ge \frac{R_{\text{flop}}}{B_{\text{net}}}
+\end{equation}
+}
+The ratio $R_{\text{flop}} / B_{\text{net}}$ is the operational arithmetic intensity of the GPU-network interconnect. For typical modern clusters, choosing chunk size $C \ge 1024$ tokens satisfies the inequality, achieving zero communication overhead.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Handling Causal Attention in Ring Attention}
+\textbf{Question:} In autoregressive language modeling, queries can only attend to earlier keys ($j \le i$). How does Ring Attention handle the triangular causal mask?\\
+\textbf{Answer:} In causal Ring Attention, chunks in the upper triangle of the attention matrix are completely empty (no attention computed), which would cause load imbalance. To resolve this, modern implementations assign chunks using \textbf{zigzag block reordering} or \textbf{stripe-based scheduling}, where each GPU receives a paired mix of early and late chunks, ensuring 100\% uniform computational load across all $N$ GPUs.
+
+\subsection{Architectural Question 2: Ring Attention vs. DeepSpeed Ulysses}
+\textbf{Question:} How does Ring Attention compare to DeepSpeed Ulysses (All-to-All context parallelism)?\\
+\textbf{Answer:} 
+\begin{itemize}
+    \item \textbf{DeepSpeed Ulysses}: Transposes the tensor via All-to-All so each GPU holds all sequence positions for a subset of attention heads. It requires attention head count $H \ge N$, limiting parallelism to $N \le H$ (e.g. at most 32 or 64 GPUs).
+    \item \textbf{Ring Attention}: Splits the sequence across any arbitrary number of devices ($N = 512$ or $1024$) regardless of head count, enabling scaling to multi-million token sequences.
+\end{itemize}
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Ring Attention with Online Softmax Accumulation}
+\begin{algorithmic}[1]
+\Require Local queries $\mathbf{Q} \in \mathbb{R}^{C \times d}$, ring keys $\{\mathbf{K}^{(r)}\}_{r=0}^{N-1}$, ring values $\{\mathbf{V}^{(r)}\}_{r=0}^{N-1}$
+\Ensure Attention output $\mathbf{O} \in \mathbb{R}^{C \times d}$, rounds $N$, sequence length $L$
+\State Allocate $\mathbf{m} \gets [-\infty]^C, \quad \mathbf{\ell} \gets [0.0]^C, \quad \tilde{\mathbf{O}} \gets \mathbf{0}_{C \times d}, \quad \text{scale} \gets 1 / \sqrt{d}$
+\For{$r = 0$ \textbf{to} $N-1$}
+    \State $\mathbf{K}_{\text{curr}} \gets \mathbf{K}^{(r)}, \quad \mathbf{V}_{\text{curr}} \gets \mathbf{V}^{(r)}$
+    \For{$i = 0$ \textbf{to} $C-1$}
+        \State Compute chunk logits: $\mathbf{s}[j] \gets \text{scale} \cdot \sum_{k=0}^{d-1} \mathbf{Q}[i, k] \mathbf{K}_{\text{curr}}[j, k]$ for $j \in [0, C-1]$
+        \State $m_{\text{block}} \gets \max_j \mathbf{s}[j]$
+        \State $m_{\text{new}} \gets \max(\mathbf{m}[i], m_{\text{block}})$
+        \State $\alpha \gets (\mathbf{m}[i] == -\infty) \; ? \; 0.0 : \exp(\mathbf{m}[i] - m_{\text{new}})$
+        \State $\mathbf{\ell}[i] \gets \mathbf{\ell}[i] \cdot \alpha + \sum_{j=0}^{C-1} \exp(\mathbf{s}[j] - m_{\text{new}})$
+        \For{$k = 0$ \textbf{to} $d-1$}
+            \State $\text{contrib} \gets \sum_{j=0}^{C-1} \exp(\mathbf{s}[j] - m_{\text{new}}) \cdot \mathbf{V}_{\text{curr}}[j, k]$
+            \State $\tilde{\mathbf{O}}[i, k] \gets \tilde{\mathbf{O}}[i, k] \cdot \alpha + \text{contrib}$
+        \EndFor
+        \State $\mathbf{m}[i] \gets m_{\text{new}}$
+    \EndFor
+\EndFor
+\State Allocate $\mathbf{O} \in \mathbb{R}^{C \times d}$
+\For{$i = 0$ \textbf{to} $C-1$}
+    \State $\mathbf{O}[i, :] \gets \tilde{\mathbf{O}}[i, :] / \max(10^{-12}, \mathbf{\ell}[i])$
+\EndFor
+\State \Return $(\mathbf{O}, N, N \cdot C)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Attention Computation Time}: $\Theta(N \cdot C^2 \cdot d)$ total FLOPs per query chunk.
+    \item \textbf{Memory Storage per Device}: $\Theta(C \cdot d)$ activation buffer (saving $N\times$ memory).
+    \item \textbf{Ring Communication Passes}: $\Theta(N)$ peer-to-peer transmissions.
+    \item \textbf{Max Scalable Context}: Asymptotically unbounded $\mathcal{O}(N \cdot C)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

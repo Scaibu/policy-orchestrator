@@ -1,0 +1,227 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{ZeRO and Fully Sharded Data Parallelism (FSDP): Linear Model State Partitioning}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Zero Redundancy Optimizer and Fully Sharded Partitioning):}
+Standard Data Parallelism (DDP) replicates the entire model state—parameters $\theta \in \mathbb{R}^P$, gradients $g \in \mathbb{R}^P$, and optimizer states (for Adam: FP32 master weights $W_{\text{FP32}}$, first moment $m$, and second moment $v$)—across every GPU device. For a model with $P$ parameters trained in 16-bit precision, static model states consume $2P + 2P + 12P = 16P$ bytes per device, creating a fundamental memory barrier for models exceeding several billion parameters.
+
+\textbf{ZeRO (Zero Redundancy Optimizer)} (Rajbhandari et al., 2020) and \textbf{Fully Sharded Data Parallelism (FSDP)} eliminate this replication by sharding model states across the $N_{\text{dev}}$ data-parallel processes:
+\begin{enumerate}
+    \item \textbf{ZeRO-Stage 1 ($P_{\text{os}}$)}: Shards optimizer states across $N_{\text{dev}}$ devices. Each device stores only $12P / N_{\text{dev}}$ bytes of optimizer state while replicating parameters ($2P$) and gradients ($2P$).
+    \item \textbf{ZeRO-Stage 2 ($P_{\text{os+g}}$)}: Shards optimizer states and gradients across $N_{\text{dev}}$ devices. During backpropagation, gradients are reduce-scattered, so each device retains only $2P / N_{\text{dev}}$ gradient bytes.
+    \item \textbf{ZeRO-Stage 3 / FSDP ($P_{\text{os+g+p}}$)}: Shards optimizer states, gradients, and parameters. Each device stores only $2P / N_{\text{dev}}$ parameter bytes.
+\end{enumerate}
+Under ZeRO-Stage 3, parameters for layer $l$ are transiently reconstructed on-the-fly via an \textbf{All-Gather} collective immediately before layer $l$'s forward pass, freed from memory upon forward completion, and re-gathered during the backward pass. Per-device memory footprint scales as:
+{\boldmath
+\begin{equation}
+\text{Memory}_{\text{ZeRO-3}} = \frac{16 P}{N_{\text{dev}}} \cdot B_{\text{bytes}}
+\end{equation}
+}
+achieving a linear $N_{\text{dev}}\times$ reduction in memory requirements.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Shared Book, Not 8 Copies}: In standard training, if you have 8 GPUs, every single GPU holds an identical 100-page book in its small backpack. ZeRO-3 tears the book into 8 pieces: GPU 1 carries pages 1–12, GPU 2 carries pages 13–25, and so on.
+    \item \textbf{Pass It When You Read It}: When GPU 1 reaches chapter 2, all GPUs quickly swap photocopies of chapter 2, do their calculations, and immediately throw the photocopies away into the recycling bin!
+    \item \textbf{Train Giant Models on Ordinary Clusters}: Without ZeRO, a 70-billion parameter model requires an expensive supercomputer with massive GPU memory. With ZeRO-3/FSDP, that same model can be sharded across standard GPUs because memory scales down with the number of GPUs.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine 8 students doing a massive jigsaw puzzle:
+\begin{itemize}
+    \item \textbf{Standard DDP}: Buying 8 complete identical puzzle boxes. Every student's desk is overflowing with all 10,000 pieces!
+    \item \textbf{ZeRO-3 / FSDP}: Buying one puzzle box and giving 1,250 pieces to each student. When student 1 needs a corner piece, they borrow it for 5 seconds and give it right back.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{ZeRO Memory Partitioning Hierarchy}
+{\boldmath
+\begin{align}
+\mathcal{M}_{\text{DDP}} &= 2P + 2P + 12P = 16P \text{ bytes} \\
+\mathcal{M}_{\text{ZeRO-1}} &= 2P + 2P + \frac{12P}{N} = 4P + \frac{12P}{N} \text{ bytes} \\
+\mathcal{M}_{\text{ZeRO-2}} &= 2P + \frac{2P}{N} + \frac{12P}{N} = 2P + \frac{14P}{N} \text{ bytes} \\
+\mathcal{M}_{\text{ZeRO-3}} &= \frac{2P}{N} + \frac{2P}{N} + \frac{12P}{N} = \frac{16P}{N} \text{ bytes}
+\end{align}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Memory scaling equations for baseline DDP and ZeRO Stages 1, 2, and 3.
+    \item \textbf{What It Means}: Quantifies exact memory capacity requirements per accelerator.
+    \item \textbf{Why It Is Important}: Directly guides cluster sizing and parallelism layout design.
+\end{itemize}
+
+\subsection{Communication Volume Expansion Factor}
+{\boldmath
+\begin{equation}
+\text{Comm}_{\text{ZeRO-3}} = 1.5 \times \text{Comm}_{\text{DDP}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Communication overhead of ZeRO-Stage 3 relative to standard data-parallel all-reduce.
+    \item \textbf{What It Means}: ZeRO-3 adds an all-gather in the forward pass, increasing communication by exactly 50\%.
+    \item \textbf{Why It Is Important}: Explains why prefetching is critical to hide communication latency behind compute.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $P$ (total parameters), $N$ (device ranks), $B$ (bytes per parameter).
+    \item \textbf{Epistemic Status}: Rajbhandari et al. (SC 2020 - DeepSpeed); Zhao et al. (PyTorch FSDP). Foundation of modern distributed LLM training.
+    \item \textbf{Dependency Graph}: Sharded Weights $\to \text{Prefetch All-Gather} \to \text{Forward Layer } l \to \text{Free Weights} \to \text{Backward Layer } l \to \text{Reduce-Scatter Grads}$.
+    \item \textbf{Dimensions}: Model size $P \in [10^9, 10^{12}]$ parameters, cluster ranks $N \in [8, 16384]$.
+    \item \textbf{Regimes}: Large-scale pre-training and full fine-tuning of 7B to 405B models.
+    \item \textbf{Invariants}: At step completion, every device's local optimizer step produces mathematically identical weight updates to monolithic training.
+    \item \textbf{Isomorphisms}: Isomorphic to partitioned address space shared-memory multiprocessor cache hierarchies.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Linear Memory Scaling of ZeRO-Stage 3]
+Let model parameter count be $P$ and precision byte size be $B = 2$ bytes. Under ZeRO-Stage 3 parameter, gradient, and optimizer state sharding, the static memory per device satisfies:
+{\boldmath
+\begin{equation}
+\lim_{N \to \infty} \mathcal{M}_{\text{ZeRO-3}}(N) = 0
+\end{equation}
+}
+and for any target memory budget $\mathcal{M}_{\text{target}}$, there exists a finite device count $N^* = \lceil 16P / \mathcal{M}_{\text{target}} \rceil$ such that the model fits in GPU memory.
+\end{theorem}
+
+\begin{proof}
+By definition of ZeRO-Stage 3:
+- Parameters are partitioned into $N$ disjoint shards of size $P/N$. At 16-bit precision, this consumes $2P/N$ bytes.
+- Gradients are accumulated locally and immediately reduce-scattered into $N$ shards of size $P/N$, consuming $2P/N$ bytes.
+- Adam optimizer states (FP32 master weight 4B + momentum 4B + variance 4B = 12B/param) are stored exclusively for the local $P/N$ parameter slice, consuming $12P/N$ bytes.
+Summing all static components:
+{\boldmath
+\begin{equation}
+\mathcal{M}_{\text{static}}(N) = \frac{2P}{N} + \frac{2P}{N} + \frac{12P}{N} = \frac{16P}{N}
+\end{equation}
+}
+Taking the limit as $N \to \infty$:
+{\boldmath
+\begin{equation}
+\lim_{N \to \infty} \frac{16P}{N} = 0
+\end{equation}
+}
+Setting $\frac{16P}{N} \le \mathcal{M}_{\text{target}}$ and solving for $N$ yields:
+{\boldmath
+\begin{equation}
+N \ge \frac{16P}{\mathcal{M}_{\text{target}}} \implies N^* = \left\lceil \frac{16P}{\mathcal{M}_{\text{target}}} \right\rceil
+\end{equation}
+}
+Thus, any arbitrarily large model can be trained on fixed-memory devices simply by scaling the device count $N$.
+\end{proof}
+
+\begin{theorem}[Exact $1.5\times$ Communication Multiplier of ZeRO-3]
+The total network communication volume per step in ZeRO-Stage 3 is exactly $1.5\times$ that of standard Data Parallelism with Ring All-Reduce:
+{\boldmath
+\begin{equation}
+\frac{\text{Comm}_{\text{ZeRO-3}}}{\text{Comm}_{\text{DDP}}} = 1.5
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let total parameter size be $M$ bytes.
+1. In standard DDP:
+Gradients of size $M$ are aggregated using Ring All-Reduce:
+- Reduce-Scatter phase transmits $\frac{N-1}{N} M$ bytes.
+- All-Gather phase transmits $\frac{N-1}{N} M$ bytes.
+Total DDP communication per step:
+{\boldmath
+\begin{equation}
+\text{Comm}_{\text{DDP}} = 2 \left( \frac{N-1}{N} \right) M
+\end{equation}
+}
+2. In ZeRO-Stage 3:
+- In the forward pass, layer parameters are reconstructed via All-Gather: $\left( \frac{N-1}{N} \right) M$ bytes.
+- In the backward pass, layer parameters are re-gathered via All-Gather: $\left( \frac{N-1}{N} \right) M$ bytes.
+- In the backward pass, gradients are reduce-scattered to shard owners: $\left( \frac{N-1}{N} \right) M$ bytes.
+Summing all three phases:
+{\boldmath
+\begin{equation}
+\text{Comm}_{\text{ZeRO-3}} = \left( \frac{N-1}{N} \right) M + \left( \frac{N-1}{N} \right) M + \left( \frac{N-1}{N} \right) M = 3 \left( \frac{N-1}{N} \right) M
+\end{equation}
+}
+Dividing by $\text{Comm}_{\text{DDP}}$:
+{\boldmath
+\begin{equation}
+\frac{\text{Comm}_{\text{ZeRO-3}}}{\text{Comm}_{\text{DDP}}} = \frac{3 \left( \frac{N-1}{N} \right) M}{2 \left( \frac{N-1}{N} \right) M} = \frac{3}{2} = 1.5
+\end{equation}
+}
+Thus, ZeRO-3 trades a modest $50\%$ increase in communication volume for an $\mathcal{O}(N)$ reduction in static memory.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Overlapping Communication with Prefetching}
+\textbf{Question:} How does FSDP avoid waiting for All-Gather communication during forward and backward passes?\\
+\textbf{Answer:} FSDP implements double-buffered asynchronous prefetching: while GPU tensor cores are computing forward activations for layer $l$, a separate CUDA communication stream executes an asynchronous All-Gather for layer $l+1$'s weights. Because compute time typically exceeds transfer time over fast interconnects (NVLink), communication is 100\% hidden behind computation.
+
+\subsection{Architectural Question 2: Checkpoint Resharding}
+\textbf{Question:} How are ZeRO-3 / FSDP checkpoints saved and resumed when changing cluster size?\\
+\textbf{Answer:} In ZeRO-3, each GPU writes only its local $1/N$ shard in parallel alongside a global index manifest. When resuming on a different cluster with $M$ GPUs, distributed checkpointing engines (such as PyTorch DCP, #241) re-assemble the global state or reshard shards into $1/M$ partitions on-the-fly.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{ZeRO-FSDP Memory and Communication Accounting}
+\begin{algorithmic}[1]
+\Require Total parameters $P$, number of devices $N$, stage $\in \{1, 2, 3\}$, bytes per param $B$, optimizer
+\Ensure Memory per device $\mathcal{M}_{\text{dev}}$, saving factor $\mathcal{S}$, sharded params $P_{\text{shard}}$, communication $C$
+\State $B_{\text{opt}} \gets (\text{optimizer} == \text{"adam"}) \; ? \; 12.0 : 4.0$
+\State $M_{\text{param}} \gets P \cdot B, \quad M_{\text{grad}} \gets P \cdot B, \quad M_{\text{opt}} \gets P \cdot B_{\text{opt}}$
+\State $M_{\text{ddp}} \gets M_{\text{param}} + M_{\text{grad}} + M_{\text{opt}}$
+\If{$\text{stage} == 1$}
+    \State $M_{\text{dev}} \gets M_{\text{param}} + M_{\text{grad}} + (M_{\text{opt}} / N)$
+    \State $C \gets 2.0 \cdot ((N - 1.0) / N) \cdot M_{\text{grad}}, \quad P_{\text{shard}} \gets P$
+\ElsIf{$\text{stage} == 2$}
+    \State $M_{\text{dev}} \gets M_{\text{param}} + (M_{\text{grad}} / N) + (M_{\text{opt}} / N)$
+    \State $C \gets ((N - 1.0) / N) \cdot M_{\text{grad}}, \quad P_{\text{shard}} \gets P$
+\Else
+    \State $M_{\text{dev}} \gets (M_{\text{param}} / N) + (M_{\text{grad}} / N) + (M_{\text{opt}} / N)$
+    \State $C \gets 3.0 \cdot ((N - 1.0) / N) \cdot M_{\text{param}}, \quad P_{\text{shard}} \gets \lceil P / N \rceil$
+\EndIf
+\State $\mathcal{M}_{\text{dev}} \gets M_{\text{dev}} / (1024^2)$
+\State $\mathcal{S} \gets M_{\text{ddp}} / M_{\text{dev}}, \quad C_{\text{mb}} \gets C / (1024^2)$
+\State \Return $(\mathcal{M}_{\text{dev}}, \mathcal{S}, P_{\text{shard}}, C_{\text{mb}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Memory Calculation Time}: $\Theta(1)$ constant time operations.
+    \item \textbf{Per-Device Parameter Footprint}: $\Theta(P / N)$ memory for ZeRO-3.
+    \item \textbf{Per-Device Communication Volume}: $\Theta(P)$ bytes per step.
+    \item \textbf{Space Savings}: Asymptotically optimal $\Theta(N)$ reduction.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

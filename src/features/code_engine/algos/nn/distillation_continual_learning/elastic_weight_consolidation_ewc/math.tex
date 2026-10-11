@@ -1,0 +1,260 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Elastic Weight Consolidation (EWC): Fisher-Regularized Continual Learning}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Elastic Weight Consolidation via Fisher Information):}
+When deep neural networks are sequentially trained on a succession of distinct tasks ($\mathcal{D}_A, \mathcal{D}_B, \dots$), standard stochastic gradient descent overwrites parameter configurations critical for task $A$ to minimize loss on task $B$—a fundamental failure mode termed \textbf{catastrophic forgetting}. \textbf{Elastic Weight Consolidation (EWC)} (Kirkpatrick et al., 2017) overcomes this by placing a quadratic penalty on parameter displacement from earlier optimal configurations $\theta_A^*$, weighted by the diagonal elements of the empirical Fisher Information Matrix $F$.
+
+From a Bayesian perspective, learning task $B$ after task $A$ corresponds to calculating the posterior distribution:
+{\boldmath
+\begin{equation}
+\log p(\theta \mid \mathcal{D}_A, \mathcal{D}_B) = \log p(\mathcal{D}_B \mid \theta) + \log p(\theta \mid \mathcal{D}_A) - \log p(\mathcal{D}_B)
+\end{equation}
+}
+Approximating the prior posterior $\log p(\theta \mid \mathcal{D}_A)$ via a second-order Laplace expansion around optimal parameters $\theta_A^*$ yields the EWC objective function for task $B$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{EWC}}(\theta) = \mathcal{L}_B(\theta) + \frac{\lambda}{2} \sum_{i=1}^P F_i \left( \theta_i - \theta_{A, i}^* \right)^2
+\end{equation}
+}
+where:
+\begin{itemize}
+    \item $\mathcal{L}_B(\theta)$ is the primary task $B$ empirical loss,
+    \item $\lambda \ge 0$ is a scalar hyperparameter balancing stability and plasticity,
+    \item $\theta_{A, i}^*$ is the converged parameter value for index $i$ on task $A$,
+    \item $F_i$ is the $i$-th diagonal element of the Fisher Information Matrix evaluated on task $A$:
+    {\boldmath
+    \begin{equation}
+    F_i = \mathbb{E}_{x \sim \mathcal{D}_A} \left[ \left( \frac{\partial \log p(y \mid x; \theta_A^*)}{\partial \theta_i} \right)^2 \right]
+    \end{equation}
+    }
+\end{itemize}
+Parameters with high Fisher information (steep curvature on task $A$) are strongly clamped near $\theta_A^*$, while parameters with low Fisher information remain free to adapt to task $B$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{A Network of Rubber Springs}: Imagine all the internal knobs inside a brain. For task $A$ (playing piano), some knobs are vital (tempo and rhythm), while others are irrelevant (swimming form). EWC attaches stiff, tight springs ($F_i \gg 0$) to the piano knobs, and loose, stretchy strings ($F_i \approx 0$) to the rest. When you learn to swim (task $B$), the piano knobs stay locked while the swimming knobs move freely!
+    \item \textbf{Zero Storage of Past Data}: Unlike replay buffers that must hoard gigabytes of old training data, EWC stores only one single float number per parameter ($F_i$).
+    \item \textbf{Curvature Awareness}: Some weights can change dramatically without hurting task $A$ performance because the error surface is flat in those directions. EWC measures exactly which directions are steep vs. flat.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine building Lego models:
+\begin{itemize}
+    \item \textbf{Catastrophic Forgetting}: Smashing your Lego castle to pieces so you can build a spaceship.
+    \item \textbf{EWC}: Keeping the core castle walls glued firmly in place ($F_i$), while building the spaceship wings onto the empty extension studs that were not being used.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{EWC Objective Function}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{total}}(\theta) = \mathcal{L}_B(\theta) + \frac{\lambda}{2} \sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Regularized loss augmenting current task loss with anisotropic quadratic spring penalty.
+    \item \textbf{What It Means}: Penalizes deviation from previous optima proportional to parameter curvature.
+    \item \textbf{Why It Is Important}: Primary theoretical foundation for continual, lifelong deep learning.
+\end{itemize}
+
+\subsection{Regularized Gradient Update}
+{\boldmath
+\begin{equation}
+\nabla_{\theta_i} \mathcal{L}_{\text{total}} = \nabla_{\theta_i} \mathcal{L}_B(\theta) + \lambda F_i (\theta_i - \theta_{A, i}^*)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Total gradient driving stochastic optimization during task $B$ training.
+    \item \textbf{What It Means}: Adds an elastic restoring force pulling parameters toward prior task memory.
+    \item \textbf{Why It Is Important}: Computable in $\mathcal{O}(P)$ linear time alongside standard backpropagation.
+\end{itemize}
+
+\subsection{Diagonal Empirical Fisher Information}
+{\boldmath
+\begin{equation}
+F_i = \frac{1}{N} \sum_{n=1}^N \left( \left. \frac{\partial \mathcal{L}(x_n; \theta)}{\partial \theta_i} \right|_{\theta = \theta_A^*} \right)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Sample variance of log-likelihood gradients evaluated at local optimum $\theta_A^*$.
+    \item \textbf{What It Means}: Estimates the diagonal elements of the Hessian matrix without computing second derivatives.
+    \item \textbf{Why It Is Important}: Avoids intractable $\mathcal{O}(P^2)$ storage and inversion of full Hessian matrices.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\theta \in \mathbb{R}^P$ (current parameters), $\theta_A^* \in \mathbb{R}^P$ (task $A$ optimal parameters), $F \in \mathbb{R}_{\ge 0}^P$ (diagonal Fisher elements), $\lambda \ge 0$ (regularization scale).
+    \item \textbf{Epistemic Status}: Kirkpatrick et al. (PNAS 2017). Seminal paper establishing continual learning regularization.
+    \item \textbf{Dependency Graph}: Current $\theta$, Old $\theta_A^* \to \text{Difference } \Delta \theta \to \text{Weighted Square } F \odot (\Delta \theta)^2 \to \text{Scale by } \lambda/2 \to \text{Add } \mathcal{L}_B$.
+    \item \textbf{Dimensions}: Total network parameter dimension $P$.
+    \item \textbf{Regimes}: Sequential domain adaptation, multi-task robot manipulation, medical diagnostic lifelong updates.
+    \item \textbf{Invariants}: When $\theta \equiv \theta_A^*$, the EWC penalty is identically $0$.
+    \item \textbf{Isomorphisms}: Isomorphic to Gaussian prior maximum a posteriori (MAP) estimation with precision matrix $\Sigma^{-1} = \lambda F$.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Bayesian Derivation via Laplace Approximation]
+Let $p(\theta \mid \mathcal{D}_A)$ be the posterior parameter distribution after observing dataset $\mathcal{D}_A$. Under a second-order Taylor expansion around maximum a posteriori mode $\theta_A^*$, $\log p(\theta \mid \mathcal{D}_A)$ is approximated by a multivariate Gaussian whose negative log-likelihood equals the EWC quadratic penalty:
+{\boldmath
+\begin{equation}
+-\log p(\theta \mid \mathcal{D}_A) \approx \text{const} + \frac{1}{2} (\theta - \theta_A^*)^T \mathcal{H}_A (\theta - \theta_A^*) \approx \text{const} + \frac{1}{2} \sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Consider the Taylor series of $f(\theta) = \log p(\theta \mid \mathcal{D}_A)$ centered at local mode $\theta_A^*$:
+{\boldmath
+\begin{equation}
+f(\theta) = f(\theta_A^*) + \nabla_\theta f(\theta_A^*)^T (\theta - \theta_A^*) - \frac{1}{2} (\theta - \theta_A^*)^T \mathcal{H}_A (\theta - \theta_A^*) + \mathcal{O}(\|\theta - \theta_A^*\|^3)
+\end{equation}
+}
+where $\mathcal{H}_A = - \nabla_\theta^2 \log p(\theta \mid \mathcal{D}_A)|_{\theta = \theta_A^*}$ is the negative Hessian matrix at the mode.
+Since $\theta_A^*$ is a local maximum of the posterior log-likelihood, the first derivative vanishes:
+{\boldmath
+\begin{equation}
+\nabla_\theta f(\theta_A^*) = \mathbf{0}_P
+\end{equation}
+}
+Negating the expression:
+{\boldmath
+\begin{equation}
+-\log p(\theta \mid \mathcal{D}_A) = -f(\theta_A^*) + \frac{1}{2} (\theta - \theta_A^*)^T \mathcal{H}_A (\theta - \theta_A^*) + \mathcal{O}(\|\theta - \theta_A^*\|^3)
+\end{equation}
+}
+By the Information Geometry theorem and the Fisher Information identity for well-specified probabilistic models, the expected negative Hessian is equal to the Fisher Information Matrix:
+{\boldmath
+\begin{equation}
+\mathbb{E}[\mathcal{H}_A] = \mathcal{F}_A = \mathbb{E}\left[ \nabla_\theta \log p(x, y \mid \theta) \nabla_\theta \log p(x, y \mid \theta)^T \right]
+\end{equation}
+}
+Approximating $\mathcal{F}_A$ by its diagonal components $F_i = (\mathcal{F}_A)_{ii}$:
+{\boldmath
+\begin{equation}
+(\theta - \theta_A^*)^T \mathcal{F}_A (\theta - \theta_A^*) \approx \sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2
+\end{equation}
+}
+Substituting this into the negative log-posterior of Bayes' rule $\log p(\theta \mid \mathcal{D}_A, \mathcal{D}_B) = \log p(\mathcal{D}_B \mid \theta) + \log p(\theta \mid \mathcal{D}_A) + \text{const}$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{total}}(\theta) = -\log p(\mathcal{D}_B \mid \theta) + \frac{1}{2} \sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2 + \text{const}
+\end{equation}
+}
+Scaling the prior precision by hyperparameter $\lambda$ yields the exact EWC loss.
+\end{proof}
+
+\begin{theorem}[Bounded Task A Loss Degradation Under EWC Spring Constraint]
+Let $\theta_A^*$ be a local minimum of task $A$ loss $\mathcal{L}_A(\theta)$ with Hessian $\mathcal{H}_A \succeq 0$. If the parameter drift satisfies $\sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2 \le \epsilon^2$, then the performance degradation on task $A$ is strictly bounded by:
+{\boldmath
+\begin{equation}
+\mathcal{L}_A(\theta) - \mathcal{L}_A(\theta_A^*) \le \frac{1}{2} \epsilon^2 + \mathcal{O}(\|\theta - \theta_A^*\|^3)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Expanding $\mathcal{L}_A(\theta)$ around local minimum $\theta_A^*$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_A(\theta) = \mathcal{L}_A(\theta_A^*) + \nabla \mathcal{L}_A(\theta_A^*)^T (\theta - \theta_A^*) + \frac{1}{2} (\theta - \theta_A^*)^T \mathcal{H}_A (\theta - \theta_A^*) + \mathcal{O}(\|\theta - \theta_A^*\|^3)
+\end{equation}
+}
+At local minimum $\theta_A^*$, the gradient $\nabla \mathcal{L}_A(\theta_A^*) = \mathbf{0}$.
+Under the diagonal Fisher approximation $\mathcal{H}_A \approx \operatorname{diag}(F)$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_A(\theta) - \mathcal{L}_A(\theta_A^*) \approx \frac{1}{2} \sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2
+\end{equation}
+}
+Since the EWC constraint enforces $\sum_{i=1}^P F_i (\theta_i - \theta_{A, i}^*)^2 \le \epsilon^2$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_A(\theta) - \mathcal{L}_A(\theta_A^*) \le \frac{1}{2} \epsilon^2
+\end{equation}
+}
+proving that the EWC quadratic constraint guarantees a provable upper bound on catastrophic forgetting of task $A$.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Online EWC for Continuous Task Sequences}
+\textbf{Question:} How does EWC scale when training sequentially across 10 or 100 tasks without storing 100 sets of parameters?\\
+\textbf{Answer:} Standard EWC adds a new quadratic sum for every historical task, leading to $\mathcal{O}(K \cdot P)$ memory overhead for $K$ tasks. In \textbf{Online EWC} (Schwarz et al., 2018), a single running Fisher estimate $F^*$ and a single optimal parameter anchor $\theta^*$ are maintained via exponential moving average:
+{\boldmath
+\begin{equation}
+F_{\text{online}} = \gamma F_{\text{old}} + F_{\text{new}}
+\end{equation}
+}
+This bounds memory consumption to exactly $2P$ numbers regardless of how many tasks are trained.
+
+\textbf{Meta-Question:} Why does diagonal Fisher sometimes underestimate parameter cross-correlations?\\
+\textbf{Answer:} Diagonal Fisher ignores off-diagonal covariance entries $F_{ij} = \mathbb{E}[g_i g_j]$ ($i \neq j$). If two parameters are strongly coupled (e.g. weight and LayerNorm gain), rotating them together incurs zero loss degradation, but diagonal EWC unnecessarily penalizes them. \textbf{K-FAC} (Kronecker-factored Approximate Curvature) addresses this by modeling block-wise Kronecker covariance.
+
+\subsection{Architectural Question 2: Combining EWC with Replay}
+\textbf{Question:} Can EWC completely eliminate catastrophic forgetting on complex LLM benchmarks?\\
+\textbf{Answer:} No. High-dimensional non-convex neural landscapes cause the Laplace quadratic approximation to loosen over long training trajectories. State-of-the-art production systems combine EWC with a small rehearsal buffer (Replay, #228) to anchor representations permanently.
+
+\textbf{Meta-Question:} How should regularization strength $\lambda$ be scheduled?\\
+\textbf{Answer:} $\lambda$ is typically set to high values ($\lambda \in [100, 5000]$). A grid search over validation sets checks whether task $B$ converges while task $A$ accuracy drop remains below $2\%$.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{EWC Quadratic Penalty and Gradient Evaluation}
+\begin{algorithmic}[1]
+\Require Current parameters $\mathbf{\theta} \in \mathbb{R}^P$, optimal old parameters $\mathbf{\theta}_A^* \in \mathbb{R}^P$, diagonal Fisher $\mathbf{F} \in \mathbb{R}^P$, penalty scale $\lambda$, task B loss $\mathcal{L}_B$
+\Ensure Total loss $\mathcal{L}_{\text{total}}$, penalty $\mathcal{P}$, gradient vector $\mathbf{g} \in \mathbb{R}^P$, maximum drift $D_{\max}$
+\State Allocate $\mathbf{g} \in \mathbb{R}^P, \quad \text{sum\_sq} \gets 0.0, \quad D_{\max} \gets 0.0$
+\For{$i = 0$ \textbf{to} $P-1$}
+    \State $\Delta_i \gets \mathbf{\theta}[i] - \mathbf{\theta}_A^*[i]$
+    \State $D_{\max} \gets \max(D_{\max}, |\Delta_i|)$
+    \State $\text{sum\_sq} \gets \text{sum\_sq} + \mathbf{F}[i] \cdot (\Delta_i)^2$
+    \State $\mathbf{g}[i] \gets \lambda \cdot \mathbf{F}[i] \cdot \Delta_i$
+\EndFor
+\State $\mathcal{P} \gets 0.5 \cdot \lambda \cdot \text{sum\_sq}$
+\State $\mathcal{L}_{\text{total}} \gets \mathcal{L}_B + \mathcal{P}$
+\State \Return $(\mathcal{L}_{\text{total}}, \mathcal{P}, \mathbf{g}, D_{\max})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Penalty Evaluation Time}: $\Theta(P)$ floating-point operations.
+    \item \textbf{Penalty Gradient Evaluation Time}: $\Theta(P)$ multiply-accumulate operations.
+    \item \textbf{Total Time Complexity}: $\Theta(P)$ operations per training step.
+    \item \textbf{Memory Storage Space}: $\Theta(P)$ auxiliary memory to store $\theta_A^*$ and diagonal Fisher vector $F$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

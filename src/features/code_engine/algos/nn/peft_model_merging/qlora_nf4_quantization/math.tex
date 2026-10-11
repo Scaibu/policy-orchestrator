@@ -1,0 +1,256 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{QLoRA: Efficient Finetuning of Quantized LLMs via NormalFloat4}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Information-Theoretic Quantiles, NF4 Data Type, and Double Quantization):}
+Fine-tuning 65B+ parameter language models in 16-bit precision requires over 780 GB of GPU memory across multiple multi-GPU nodes. \textbf{QLoRA (Quantized Low-Rank Adaptation)} compresses frozen base models to a 4-bit representation without quality degradation, enabling the fine-tuning of a 65B parameter model on a single 48 GB GPU.
+
+QLoRA introduces three coordinated algorithmic innovations:
+\begin{enumerate}
+    \item \textbf{NormalFloat4 (NF4) Quantization}: A theoretically optimal 4-bit data type for normally distributed neural network weights $W \sim \mathcal{N}(0, \sigma^2)$. The 16 discrete NF4 grid points $\{q_i\}_{i=0}^{15} \subset [-1, 1]$ correspond to exact quantiles of the standard normal distribution $\mathcal{N}(0, 1)$:
+    {\boldmath
+    \begin{equation}
+    q_i = \frac{1}{2}\left( Q_X\left(\frac{i}{2^k}\right) + Q_X\left(\frac{i+1}{2^k}\right) \right), \quad k = 4
+    \end{equation}
+    }
+    normalized such that $q_7 = 0.0$, $q_0 = -1.0$, and $q_{15} = 1.0$.
+    \item \textbf{Double Quantization (DQ)}: Quantizes the quantization constant scales themselves. For blocks of size $B_1 = 64$, block scales $c_1^{\text{FP32}}$ are quantized into 8-bit FP8 representations with secondary block size $B_2 = 256$, reducing scale memory footprint from $0.5$ bits/param down to $0.127$ bits/param.
+    \item \textbf{Paged Optimizers}: Dynamically pages CPU RAM and GPU memory using CUDA Unified Memory, mitigating memory spikes during long-context gradient checkpointing.
+\end{enumerate}
+During the forward pass, weights are dequantized block-by-block to 16-bit Brain Floating Point (BF16) precision:
+{\boldmath
+\begin{equation}
+\tilde{W} = c_1 \cdot \operatorname{NF4}(\text{idx}) \in \mathbb{R}^{d \times k}
+\end{equation}
+}
+and combined with trainable 16-bit LoRA adapter branches: $h = \tilde{W}x + \frac{\alpha}{r}BAx$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Bell Curve Squeeze}: When weights are trained in deep neural networks, their values naturally cluster into a standard bell curve (Gaussian distribution): millions of values near zero, and very few values at extreme edges. Standard 4-bit integer quantization divides the line into 16 evenly spaced grid marks, wasting precious precision on empty regions. NF4 packs all 16 points directly into the dense center of the bell curve!
+    \item \textbf{Lossless 4-Bit Compression}: Because NF4 places its discrete points exactly where the weights actually live, it preserves the fidelity of 16-bit weights almost perfectly while shrinking storage by $4\times$.
+    \item \textbf{Dequantize on the Fly}: The computer never stores full 16-bit weights. When an input vector arrives, the GPU expands tiny 4-bit blocks into 16-bit numbers, performs the dot product, and instantly discards the 16-bit numbers from memory!
+    \item \textbf{Enterprise Democracy}: QLoRA turned what used to require an \$80,000 corporate supercomputer cluster into a task that runs on a single desktop GPU workstation.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine packing a giant wardrobe into a tiny suitcase:
+\begin{itemize}
+    \item \textbf{The Old Box Packing}: Trying to cram heavy winter coats into rigid shoe boxes of identical size.
+    \item \textbf{The Vacuum Bag (NF4)}: You put the clothes into vacuum compression bags. Because 90\% of the coat is empty air, vacuuming shrinks it to a flat pancake!
+    \item \textbf{Unzipping for Use}: When you need to wear the coat, you open the valve for 2 seconds (dequantize), wear it, and compress it flat again.
+    \item \textbf{Result}: You can pack 4 times as many clothes in your travel bag without wrinkling any fabric!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{NF4 Dequantization Formula}
+{\boldmath
+\begin{equation}
+\tilde{w}_{ij} = s_{\text{block}} \cdot \operatorname{NF4\_Table}[\operatorname{idx}_{ij}]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The elementwise dequantization mapping 4-bit indices to floating-point numbers via block scale $s$ and standard normal quantiles.
+    \item \textbf{What It Means}: Reconstructs the uncompressed weight matrix into BF16 cache during matrix multiplication.
+    \item \textbf{Why It Is Important}: Allows backward gradients to backpropagate through frozen dequantized base weights into the LoRA adapter branches.
+\end{itemize}
+
+\subsection{Block Maximum Absolute Normalization}
+{\boldmath
+\begin{equation}
+s_{\text{block}} = \frac{\max_{w \in \mathcal{B}} |w|}{q_{\max}}, \quad q_{\max} = 1.0
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Per-block scale factor normalizing weight magnitudes within block $\mathcal{B}$ to $[-1, 1]$.
+    \item \textbf{What It Means}: Protects localized blocks from being skewed by isolated global outlier weights in other layers.
+    \item \textbf{Why It Is Important}: Prevents catastrophic precision loss in large language models where feature outlier dimensions occur.
+\end{itemize}
+
+\subsection{Quantization Mean Squared Reconstruction Error}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{quant\_MSE}} = \frac{1}{N_{\text{weights}}}\sum_{i=1}^{N_{\text{weights}}} (w_i - \tilde{w}_i)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Mean squared discrepancy between original floating point weights and NF4 dequantized representations.
+    \item \textbf{What It Means}: Objective metric measuring compression fidelity; NF4 achieves significantly lower MSE than Int4 and FP4 across all layers.
+    \item \textbf{Why It Is Important}: Verifies that base model representations remain intact before fine-tuning begins.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $W$ (base weight), $\operatorname{idx} \in \{0, \dots, 15\}$ (4-bit index), $s$ (block scale), $B_{\text{size}}$ (block size $\approx 64$).
+    \item \textbf{Epistemic Status}: Formulated by Dettmers, Pagnoni, Holtzman, and Zettlemoyer (University of Washington, NeurIPS 2023).
+    \item \textbf{Dependency Graph}: Weights $\to \text{Block Split } \to s_{\text{block}} \to \text{NF4 Quantize} \to \text{Dequantize on Forward} \to \text{LoRA Branch}$.
+    \item \textbf{Dimensions}: Total weights $d \times k$, block count $N_{\text{blocks}} = \lceil (d \cdot k) / B_{\text{size}} \rceil$.
+    \item \textbf{Regimes}: Single-GPU large model fine-tuning, consumer workstation training, edge device adaptation.
+    \item \textbf{Invariants}: All quantized indices strictly satisfy $0 \le \operatorname{idx} \le 15$ ($4$ bits of information).
+    \item \textbf{Isomorphisms}: NF4 is isomorphic to optimal Lloyd-Max scalar quantization under standard normal priors.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Information-Theoretic Optimality of NormalFloat4 Under Gaussian Priors]
+Let $X \sim \mathcal{N}(0, 1)$ be a continuous standard normal random variable. The 16-level quantile partition $q_i = Q_X(p_i)$ achieves equal information entropy:
+{\boldmath
+\begin{equation}
+H(q) = -\sum_{i=0}^{15} P(X \in \operatorname{bin}_i) \log_2 P(X \in \operatorname{bin}_i) = 4.0 \text{ bits}
+\end{equation}
+}
+maximizing the Shannon entropy of the 4-bit representation.
+\end{theorem}
+
+\begin{proof}
+Let a 4-bit quantizer partition the real line into $2^k = 16$ non-overlapping intervals $\operatorname{bin}_i = (t_i, t_{i+1}]$ for $i \in \{0, \dots, 15\}$, where $t_0 = -\infty$ and $t_{16} = +\infty$.
+The Shannon entropy of the discrete quantized output distribution $P = (p_0, \dots, p_{15})$ is:
+{\boldmath
+\begin{equation}
+H(P) = -\sum_{i=0}^{15} p_i \log_2 p_i
+\end{equation}
+}
+where $p_i = \int_{t_i}^{t_{i+1}} \frac{1}{\sqrt{2\pi}} e^{-x^2 / 2} \, dx$.
+By the maximum entropy principle, the discrete Shannon entropy over a finite alphabet of size $M = 16$ is bounded above by:
+{\boldmath
+\begin{equation}
+H(P) \le \log_2(16) = 4.0 \text{ bits}
+\end{equation}
+}
+with equality if and only if the probability distribution is uniform:
+{\boldmath
+\begin{equation}
+p_i = \frac{1}{16}, \quad \forall i \in \{0, \dots, 15\}
+\end{equation}
+}
+Under the NF4 construction, the threshold boundaries $t_i$ are chosen precisely as the exact quantiles of the standard Gaussian distribution: $t_i = \Phi^{-1}(i / 16)$.
+Evaluating the probability mass of each bin:
+{\boldmath
+\begin{equation}
+p_i = \Phi(t_{i+1}) - \Phi(t_i) = \frac{i+1}{16} - \frac{i}{16} = \frac{1}{16}
+\end{equation}
+}
+Since every bin carries identical probability mass $p_i = \frac{1}{16}$, the resulting entropy is:
+{\boldmath
+\begin{equation}
+H(P) = -\sum_{i=0}^{15} \frac{1}{16} \log_2\left(\frac{1}{16}\right) = -16 \cdot \frac{1}{16} (-4) = 4.0 \text{ bits}
+\end{equation}
+}
+This proves that NF4 extracts the theoretical maximum information capacity available in a 4-bit channel under Gaussian weight distributions.
+\end{proof}
+
+\begin{theorem}[Zero-Mean Preservation Property of Asymmetric NF4 Grid]
+Because $q_7 = 0.0$ is an exact grid point in the NF4 codebook, exact zero weights ($w = 0.0$, e.g. from sparsity or padding) are quantized with zero reconstruction error: $\tilde{w} = 0.0$.
+\end{theorem}
+
+\begin{proof}
+Let $w = 0.0$. For any non-zero block scale $s > 0$:
+{\boldmath
+\begin{equation}
+\operatorname{norm}(w) = \frac{0.0}{s} = 0.0
+\end{equation}
+}
+In the canonical NF4 codebook, index $7$ contains $q_7 = 0.0$.
+Evaluating the distance to $q_7$:
+{\boldmath
+\begin{equation}
+|0.0 - q_7| = |0.0 - 0.0| = 0.0
+\end{equation}
+}
+Because distance is non-negative and achieves zero at index $7$, index $7$ is the unique nearest neighbor.
+Evaluating the reconstructed dequantized weight:
+{\boldmath
+\begin{equation}
+\tilde{w} = s \cdot q_7 = s \cdot 0.0 = 0.0
+\end{equation}
+}
+Thus, $|w - \tilde{w}| = |0.0 - 0.0| = 0.0$, confirming exact preservation of zero values without floating-point bias drift.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Merging QLoRA Adapters}
+\textbf{Question:} Why can't a LoRA adapter be directly added into a 4-bit NF4 quantized base model at inference?\\
+\textbf{Answer:} A 4-bit NF4 weight cannot represent arbitrary floating-point additions: adding a 16-bit float $\Delta W$ directly into 4-bit indices causes destructive rounding errors that degrade accuracy. To deploy a merged QLoRA model, either (1) Dequantize the base model to 16-bit BF16 and merge normally (requiring 16-bit VRAM); or (2) Keep the base model in NF4 and execute the low-rank branch dynamically during generation.
+
+\textbf{Meta-Question:} How does block size $B_1$ affect throughput versus memory?\\
+\textbf{Answer:} Smaller block sizes (e.g. $B_1 = 32$) provide higher quantization accuracy and lower MSE, but require storing more scaling factors. A block size of $B_1 = 64$ provides an empirical sweet spot: quantization loss is indistinguishable from 16-bit baselines while scale overhead remains below 3\% of total model size.
+
+\subsection{Architectural Question 2: Double Quantization Memory Math}
+\textbf{Question:} How does Double Quantization save memory in a 65B parameter model?\\
+\textbf{Answer:} With $B_1 = 64$, an uncompressed FP32 scale requires $32 / 64 = 0.5$ bits per parameter. For a 65B model, this alone consumes 4.0 GB of VRAM. By quantizing the FP32 scales into 8-bit FP8 with secondary block size $B_2 = 256$, scale memory drops to $\frac{8}{64} + \frac{32}{64 \times 256} \approx 0.127$ bits per parameter (under 1.0 GB), saving 3.0 GB of pure memory.
+
+\textbf{Meta-Question:} Why are base model weights frozen in QLoRA rather than quantized end-to-end?\\
+\textbf{Answer:} Updating 4-bit discrete weights directly requires integer stochastic rounding, which stalls gradient descent and leads to divergent training dynamics. Freezing the 4-bit base weights and confining gradient updates exclusively to full-precision 16-bit LoRA adapters ensures standard continuous Adam optimization stability.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{QLoRA NF4 Block Quantization, Dequantization, and Forward Map}
+\begin{algorithmic}[1]
+\Require Raw weights $\mathbf{W} \in \mathbb{R}^{d \times k}$, input $\mathbf{x} \in \mathbb{R}^k$, adapter matrices $\mathbf{A}, \mathbf{B}$, block size $B_{\text{size}}$, scale $\alpha$, rank $r$
+\Ensure Indices $\mathbf{I} \in \{0, \dots, 15\}^{d \times k}$, scales $\mathbf{s}$, dequantized $\tilde{\mathbf{W}}$, output $\mathbf{h}$, error $\mathcal{E}$
+\State $N \gets d \cdot k, \quad num\_blocks \gets \lceil N / B_{\text{size}} \rceil, \quad s_{\text{lora}} \gets \alpha / r$
+\State Allocate $\mathbf{I} \in \mathbb{Z}^N, \quad \tilde{\mathbf{W}} \in \mathbb{R}^N, \quad \mathbf{s} \in \mathbb{R}^{num\_blocks}$
+\For{$b = 0$ \textbf{to} $num\_blocks - 1$}
+    \State $start \gets b \cdot B_{\text{size}}, \quad end \gets \min(N, (b + 1) \cdot B_{\text{size}})$
+    \State $scale \gets \max_{j \in [start, end)} |\mathbf{W}[j]|$
+    \State $\mathbf{s}[b] \gets scale$
+    \For{$j = start$ \textbf{to} $end - 1$}
+        \State $norm\_w \gets \mathbf{W}[j] / (scale + 10^{-12})$
+        \State $idx^* \gets \arg\min_{i \in [0, 15]} |norm\_w - \operatorname{NF4\_Table}[i]|$
+        \State $\mathbf{I}[j] \gets idx^*, \quad \tilde{\mathbf{W}}[j] \gets scale \cdot \operatorname{NF4\_Table}[idx^*]$
+    \EndFor
+\EndFor
+\State $\mathcal{E} \gets \frac{1}{N}\sum_{j=0}^{N-1} (\mathbf{W}[j] - \tilde{\mathbf{W}}[j])^2$
+\State Allocate $\mathbf{h} \in \mathbb{R}^d$
+\For{$i = 0$ \textbf{to} $d-1$}
+    \State $base\_dot \gets \sum_{j=0}^{k-1} \tilde{\mathbf{W}}[i \cdot k + j] \cdot \mathbf{x}[j]$
+    \State $ax \gets \sum_{j=0}^{k-1} \mathbf{A}[\cdot, j] \cdot \mathbf{x}[j]$
+    \State $\mathbf{h}[i] \gets base\_dot + s_{\text{lora}} \cdot \sum_{r'} \mathbf{B}[i, r'] \cdot ax[r']$
+\EndFor
+\State \Return $(\mathbf{I}, \mathbf{s}, \tilde{\mathbf{W}}, \mathbf{h}, \mathcal{E})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{NF4 Quantization Search Time}: $\Theta(16 \cdot d \cdot k)$ nearest-neighbor distance evaluations.
+    \item \textbf{Dequantized Linear Map Time}: $\Theta(d \cdot k)$ multiply-accumulate operations.
+    \item \textbf{LoRA Adapter Branch Time}: $\Theta(r(d + k))$ operations.
+    \item \textbf{Space Complexity}: $\Theta(d \cdot k)$ buffer for reconstructed floating-point weights.
+    \item \textbf{Parallel Reduction Depth}: $\mathcal{D} = \Theta(\log B_{\text{size}})$ for block absolute maximum scale reductions.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

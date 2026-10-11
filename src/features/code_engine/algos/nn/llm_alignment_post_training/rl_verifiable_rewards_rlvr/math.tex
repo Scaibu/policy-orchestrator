@@ -1,0 +1,244 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Reinforcement Learning with Verifiable Rewards (RLVR)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Deterministic Programmatic Verifiers and Objective Reward Functions):}
+In subjective conversational alignment, rewards are derived from parameterized neural reward models $r_\theta(x, y)$ that are vulnerable to reward hacking, style bias, and sycophancy. In objective domains such as computer programming, formal theorem proving, structured data extraction, and symbolic mathematics, correctness is not a matter of human preference: it is mathematically decidable through programmatic execution. \textbf{Reinforcement Learning with Verifiable Rewards (RLVR)} replaces learned reward models with deterministic programmatic verification sandboxes:
+{\boldmath
+\begin{equation}
+R_{\text{verif}}(x, y) = \mathcal{V}(x, y) \in \{0, 1\}
+\end{equation}
+}
+where $\mathcal{V}(x, y)$ is an automated testing harness that executes generated code against hidden test suites, parses mathematical answers into canonical forms (e.g., SymPy symbolic equality), or verifies proof steps in interactive proof assistants (e.g. Lean 4 or Coq).
+
+To prevent degenerate model behaviors such as tag omission or verbose looping, RLVR constructs a composite objective reward:
+{\boldmath
+\begin{equation}
+R(x, y) = w_{\text{pass}} \cdot \mathbb{I}\left( \bigwedge_{j=1}^M \text{test}_j(y) == \text{Pass} \right) + w_{\text{fmt}} \cdot \mathcal{F}_{\text{valid}}(y) - w_{\text{len}} \cdot \max(0, |y| - L_{\max})
+\end{equation}
+}
+where $\mathcal{F}_{\text{valid}}(y) \in \{0, 1\}$ verifies compliance with required output grammar (e.g. reasoning encapsulated inside \texttt{<think>} \dots \texttt{</think>} tags and final answers in \texttt{\textbackslash boxed\{...\}}), and $w_{\text{len}}$ penalizes unnecessary length inflation beyond threshold $L_{\max}$. The model is then optimized via policy gradient methods (GRPO or PPO).
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Replacing Subjective Opinions with Ground Truth}: If you write a Python function to sort a list, you don't need a human judge to guess if it looks nice. You run the automated unit tests! If the tests pass, the code is right (Reward = 1). If the code crashes or produces the wrong answer, it is wrong (Reward = 0).
+    \item \textbf{Immunity to Sycophancy}: A neural reward model can be tricked by an AI that writes polite, confident flattery. A compiler or unit test runner cannot be flattered: it only cares about mathematical and functional truth.
+    \item \textbf{Encouraging Deep Thought}: Under RLVR, models learn that guessing quickly leads to 0 points, but pausing, drafting scratchpad calculations, double-checking boundary cases, and testing alternatives leads to 1 point. This triggers the autonomous emergence of extended reasoning chains (``System 2 thinking'').
+    \item \textbf{Safe Sandbox Execution}: Because candidate code can contain accidental infinite loops, memory leaks, or dangerous system calls, the verifier executes code inside isolated gVisor or Docker sandboxes with strict CPU and time limits.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine building a key to open a locked treasure chest:
+\begin{itemize}
+    \item \textbf{The Opinion Contest (Reward Model)}: An art judge looks at the key and says: ``This key looks shiny and pretty, 9 out of 10!'' But the key doesn't turn in the lock!
+    \item \textbf{The Real Lock (RLVR)}: You put the key into the physical lock. If the key turns and the chest pops open, you get the gold coin (Reward = 1)! If it jams, you get nothing (Reward = 0).
+    \item \textbf{Master Locksmith}: The student tries different shapes until they understand exactly how the internal tumblers work, mastering real locksmithing rather than just making shiny metal!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Programmatic Test Suite Verification Function}
+{\boldmath
+\begin{equation}
+\mathcal{V}_{\text{suite}}(y) = \prod_{j=1}^M \mathbb{I}\left( \operatorname{Exec}(y, \text{input}_j) == \text{expected}_j \right) \in \{0, 1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Binary conjunction confirming that candidate solution $y$ passes every test case $j \in \{1, \dots, M\}$ without runtime error.
+    \item \textbf{What It Means}: Requires 100\% correctness across the entire test suite; partial credit is withheld to prevent hard-coded edge case cheating.
+    \item \textbf{Why It Is Important}: Serves as the un-hackable ground truth reward signal driving reinforcement learning for coding and reasoning.
+\end{itemize}
+
+\subsection{Format Adherence Grammar Validator}
+{\boldmath
+\begin{equation}
+\mathcal{F}_{\text{valid}}(y) = \mathbb{I}\left( y \text{ matches schema } \mathcal{S} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Indicator function validating syntax adherence (e.g. valid JSON schema, paired XML reasoning tags, presence of answer delimiter).
+    \item \textbf{What It Means}: Ensures generated outputs can be parsed by downstream automated tools and extractors.
+    \item \textbf{Why It Is Important}: Prevents policy drift into unstructured token streams where answers cannot be extracted.
+\end{itemize}
+
+\subsection{Pass@1 Empirical Benchmark Metric}
+{\boldmath
+\begin{equation}
+\operatorname{Pass@1} = \frac{1}{N}\sum_{i=1}^N \mathbb{I}\left( \mathcal{V}_{\text{suite}}(y_i) == 1 \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Unbiased fraction of test prompts where the first sampled completion passes all tests.
+    \item \textbf{What It Means}: Standard benchmark metric for coding and mathematical reasoning evaluation (HumanEval, GSM8K, MATH).
+    \item \textbf{Why It Is Important}: Directly measures policy problem-solving capability independent of test-time search budgets.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\mathcal{V}$ (programmatic verifier), $M$ (number of unit tests), $\mathcal{F}_{\text{valid}}$ (format validator), $L_{\max}$ (length threshold), $\operatorname{Pass@1}$ (success rate).
+    \item \textbf{Epistemic Status}: Foundational paradigm underlying OpenAI o1, DeepSeek-R1, AlphaCode, and Minerva.
+    \item \textbf{Dependency Graph}: Prompt $\to \text{Sample } y \to \text{Sandbox Exec } \mathcal{V}(y) \to \text{Parse } \mathcal{F}(y) \to R \to \text{GRPO / PPO Updates}$.
+    \item \textbf{Dimensions}: Candidate solutions $N$, tests per problem $M$, token length $|y|$.
+    \item \textbf{Regimes}: Automated software development, mathematical olympiad problems, SQL query synthesis, API execution pipelines.
+    \item \textbf{Invariants}: If all tests pass, formatting matches schema, and $|y| \le L_{\max}$, total reward equals exactly $w_{\text{pass}} + w_{\text{fmt}}$.
+    \item \textbf{Isomorphisms}: RLVR is isomorphic to episodic reinforcement learning in sparse-reward discrete goal-conditioned environments.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Immunity to Reward Hacking Under Verifiable Sandboxes]
+Let $\mathcal{V}: \mathcal{Y} \to \{0, 1\}$ be an exact formal specification of problem correctness with zero false-positive rate: $P(\mathcal{V}(y) = 1 \mid y \text{ is incorrect}) = 0$. Then no policy optimization process can experience reward hacking: any policy $\pi$ that maximizes $\mathbb{E}_{y \sim \pi}[\mathcal{V}(y)]$ strictly increases true problem accuracy.
+\end{theorem}
+
+\begin{proof}
+Let the true semantic correctness of completion $y$ be denoted by binary ground truth $T(y) \in \{0, 1\}$.
+The expected verifiable reward under policy $\pi$ is:
+{\boldmath
+\begin{align}
+\mathbb{E}_{y \sim \pi}[\mathcal{V}(y)] &= \sum_{y} \pi(y) \mathcal{V}(y) \\
+&= \sum_{y: T(y)=1} \pi(y) \mathcal{V}(y) + \sum_{y: T(y)=0} \pi(y) \mathcal{V}(y)
+\end{align}
+}
+By the hypothesis of zero false positives, for all $y$ where $T(y) = 0$, $\mathcal{V}(y) = 0$ with probability $1$.
+Thus, the second summation vanishes identically:
+{\boldmath
+\begin{equation}
+\sum_{y: T(y)=0} \pi(y) \mathcal{V}(y) = 0
+\end{equation}
+}
+Furthermore, for correct programs where $T(y) = 1$, let the verification pass probability be $p_{\text{pass}} \in (0, 1]$:
+{\boldmath
+\begin{equation}
+\mathbb{E}_{y \sim \pi}[\mathcal{V}(y)] = p_{\text{pass}} \sum_{y: T(y)=1} \pi(y) = p_{\text{pass}} \cdot P_{y \sim \pi}(T(y) = 1)
+\end{equation}
+}
+Because $p_{\text{pass}} > 0$ is a fixed positive constant, maximizing the expected verifiable reward $\mathbb{E}[\mathcal{V}(y)]$ is strictly monotonic with respect to the true correctness probability $P(T(y) = 1)$.
+Therefore, the policy cannot exploit non-generalizing reward artifacts, proving immunity to reward hacking.
+\end{proof}
+
+\begin{theorem}[Super-Linear Pass@$k$ Amplification Under Independent Sampling]
+Let the single-attempt success probability be $p = \operatorname{Pass@1} \in (0, 1)$. Under independent sampling of $k$ candidate solutions, the probability of obtaining at least one correct verified solution is given by:
+{\boldmath
+\begin{equation}
+\operatorname{Pass@}k = 1 - (1 - p)^k
+\end{equation}
+}
+and for any $p > 0$, $\lim_{k \to \infty} \operatorname{Pass@}k = 1.0$.
+\end{theorem}
+
+\begin{proof}
+Let $E_i$ be the event that candidate solution $i \in \{1, \dots, k\}$ fails verification: $\mathcal{V}(y_i) = 0$.
+Because the $k$ completions are sampled independently from $\pi$:
+{\boldmath
+\begin{equation}
+P(E_i) = 1 - p
+\end{equation}
+}
+The joint probability that all $k$ completions fail verification is:
+{\boldmath
+\begin{equation}
+P\left( \bigcap_{i=1}^k E_i \right) = \prod_{i=1}^k P(E_i) = (1 - p)^k
+\end{equation}
+}
+The event of passing at least one solution is the complement of failing all $k$ solutions:
+{\boldmath
+\begin{equation}
+\operatorname{Pass@}k = 1 - P\left( \bigcap_{i=1}^k E_i \right) = 1 - (1 - p)^k
+\end{equation}
+}
+Because $p \in (0, 1)$, we have $0 < 1 - p < 1$.
+Taking the limit as $k \to \infty$:
+{\boldmath
+\begin{equation}
+\lim_{k \to \infty} (1 - p)^k = 0 \implies \lim_{k \to \infty} \operatorname{Pass@}k = 1.0
+\end{equation}
+}
+This proves that test-time scaling with automated verifiers allows models with moderate $\operatorname{Pass@1}$ accuracy to achieve near-perfect solution rates through search and verification.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Preventing Test Case Gaming and Hard-Coding}
+\textbf{Question:} How does RLVR prevent models from gaming verification by hard-coding answers for visible tests?\\
+\textbf{Answer:} Visible tests shown in the prompt are partitioned strictly from private held-out tests. The reward function evaluates code against hidden test suites with randomized inputs that the model never observes during generation. If the model produces a lookup dictionary for example inputs, the hidden tests fail, yielding Reward = 0.
+
+\textbf{Meta-Question:} How are infinite loops and security exploits handled in execution sandboxes?\\
+\textbf{Answer:} Code generated by RL models is untrusted. Execution takes place inside ephemeral Linux namespaces (e.g. gVisor/Firecracker) with disabled network access, dropped root capabilities, memory limits (e.g. 512 MB), and hard CPU execution timeouts (e.g. 2.0 seconds). Timeout or memory violations instantly emit zero reward.
+
+\subsection{Architectural Question 2: Partial Credit vs All-or-Nothing Rewards}
+\textbf{Question:} Why is binary all-or-nothing verification reward generally preferred over partial credit for passing $k$ out of $M$ tests?\\
+\textbf{Answer:} If partial credit is awarded (e.g. $k/M$), models quickly learn a local optimum: return trivial boilerplate or a dummy constant that satisfies 2 edge cases (getting $0.2$ reward) rather than attempting the difficult full algorithmic solution. All-or-nothing rewards force the policy to find general solutions that satisfy all constraints.
+
+\textbf{Meta-Question:} Can RLVR be applied to natural language domains without unit tests?\\
+\textbf{Answer:} Yes, when combined with formal verifiers: fact-checking knowledge graphs, constraint satisfiability solvers (Z3), structural schema extractors (Pydantic/Regex), or formal mathematical proof checkers (Lean 4).
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{RLVR Verification Reward Evaluation and Benchmark Telemetry}
+\begin{algorithmic}[1]
+\Require Test results matrix $\mathbf{T} \in \{\text{True}, \text{False}\}^{N \times M}$, format flags $\mathbf{F}$, lengths $\mathbf{L}$, weights $w_{\text{pass}}, w_{\text{fmt}}, w_{\text{len}}$, threshold $L_{\max}$
+\Ensure Rewards $\mathbf{R}$, pass@1 rate $\operatorname{Pass@1}$, suite pass flags $\mathbf{P}$, format adherence $\bar{F}$
+\State Initialize $passed \gets 0, \quad valid\_fmt \gets 0$
+\State Allocate $\mathbf{R} \in \mathbb{R}^N, \quad \mathbf{P} \in \{\text{True}, \text{False}\}^N$
+\For{$i = 0$ \textbf{to} $N-1$}
+    \State $all\_pass \gets \text{True}$
+    \For{$j = 0$ \textbf{to} $M_i - 1$}
+        \If{$\mathbf{T}[i, j] == \text{False}$}
+            \State $all\_pass \gets \text{False}$
+            \State \textbf{break}
+        \EndIf
+    \EndFor
+    \State $\mathbf{P}[i] \gets all\_pass$
+    \If{$all\_pass$} \State $passed \gets passed + 1$ \EndIf
+    \State $r_{\text{pass}} \gets w_{\text{pass}}$ \textbf{if} $all\_pass$ \textbf{else} $0.0$
+    \State $r_{\text{fmt}} \gets w_{\text{fmt}}$ \textbf{if} $\mathbf{F}[i]$ \textbf{else} $0.0$
+    \If{$\mathbf{F}[i]$} \State $valid\_fmt \gets valid\_fmt + 1$ \EndIf
+    \State $excess \gets \max(0, \mathbf{L}[i] - L_{\max})$
+    \State $\mathbf{R}[i] \gets r_{\text{pass}} + r_{\text{fmt}} - w_{\text{len}} \cdot excess$
+\EndFor
+\State $\operatorname{Pass@1} \gets passed / N, \quad \bar{F} \gets valid\_fmt / N$
+\State \Return $(\mathbf{R}, \operatorname{Pass@1}, \mathbf{P}, \bar{F})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Unit Test Conjunction Time}: $\Theta(N \cdot M)$ boolean check operations.
+    \item \textbf{Reward Scalar Formulation}: $\Theta(N)$ linear arithmetic steps.
+    \item \textbf{Pass@1 Rate Reduction}: $\Theta(N)$ accumulator updates.
+    \item \textbf{Space Complexity}: $\Theta(N)$ memory buffer for candidate rewards and flags.
+    \item \textbf{Parallel Reduction Depth}: $\mathcal{D} = \Theta(\log M)$ for test suite boolean reduction.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

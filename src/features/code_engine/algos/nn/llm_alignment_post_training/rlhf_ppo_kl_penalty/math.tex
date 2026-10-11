@@ -1,0 +1,250 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{RLHF with Proximal Policy Optimization and Token-Level KL Penalty}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Token-Level Regularized MDPs and Clipped Surrogate Objectives):}
+In Reinforcement Learning from Human Feedback (RLHF), language models are aligned with human intent by maximizing the scalar reward score $R(x, y)$ emitted by a trained reward model. However, unrestricted optimization of $R(x, y)$ induces catastrophic policy drift: the policy exploits holes in the reward model, generating repetitive or ungrammatical text that scores artificially high while ruining coherence. RLHF enforces trust-region stability by penalizing the Kullback-Leibler (KL) divergence between the active policy $\pi_\theta$ and a frozen reference model $\pi_{\text{ref}}$ (typically the SFT base model).
+
+For prompt $x$ and generated response tokens $y = (y_1, \dots, y_T)$, the \textbf{Token-Level Penalized Reward} $\tilde{r}_t$ is:
+{\boldmath
+\begin{equation}
+\tilde{r}_t = \begin{cases} -\beta_{\text{KL}} \left( \ln \pi_\theta(y_t \mid x, y_{<t}) - \ln \pi_{\text{ref}}(y_t \mid x, y_{<t}) \right) & \text{if } t < T \\ R(x, y) - \beta_{\text{KL}} \left( \ln \pi_\theta(y_T \mid x, y_{<T}) - \ln \pi_{\text{ref}}(y_T \mid x, y_{<T}) \right) & \text{if } t = T \end{cases}
+\end{equation}
+}
+where $\beta_{\text{KL}} > 0$ is the regularization coefficient.
+Given critic value predictions $V_\phi(s_t)$, generalized temporal difference residuals $\delta_t = \tilde{r}_t + \gamma V_\phi(s_{t+1}) - V_\phi(s_t)$ determine Generalized Advantage Estimators (GAE):
+{\boldmath
+\begin{equation}
+\hat{A}_t = \sum_{l=0}^{T - t - 1} (\gamma \lambda)^l \delta_{t+l}
+\end{equation}
+}
+Policy optimization is performed using the \textbf{PPO Clipped Objective}:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{PPO}}(\theta) = - \frac{1}{T}\sum_{t=1}^T \min\left( r_t(\theta) \hat{A}_t, \; \operatorname{clip}(r_t(\theta), 1 - \epsilon, 1 + \epsilon) \hat{A}_t \right)
+\end{equation}
+}
+where $r_t(\theta) = \frac{\pi_\theta(y_t \mid x, y_{<t})}{\pi_{\text{old}}(y_t \mid x, y_{<t})}$ is the probability ratio relative to rollout policy $\pi_{\text{old}}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Elastic Leash}: Think of the foundation model as a brilliant dog on a walking leash. The reward model tells the dog: ``Go chase the tennis ball over there!'' (maximize reward). The KL penalty is the elastic leash anchored to its original training: ``Don't run off a cliff or start barking backwards!''
+    \item \textbf{Rewarding Every Token}: A human only gives a score at the very end of a complete essay. But if an essay has 500 words, how does the model know which word was good? GAE spreads the final reward backwards token-by-token so every word gets its fair credit.
+    \item \textbf{The Safety Harness (PPO-Clip)}: When the model discovers an update that improves its score, PPO prevents it from changing its probabilities by more than 20\% in one step. This stops the model from destroying its own language capabilities overnight.
+    \item \textbf{The Gold Standard of Modern AI}: This exact algorithm (PPO with KL regulation) was the breakthrough engine behind OpenAI's InstructGPT and ChatGPT.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine an actor auditioning for a play:
+\begin{itemize}
+    \item \textbf{The Director's Applause (Reward Model)}: Gives applause when the actor shows passion.
+    \item \textbf{The Original Script (Reference Model)}: The actor must stick to the words written in the script ($\pi_{\text{ref}}$).
+    \item \textbf{The KL Leash}: If the actor improvises a little and delivers a line beautifully, they get applause. But if the actor starts babbling made-up alien words to get laughs, the director pulls them back to the script!
+    \item \textbf{Result}: The actor delivers a brilliant, emotional performance while honoring the story!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Per-Token KL Regularized Reward Trajectory}
+{\boldmath
+\begin{equation}
+\tilde{r}_t = -\beta_{\text{KL}} \left( \ln \pi_\theta(y_t \mid x, y_{<t}) - \ln \pi_{\text{ref}}(y_t \mid x, y_{<t}) \right) + R(x, y)\cdot \mathbb{I}(t == T)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Discrete token reward combining information-theoretic penalty with episodic terminal score.
+    \item \textbf{What It Means}: Penalizes each token that departs from the base model's typical phrasing, reserving the task bonus for completion.
+    \item \textbf{Why It Is Important}: Mathematically forces the policy to stay within the trust region of fluent, human-like linguistic distribution.
+\end{itemize}
+
+\subsection{Generalized Advantage Estimation (GAE) for Token Steps}
+{\boldmath
+\begin{equation}
+\hat{A}_t = \delta_t + (\gamma \lambda) \hat{A}_{t+1}, \quad \delta_t = \tilde{r}_t + \gamma V(s_{t+1}) - V(s_t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Recursive advantage formulation blending temporal difference errors along the token generation trace.
+    \item \textbf{What It Means}: Estimates whether an individual word choice was better or worse than the expected average baseline value.
+    \item \textbf{Why It Is Important}: Drastically reduces credit assignment variance across long multi-turn token trajectories.
+\end{itemize}
+
+\subsection{PPO Clipped Policy Surrogate Loss}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{PPO}} = -\frac{1}{T}\sum_{t=1}^T \min\left( \frac{\pi_\theta}{\pi_{\text{old}}} \hat{A}_t, \; \operatorname{clip}\left(\frac{\pi_\theta}{\pi_{\text{old}}}, 1 - \epsilon, 1 + \epsilon\right) \hat{A}_t \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: First-order pessimistic lower-bound surrogate objective clamping importance ratios to $[1 - \epsilon, 1 + \epsilon]$.
+    \item \textbf{What It Means}: Prevents oversized policy updates from destabilizing the language generator.
+    \item \textbf{Why It Is Important}: Protects the neural network against catastrophic policy collapse during off-policy multi-epoch training.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\pi_\theta$ (active policy), $\pi_{\text{ref}}$ (frozen base model), $R(x, y)$ (scalar reward), $\beta_{\text{KL}}$ (penalty scale), $\hat{A}_t$ (token advantage).
+    \item \textbf{Epistemic Status}: Formulated by Stiennon et al. (2020) and Ouyang et al. (OpenAI InstructGPT, 2022).
+    \item \textbf{Dependency Graph}: Rollout $(x, y) \to \text{Evaluate } (R, \ln \pi_\theta, \ln \pi_{\text{ref}}) \to \tilde{r}_t \to \text{GAE } \hat{A}_t \to \mathcal{L}_{\text{PPO}} \to \text{Adam Updates}$.
+    \item \textbf{Dimensions}: Sequence length $T$, scalar advantages $\hat{A}_t \in \mathbb{R}$.
+    \item \textbf{Regimes}: Conversational alignment, refusal and safety conditioning, complex reasoning refinement.
+    \item \textbf{Invariants}: If $\pi_\theta \equiv \pi_{\text{ref}}$ across all tokens, then $\sum_t \tilde{r}_t \equiv R(x, y)$ identically.
+    \item \textbf{Isomorphisms}: RLHF with token KL penalty is equivalent to entropy-regularized continuous control in discrete token sequence space.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Analytical Closed-Form Optimal Policy Under KL-Regularized RLHF]
+The unconstrained optimal policy $\pi^*$ maximizing the expected reward minus KL divergence:
+{\boldmath
+\begin{equation}
+\max_\pi \mathbb{E}_{y \sim \pi}[R(x, y)] - \beta_{\text{KL}} D_{\text{KL}}(\pi(y \mid x) \,||\, \pi_{\text{ref}}(y \mid x))
+\end{equation}
+}
+is unique and given analytically by the Gibbs-Boltzmann distribution:
+{\boldmath
+\begin{equation}
+\pi^*(y \mid x) = \frac{\pi_{\text{ref}}(y \mid x) \exp\left( \frac{1}{\beta_{\text{KL}}} R(x, y) \right)}{Z(x)}, \quad Z(x) = \sum_{y'} \pi_{\text{ref}}(y' \mid x) \exp\left( \frac{1}{\beta_{\text{KL}}} R(x, y') \right)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $J(\pi) = \sum_y \pi(y \mid x) R(x, y) - \beta_{\text{KL}} \sum_y \pi(y \mid x) \ln \frac{\pi(y \mid x)}{\pi_{\text{ref}}(y \mid x)}$.
+We consider the Kullback-Leibler divergence between an arbitrary policy $\pi(\cdot \mid x)$ and the proposed distribution $\pi^*(\cdot \mid x)$:
+{\boldmath
+\begin{align}
+D_{\text{KL}}(\pi \,||\, \pi^*) &= \sum_y \pi(y \mid x) \ln \frac{\pi(y \mid x)}{\pi^*(y \mid x)} \\
+&= \sum_y \pi(y \mid x) \left[ \ln \pi(y \mid x) - \ln \pi_{\text{ref}}(y \mid x) - \frac{1}{\beta_{\text{KL}}} R(x, y) + \ln Z(x) \right] \\
+&= \sum_y \pi(y \mid x) \ln \frac{\pi(y \mid x)}{\pi_{\text{ref}}(y \mid x)} - \frac{1}{\beta_{\text{KL}}} \sum_y \pi(y \mid x) R(x, y) + \ln Z(x) \\
+&= -\frac{1}{\beta_{\text{KL}}} J(\pi) + \ln Z(x)
+\end{align}
+}
+Multiplying by $-\beta_{\text{KL}}$:
+{\boldmath
+\begin{equation}
+J(\pi) = \beta_{\text{KL}} \ln Z(x) - \beta_{\text{KL}} D_{\text{KL}}(\pi \,||\, \pi^*)
+\end{equation}
+}
+Because $Z(x)$ is independent of $\pi$ and $D_{\text{KL}}(\pi \,||\, \pi^*) \ge 0$ with equality if and only if $\pi \equiv \pi^*$, the objective $J(\pi)$ is strictly maximized at $\pi \equiv \pi^*$. This establishes the exact closed-form optimal policy.
+\end{proof}
+
+\begin{theorem}[Non-Negativity of Unbiased Empirical KL Estimator]
+Let the per-token divergence estimator be defined as $d_{\text{KL}}(t) = \exp(\Delta_t) - \Delta_t - 1$, where $\Delta_t = \ln \pi_{\text{ref}}(y_t) - \ln \pi_\theta(y_t)$. Then $d_{\text{KL}}(t) \ge 0$ for all $\Delta_t \in \mathbb{R}$, with equality if and only if $\Delta_t = 0$.
+\end{theorem}
+
+\begin{proof}
+Let $f(u) = e^u - u - 1$ for $u \in \mathbb{R}$.
+We evaluate the first derivative:
+{\boldmath
+\begin{equation}
+f'(u) = e^u - 1
+\end{equation}
+}
+Evaluating critical points: $f'(u) = 0 \iff e^u = 1 \iff u = 0$.
+We evaluate the second derivative:
+{\boldmath
+\begin{equation}
+f''(u) = e^u > 0, \quad \forall u \in \mathbb{R}
+\end{equation}
+}
+Because the second derivative is strictly positive everywhere, $f(u)$ is strictly convex with a global minimum at $u = 0$.
+Evaluating the function at the minimum:
+{\boldmath
+\begin{equation}
+f(0) = e^0 - 0 - 1 = 1 - 1 = 0
+\end{equation}
+}
+Therefore, $f(u) \ge 0$ for all $u$, and $f(u) = 0$ if and only if $u = 0$.
+This guarantees that the token-level KL divergence estimate is strictly non-negative and robust against sample-level negative estimates.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: System Complexity of PPO vs DPO}
+\textbf{Question:} Why is PPO considered engineering-heavy compared to Direct Preference Optimization (DPO)?\\
+\textbf{Answer:} PPO requires hosting four distinct models simultaneously in memory during training: (1) Active policy $\pi_\theta$; (2) Value critic $V_\phi$; (3) Reference model $\pi_{\text{ref}}$; and (4) Reward model $R(x, y)$. Orchestrating distributed rollouts, dynamic batching, and synchronized parameter updates across multiple GPUs creates severe infrastructure overhead that DPO completely eliminates.
+
+\textbf{Meta-Question:} If PPO is complex, why do top AI labs still use it?\\
+\textbf{Answer:} PPO is an on-policy algorithm: it explores and receives live feedback on generations the model produces today. DPO is offline: it only learns from a static dataset of past comparisons. For open-ended reasoning, iterative tool use, and multi-turn coding where the model must generate new solutions and verify them, on-policy RL with PPO or GRPO is strictly superior.
+
+\subsection{Architectural Question 2: Tuning the KL Coefficient}
+\textbf{Question:} How is $\beta_{\text{KL}}$ adjusted during long training runs?\\
+\textbf{Answer:} Many practitioners employ adaptive KL controllers: if measured KL divergence exceeds a target threshold (e.g. $D_{\text{KL}} > 1.5 \times \text{target}$), $\beta_{\text{KL}}$ is scaled up; if divergence drops below $0.5 \times \text{target}$, $\beta_{\text{KL}}$ is decayed. This prevents both under-regularization (reward hacking) and over-regularization (stagnant learning).
+
+\textbf{Meta-Question:} How does token-level KL differ from sequence-level KL?\\
+\textbf{Answer:} Sequence-level KL penalizes only the whole-response divergence $\ln \pi(y) - \ln \pi_{\text{ref}}(y)$. Token-level KL applies penalties progressively at each step, preventing localized spikes of low-probability strange words and stabilizing the critic's value estimates throughout the trajectory.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{RLHF PPO Step Evaluation and GAE Advantage Computation}
+\begin{algorithmic}[1]
+\Require Token log-probs $\mathbf{lp}, \mathbf{lp}_{\text{old}}, \mathbf{lp}_{\text{ref}}$, values $\mathbf{V}$, scalar reward $R$, weights $\beta_{\text{KL}}, \gamma, \lambda, \epsilon$
+\Ensure Rewards $\tilde{\mathbf{r}}$, total divergence $D_{\text{KL}}$, PPO loss $\mathcal{L}_{\text{PPO}}$, value loss $\mathcal{L}_V$, mean advantage $\bar{A}$
+\State Allocate $\tilde{\mathbf{r}} \in \mathbb{R}^T, \quad \hat{\mathbf{A}} \in \mathbb{R}^T, \quad \mathbf{Returns} \in \mathbb{R}^T$
+\State $total\_kl \gets 0.0$
+\For{$t = 0$ \textbf{to} $T-1$}
+    \State $kl_t \gets \mathbf{lp}[t] - \mathbf{lp}_{\text{ref}}[t]$
+    \State $total\_kl \gets total\_kl + kl_t$
+    \State $\tilde{\mathbf{r}}[t] \gets -\beta_{\text{KL}} \cdot kl_t + (R \text{ if } t == T-1 \text{ else } 0.0)$
+\EndFor
+\State $last\_gae \gets 0.0$
+\For{$t = T-1$ \textbf{downto} $0$}
+    \State $next\_v \gets (\mathbf{V}[t+1] \text{ if } t+1 < T \text{ else } 0.0)$
+    \State $\delta_t \gets \tilde{\mathbf{r}}[t] + \gamma \cdot next\_v - \mathbf{V}[t]$
+    \State $last\_gae \gets \delta_t + \gamma \cdot \lambda \cdot last\_gae$
+    \State $\hat{\mathbf{A}}[t] \gets last\_gae, \quad \mathbf{Returns}[t] \gets last\_gae + \mathbf{V}[t]$
+\EndFor
+\State $surr\_accum \gets 0.0, \quad val\_accum \gets 0.0, \quad low \gets 1 - \epsilon, \quad high \gets 1 + \epsilon$
+\For{$t = 0$ \textbf{to} $T-1$}
+    \State $ratio \gets \exp(\mathbf{lp}[t] - \mathbf{lp}_{\text{old}}[t])$
+    \State $clamped \gets \max(low, \min(high, ratio))$
+    \State $surr\_accum \gets surr\_accum + \min(ratio \cdot \hat{\mathbf{A}}[t], clamped \cdot \hat{\mathbf{A}}[t])$
+    \State $val\_accum \gets val\_accum + (\mathbf{V}[t] - \mathbf{Returns}[t])^2$
+\EndFor
+\State $\mathcal{L}_{\text{PPO}} \gets - surr\_accum / T, \quad \mathcal{L}_V \gets val\_accum / T, \quad \bar{A} \gets \frac{1}{T}\sum \hat{\mathbf{A}}[t]$
+\State \Return $(\tilde{\mathbf{r}}, total\_kl, \mathcal{L}_{\text{PPO}}, \mathcal{L}_V, \bar{A})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Penalized Reward Evaluation Time}: $\Theta(T)$ operations for sequence token penalties.
+    \item \textbf{GAE Advantage Recursion}: $\Theta(T)$ backward linear accumulation steps.
+    \item \textbf{PPO Clipped Surrogate Evaluation}: $\Theta(T)$ scalar ratio clamps.
+    \item \textbf{Space Complexity}: $\Theta(T)$ buffer for advantages and penalized returns.
+    \item \textbf{Parallel Reduction Depth}: $\mathcal{D} = \Theta(T)$ for sequential GAE recurrence.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

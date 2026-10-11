@@ -1,0 +1,218 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Differentially Private Stochastic Gradient Descent (DP-SGD) with Calibrated Gaussian Perturbation}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Differentially Private SGD and the Gaussian Mechanism):}
+Training large language models on sensitive corpora (e.g., electronic health records, internal corporate code, private user communications) creates severe vulnerability to training data extraction attacks (Carlini et al., 2021). A randomized training algorithm $\mathcal{M}$ satisfies \textbf{$(\epsilon, \delta)$-Differential Privacy (DP)} if for any two neighboring datasets $\mathcal{D}, \mathcal{D}'$ differing by at most one individual example ($|\mathcal{D} \triangle \mathcal{D}'| \le 1$), and for every subset of outputs $\mathcal{S} \subseteq \operatorname{Range}(\mathcal{M})$:
+{\boldmath
+\begin{equation}
+\mathbb{P}\left[ \mathcal{M}(\mathcal{D}) \in \mathcal{S} \right] \le e^{\epsilon} \cdot \mathbb{P}\left[ \mathcal{M}(\mathcal{D}') \in \mathcal{S} \right] + \delta
+\end{equation}
+}
+where $\epsilon > 0$ defines the strict privacy loss budget and $\delta \in [0, 1)$ quantifies the small probability of privacy failure (typically $\delta < 1/|\mathcal{D}|$).
+
+\textbf{Differentially Private SGD (DP-SGD)} (Abadi et al., 2016) enforces this guarantee through two mandatory operations in each optimization step:
+\begin{enumerate}
+    \item \textbf{Per-Example Gradient Clipping}: Bounds the maximum influence of any individual training sample by scaling each gradient vector $g_i \triangleq \nabla_\theta \ell(\theta; x_i)$ to have $L_2$-norm at most $C$:
+    {\boldmath
+    \begin{equation}
+    \bar{g}_i \triangleq \frac{g_i}{\max\left( 1, \, \frac{\|g_i\|_2}{C} \right)}
+    \end{equation}
+    }
+    \item \textbf{Calibrated Gaussian Noise Addition}: Injects isotropic Gaussian perturbation scaled to sensitivity $C$ and noise multiplier $\sigma$:
+    {\boldmath
+    \begin{equation}
+    \tilde{g} \triangleq \frac{1}{B} \left( \sum_{i=1}^B \bar{g}_i + \mathcal{N}\left( \mathbf{0}, \, \sigma^2 C^2 \mathbf{I}_P \right) \right)
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Mathematical Plausible Deniability}: If an adversary has complete access to every single model weight, they cannot mathematically determine whether your specific personal medical record was included in the training dataset or omitted.
+    \item \textbf{Capping the Loudest Voices (Clipping)}: If one person's record is unusual or extreme, its raw gradient could scream 1,000 times louder than normal records. The clipping threshold $C$ puts a volume limiter on every sample: no matter how shocking a data point is, it cannot speak louder than volume $C$.
+    \item \textbf{Adding Protective Fog (Gaussian Noise)}: After summing everyone's capped suggestions, the algorithm stirs in a calibrated cloud of random static. The static drowns out individual fingerprints while allowing the massive collective wisdom of thousands of examples to shine through clearly.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine voting in a secret school survey:
+\begin{itemize}
+    \item \textbf{Unprotected Voting}: Writing your name and personal secret on a bright red index card and dropping it into a clear glass jar.
+    \item \textbf{Differentially Private Voting}: Everyone writes on standard white slips (clipping), drops them into a jar, and the teacher tosses in a handful of random coin flips before tallying the score (noise perturbation). No one can ever prove which vote was yours!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{R\'enyi Differential Privacy (RDP) Privacy Composition}
+{\boldmath
+\begin{equation}
+\epsilon(\alpha) = \frac{\alpha}{2 \sigma^2} \cdot \frac{B^2}{N^2} \cdot T, \quad \epsilon = \min_{\alpha > 1} \left( \epsilon(\alpha) + \frac{\ln(1/\delta)}{\alpha - 1} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Moments accountant tracking cumulative privacy budget expenditure across $T$ training steps with subsampling ratio $q = B/N$.
+    \item \textbf{What It Means}: Converts individual step Gaussian mechanisms into a tight analytical cumulative $(\epsilon, \delta)$ guarantee.
+    \item \textbf{Why It Is Important}: Avoids loose naive advanced composition, proving strong privacy bounds under hundreds of thousands of steps.
+\end{itemize}
+
+\subsection{Empirical Clipping Rate and Distortion Norm}
+{\boldmath
+\begin{equation}
+\mathcal{F}_{\text{clip}} \triangleq \frac{1}{B} \sum_{i=1}^B \mathbf{1}\left( \|g_i\|_2 > C \right), \quad \bar{\mu}_{\text{norm}} \triangleq \frac{1}{B} \sum_{i=1}^B \min\left(\|g_i\|_2, C\right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Operational metrics tracking the fraction of samples clipped and average effective gradient magnitude.
+    \item \textbf{What It Means}: Measures whether the clipping norm $C$ is too low (excessive bias) or too high (excessive noise required).
+    \item \textbf{Why It Is Important}: Guides dynamic adaptive clipping schedules in production pipelines.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $B$ (batch size), $P$ (parameters), $C$ (clipping threshold), $\sigma$ (noise multiplier), $\epsilon, \delta$ (privacy parameters), $T$ (steps).
+    \item \textbf{Epistemic Status}: Standardized cryptographic privacy protocol (Abadi et al., 2016; Mironov, 2017; Opacus library).
+    \item \textbf{Dependency Graph}: Per-Sample Gradients $\to L_2$ Norm Evaluation $\to$ Clipping by $C \to$ Gaussian Perturbation $\to$ Private Gradient.
+    \item \textbf{Dimensions}: Gradients in $\mathbb{R}^P$; clipping threshold $C \in \mathbb{R}_+$; noise scale $\sigma \in \mathbb{R}_+$.
+    \item \textbf{Regimes}: Production fine-tuning where data regulations (GDPR, HIPAA) mandate rigorous mathematical non-reconstruction bounds.
+    \item \textbf{Invariants}: Strict $L_2$-norm sensitivity bound $\|\sum \bar{g}_i - \sum \bar{g}_i'\|_2 \le 2C$ across all adjacent datasets.
+    \item \textbf{Isomorphisms}: Isomorphic to calibrated noise injection in secure multi-party cryptographic computation.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[$L_2$-Sensitivity of Summed Clipped Gradients]
+Let $\mathcal{B} = \{x_1, \dots, x_B\}$ and $\mathcal{B}' = \{x_1', \dots, x_B'\}$ be two mini-batches differing by at most one example ($|\mathcal{B} \triangle \mathcal{B}'| \le 2$, with without-loss-of-generality $x_1 \neq x_1'$ and $x_i = x_i'$ for all $i \ge 2$). Let $\bar{g}_i = g_i / \max(1, \|g_i\|_2 / C)$ denote the clipped gradient operator. The $L_2$-sensitivity of the sum query $\mathcal{S}(\mathcal{B}) = \sum_{i=1}^B \bar{g}_i$ is strictly bounded by $2C$:
+{\boldmath
+\begin{equation}
+\Delta_2(\mathcal{S}) \triangleq \sup_{\mathcal{B}, \mathcal{B}'} \left\| \mathcal{S}(\mathcal{B}) - \mathcal{S}(\mathcal{B}') \right\|_2 \le 2C
+\end{equation}
+}
+If the neighboring definition assumes one record is replaced, $\Delta_2 \le 2C$; if one record is added/removed, $\Delta_2 \le C$.
+\end{theorem}
+
+\begin{proof}
+By definition of the clipped vector:
+\begin{equation}
+\|\bar{g}_i\|_2 = \left\| \frac{g_i}{\max(1, \|g_i\|_2 / C)} \right\|_2 = \frac{\|g_i\|_2}{\max(1, \|g_i\|_2 / C)} \le \frac{\|g_i\|_2}{\|g_i\|_2 / C} = C
+\end{equation}
+Hence every individual clipped gradient resides inside the closed $L_2$ ball $\mathcal{B}_C = \{v \in \mathbb{R}^P : \|v\|_2 \le C\}$.
+Now consider two adjacent batches differing in the first element:
+\begin{equation}
+\mathcal{S}(\mathcal{B}) - \mathcal{S}(\mathcal{B}') = \sum_{i=1}^B \bar{g}(x_i) - \sum_{i=1}^B \bar{g}(x_i') = \bar{g}(x_1) - \bar{g}(x_1') + \sum_{i=2}^B (\bar{g}(x_i) - \bar{g}(x_i)) = \bar{g}(x_1) - \bar{g}(x_1')
+\end{equation}
+Applying the triangle inequality:
+\begin{equation}
+\|\mathcal{S}(\mathcal{B}) - \mathcal{S}(\mathcal{B}')\|_2 = \|\bar{g}(x_1) - \bar{g}(x_1')\|_2 \le \|\bar{g}(x_1)\|_2 + \|\bar{g}(x_1')\|_2 \le C + C = 2C
+\end{equation}
+In the add/remove definition where one batch has $B$ items and the other has $B-1$, the difference is simply $\|\bar{g}(x_1)\|_2 \le C$. In either case, the sensitivity is strictly bounded by a constant independent of the model's unconstrained loss gradients.
+\end{proof}
+
+\begin{theorem}[Privacy Guarantee of the Gaussian Mechanism]
+Let a query function $f: \mathcal{D} \to \mathbb{R}^P$ have $L_2$-sensitivity $\Delta_2(f)$. For any $\epsilon \in (0, 1)$ and $\delta \in (0, 1)$, the Gaussian mechanism adding noise $\mathcal{Z} \sim \mathcal{N}\left(\mathbf{0}, \sigma^2 \mathbf{I}_P\right)$ satisfies $(\epsilon, \delta)$-Differential Privacy provided the noise standard deviation satisfies:
+{\boldmath
+\begin{equation}
+\sigma \ge \frac{\Delta_2(f) \sqrt{2 \ln(1.25 / \delta)}}{\epsilon}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $Y = f(\mathcal{D}) + \mathcal{Z}$ and $Y' = f(\mathcal{D}') + \mathcal{Z}$. The privacy loss random variable at output $y \in \mathbb{R}^P$ is:
+\begin{equation}
+\mathcal{L}(y) \triangleq \ln \frac{p_Y(y)}{p_{Y'}(y)} = \ln \frac{\exp\left(-\frac{\|y - f(\mathcal{D})\|_2^2}{2\sigma^2}\right)}{\exp\left(-\frac{\|y - f(\mathcal{D}')\|_2^2}{2\sigma^2}\right)} = \frac{\|y - f(\mathcal{D}')\|_2^2 - \|y - f(\mathcal{D})\|_2^2}{2\sigma^2}
+\end{equation}
+Let $u = f(\mathcal{D}) - f(\mathcal{D}')$ with $\|u\|_2 \le \Delta_2$. Substituting $y = f(\mathcal{D}) + \mathcal{Z}$:
+\begin{equation}
+\mathcal{L}(y) = \frac{\|\mathcal{Z} + u\|_2^2 - \|\mathcal{Z}\|_2^2}{2\sigma^2} = \frac{2 \langle \mathcal{Z}, u \rangle + \|u\|_2^2}{2\sigma^2} = \frac{\langle \mathcal{Z}, u \rangle}{\sigma^2} + \frac{\|u\|_2^2}{2\sigma^2}
+\end{equation}
+Since $\mathcal{Z} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I}_P)$, the inner product $\langle \mathcal{Z}, u \rangle \sim \mathcal{N}(0, \sigma^2 \|u\|_2^2)$.
+Thus $\mathcal{L}$ is a Gaussian random variable with mean $\mu = \frac{\|u\|_2^2}{2\sigma^2} \le \frac{\Delta_2^2}{2\sigma^2}$ and variance $\sigma_{\mathcal{L}}^2 = \frac{\|u\|_2^2}{\sigma^2} \le \frac{\Delta_2^2}{\sigma^2}$.
+By the Gaussian tail bound:
+\begin{equation}
+\mathbb{P}\left[ \mathcal{L} > \epsilon \right] \le \frac{1}{2} \operatorname{erfc}\left( \frac{\epsilon - \mu}{\sqrt{2} \sigma_{\mathcal{L}}} \right) \le \exp\left( -\frac{(\epsilon - \mu)^2}{2 \sigma_{\mathcal{L}}^2} \right)
+\end{equation}
+Setting this probability bound equal to $\delta$ and solving for $\sigma$ yields $\sigma \ge \frac{\Delta_2 \sqrt{2 \ln(1.25/\delta)}}{\epsilon}$, proving the $(\epsilon, \delta)$-DP bound.
+\end{proof}
+
+\section{Architectural Questions and Real-World Trade-Offs}
+
+\subsection{Architectural Question 1: Per-Sample Gradient Computation Bottleneck}
+\textbf{Question:} Why is DP-SGD computationally slower than standard distributed SGD?\\
+\textbf{Answer:} Standard deep learning frameworks sum gradients across all batch elements during backpropagation inside GEMM kernels: $\nabla_\theta \mathcal{L} = \sum_{i=1}^B \nabla_\theta \ell_i$. DP-SGD requires computing $\|g_i\|_2$ individually for every sample before summing. Historically, this required $B$ sequential forward/backward passes or expanding batch dimensions (causing out-of-memory errors). Modern frameworks like Opacus use functorch / vmap vectorized Jacobians to compute per-sample norms in parallel with only $\sim 1.5\times$ compute overhead.
+
+\subsection{Architectural Question 2: Utility-Privacy Frontier and Parameter Selection}
+\textbf{Question:} How does one choose the clipping threshold $C$?\\
+\textbf{Answer:} If $C$ is chosen too small ($C \ll \|g\|$), gradients are excessively truncated, introducing high estimation bias and stalling optimization. If $C$ is chosen too large ($C \gg \|g\|$), the required Gaussian noise $\sigma C$ becomes enormous, drowning out the gradient signal and destroying accuracy. The optimal $C$ is set around the median unclipped gradient norm (typically $C \in [0.1, 1.0]$), often tuned adaptively via private quantile estimation.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Differentially Private SGD (DP-SGD) with Calibrated Gaussian Noise}
+\begin{algorithmic}[1]
+\Require Per-example gradients $\mathbf{g} \in \mathbb{R}^{B \times P}$, clipping norm $C$, noise multiplier $\sigma$, dataset size $N$, step $t$, delta $\delta$
+\Ensure Private gradient $\tilde{\mathbf{g}} \in \mathbb{R}^P$, clipping fraction $\mathcal{F}_{\text{clip}}$, mean norm $\bar{\mu}$, estimated privacy loss $\epsilon$
+\State $B \gets \operatorname{len}(\mathbf{g}), \quad P \gets \operatorname{len}(\mathbf{g}[0])$
+\State Initialize clipped gradients buffer $\bar{\mathbf{g}} \gets [\,], \quad \text{clipped\_count} \gets 0, \quad \text{norm\_sum} \gets 0.0$
+\For{$i = 0$ \textbf{to} $B - 1$}
+    \State $\|g_i\|_2 \gets \sqrt{\sum_{j=0}^{P-1} g_{i, j}^2}$
+    \If{$\|g_i\|_2 > C$}
+        \State $\text{scale} \gets C / \|g_i\|_2$
+        \State $\text{clipped\_count} \gets \text{clipped\_count} + 1$
+        \State $\text{norm\_sum} \gets \text{norm\_sum} + C$
+        \State Append $[ x \cdot \text{scale} \text{ for } x \in \mathbf{g}_i ]$ to $\bar{\mathbf{g}}$
+    \Else
+        \State $\text{norm\_sum} \gets \text{norm\_sum} + \|g_i\|_2$
+        \State Append $\mathbf{g}_i$ to $\bar{\mathbf{g}}$
+    \EndIf
+\EndFor
+\State $\mathcal{F}_{\text{clip}} \gets \text{clipped\_count} / B, \quad \bar{\mu} \gets \text{norm\_sum} / B$
+\State Initialize $\tilde{\mathbf{g}} \gets \mathbf{0} \in \mathbb{R}^P$
+\For{$j = 0$ \textbf{to} $P - 1$}
+    \State $\text{sum}_j \gets \sum_{i=0}^{B-1} \bar{g}_{i, j}$
+    \State Sample standard normal $\xi_j \sim \mathcal{N}(0, 1)$
+    \State $\tilde{g}_j \gets (\text{sum}_j + \sigma \cdot C \cdot \xi_j) / B$
+\EndFor
+\State Compute RDP cumulative $\epsilon \approx \frac{B}{N} \cdot \frac{\sqrt{2 \cdot t \cdot \ln(1 / \delta)}}{\max(0.1, \sigma)}$
+\State \Return $(\tilde{\mathbf{g}}, \mathcal{F}_{\text{clip}}, \bar{\mu}, \epsilon)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Per-Example $L_2$ Norm Calculation}: $\Theta(B \cdot P)$ element-wise multiplications.
+    \item \textbf{Gradient Clipping Pass}: $\Theta(B \cdot P)$ vector scaling operations.
+    \item \textbf{Coordinate Sum and Perturbation}: $\Theta(B \cdot P)$ accumulator steps plus $\Theta(P)$ noise samples.
+    \item \textbf{Total Time Complexity}: $\Theta(B \cdot P)$ linear with respect to total gradient matrix dimension.
+    \item \textbf{Space Complexity}: $\Theta(B \cdot P)$ buffer for per-sample clipped tensors.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

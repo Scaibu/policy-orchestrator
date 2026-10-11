@@ -1,0 +1,220 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Megatron-Style Tensor Parallelism: Column and Row Partitioning}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Intra-Layer Tensor Parallelism):}
+When individual layer weights exceed the physical memory capacity of a single GPU, or when serving latency requirements preclude sequential execution, \textbf{Tensor Parallelism (TP)} (Shoeybi et al., 2019 - Megatron-LM) splits individual weight matrices across $N_{\text{tp}}$ GPUs within a high-bandwidth node (NVLink).
+
+In a transformer block, Megatron-LM strategically combines Column-Parallel and Row-Parallel linear layers to minimize inter-GPU communication:
+\begin{enumerate}
+    \item \textbf{Multi-Layer Perceptron (MLP) Sublayer}:
+    Given input activation $x \in \mathbb{R}^k$, first linear weight $A \in \mathbb{R}^{d \times k}$ and second weight $B \in \mathbb{R}^{k \times d}$:
+    \begin{itemize}
+        \item Matrix $A$ is partitioned by \textbf{columns} (along its output dimension):
+        {\boldmath
+        \begin{equation}
+        A = \begin{bmatrix} A_1 \\ \dots \\ A_{N_{\text{tp}}} \end{bmatrix}, \quad A_i \in \mathbb{R}^{\frac{d}{N_{\text{tp}}} \times k}
+        \end{equation}
+        }
+        Each GPU $i$ independently computes $z_i = \sigma(A_i x)$ without any communication.
+        \item Matrix $B$ is partitioned by \textbf{rows} (along its input dimension):
+        {\boldmath
+        \begin{equation}
+        B = \begin{bmatrix} B_1 & \dots & B_{N_{\text{tp}}} \end{bmatrix}, \quad B_i \in \mathbb{R}^{k \times \frac{d}{N_{\text{tp}}}}
+        \end{equation}
+        }
+        Each GPU $i$ computes partial product $y_i = B_i z_i$.
+        \item A single \textbf{All-Reduce} (sum collective) merges the partial outputs across the $N_{\text{tp}}$ ranks:
+        {\boldmath
+        \begin{equation}
+        y = \sum_{i=1}^{N_{\text{tp}}} y_i = \sum_{i=1}^{N_{\text{tp}}} B_i \sigma(A_i x) = B \sigma(A x)
+        \end{equation}
+        }
+    \end{itemize}
+    \item \textbf{Self-Attention Sublayer}:
+    Attention projection matrices $W_q, W_k, W_v$ are column-parallel (splitting attention heads across ranks), while output projection $W_o$ is row-parallel, requiring exactly one All-Reduce at the sublayer exit.
+\end{enumerate}
+Thus, each transformer block requires exactly two All-Reduces in the forward pass and two in the backward pass.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Dividing a Massive Calculator Grid}: A transformer matrix multiplication is like filling out a 10,000 by 10,000 spreadsheet. Instead of making one GPU do all 100,000,000 multiplications, 8 GPUs take vertical and horizontal slices, compute their pieces in parallel, and add their numbers together.
+    \item \textbf{High-Speed Interconnect Mandatory}: Because GPUs must synchronize inside \emph{every single layer}, Tensor Parallelism generates immense network traffic. It only runs efficiently within a single server chassis where GPUs are connected by ultra-fast copper NVLink bridges (900 GB/s), not across standard Ethernet cables.
+    \item \textbf{Essential for Low-Latency Serving}: When an AI chatbot generates tokens live for users, each token must appear in milliseconds. TP cuts single-token latency by $N_{\text{tp}}\times$, enabling instant user responses.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine an 8-handed artist painting a mural:
+\begin{itemize}
+    \item \textbf{Without Tensor Parallelism}: One artist painting a giant wall with one hand. It takes 10 hours.
+    \item \textbf{With Tensor Parallelism}: 8 artists standing side by side. Each artist paints their own strip simultaneously, then they blend the border seams together in 2 seconds. The mural finishes in 1 hour!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Column-Row Megatron MLP Composition}
+{\boldmath
+\begin{equation}
+\operatorname{MLP}(x) = \operatorname{AllReduce}\left( \left[ B_1 \sigma(A_1 x), \, \dots, \, B_{N_{\text{tp}}} \sigma(A_{N_{\text{tp}}} x) \right] \right) = B \sigma(A x)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Exact algebraic decomposition of feed-forward network across distributed ranks.
+    \item \textbf{What It Means}: Pairs column and row partitioning to sandwich the non-linearity $\sigma$ with zero intermediate communication.
+    \item \textbf{Why It Is Important}: Avoids communicating the large intermediate activation tensor $z \in \mathbb{R}^d$.
+\end{itemize}
+
+\subsection{Communication Volume per Transformer Block}
+{\boldmath
+\begin{equation}
+V_{\text{comm}} = 4 \times \left( 2 \cdot \frac{N_{\text{tp}} - 1}{N_{\text{tp}}} \cdot (B \cdot L \cdot d) \right) \text{ elements}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Network transfer footprint per batch size $B$, sequence length $L$, and hidden dimension $d$.
+    \item \textbf{What It Means}: Two forward and two backward all-reduces per block.
+    \item \textbf{Why It Is Important}: Primary theoretical constraint bounding TP degree to intra-node groups ($N_{\text{tp}} \le 8$).
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $N_{\text{tp}}$ (TP rank degree), $A$ (column matrix), $B$ (row matrix), $d_{\text{in}}, d_{\text{mid}}, d_{\text{out}}$ (dimensions).
+    \item \textbf{Epistemic Status}: Shoeybi et al. (2019 - Megatron-LM). Core foundation of high-throughput LLM training and vLLM inference.
+    \item \textbf{Dependency Graph}: Input $x \to \text{Column GEMM } A_i x \to \text{GeLU } \sigma \to \text{Row GEMM } B_i z_i \to \text{All-Reduce Sum} \to y$.
+    \item \textbf{Dimensions}: Hidden dimension $d$, intermediate MLP dimension $4d$, attention heads $H$ (divisible by $N_{\text{tp}}$).
+    \item \textbf{Regimes}: Models with $>13\text{B}$ parameters, low-latency online inference serving.
+    \item \textbf{Invariants}: In the absence of floating-point rounding variance, output is mathematically identical to single-GPU execution.
+    \item \textbf{Isomorphisms}: Isomorphic to Cannon's matrix multiplication algorithm for distributed memory meshes.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Exact Algebraic Equivalence of Column-Row Partitioning]
+Let $A \in \mathbb{R}^{d_{\text{mid}} \times d_{\text{in}}}$ and $B \in \mathbb{R}^{d_{\text{out}} \times d_{\text{mid}}}$ be dense weight matrices, and let $\sigma: \mathbb{R} \to \mathbb{R}$ be an elementwise activation function. For any column partition $A = [A_1^T, \dots, A_N^T]^T$ and row partition $B = [B_1, \dots, B_N]$:
+{\boldmath
+\begin{equation}
+\sum_{i=1}^N B_i \sigma(A_i x) \equiv B \sigma(A x)
+\end{equation}
+}
+for all input vectors $x \in \mathbb{R}^{d_{\text{in}}}$.
+\end{theorem}
+
+\begin{proof}
+Consider the matrix-vector product $z = A x \in \mathbb{R}^{d_{\text{mid}}}$.
+Partitioning $A$ along rows (which corresponds to column partition of the output space):
+{\boldmath
+\begin{equation}
+z = \begin{bmatrix} z_1 \\ \vdots \\ z_N \end{bmatrix} = \begin{bmatrix} A_1 x \\ \vdots \\ A_N x \end{bmatrix}, \quad z_i = A_i x \in \mathbb{R}^{d_{\text{mid}} / N}
+\end{equation}
+}
+Since $\sigma$ operates elementwise:
+{\boldmath
+\begin{equation}
+\sigma(z) = \begin{bmatrix} \sigma(z_1) \\ \vdots \\ \sigma(z_N) \end{bmatrix} = \begin{bmatrix} \sigma(A_1 x) \\ \vdots \\ \sigma(A_N x) \end{bmatrix}
+\end{equation}
+}
+Now apply matrix $B = [B_1, \dots, B_N] \in \mathbb{R}^{d_{\text{out}} \times d_{\text{mid}}}$:
+By the definition of block matrix multiplication:
+{\boldmath
+\begin{equation}
+B \sigma(A x) = [B_1, \dots, B_N] \begin{bmatrix} \sigma(A_1 x) \\ \vdots \\ \sigma(A_N x) \end{bmatrix} = \sum_{i=1}^N B_i \sigma(A_i x)
+\end{equation}
+}
+Because each term $B_i \sigma(A_i x)$ is computed locally on device $i$ and summed via All-Reduce, the distributed operation exactly reproduces the monolithic linear-non-linear-linear projection.
+\end{proof}
+
+\begin{theorem}[Zero-Communication Layer Norm Isolation via Sequence Parallelism]
+In Megatron Sequence Parallelism, splitting non-tensor-parallel regions (LayerNorm and Dropout) along sequence length $L / N_{\text{tp}}$ replaces the All-Reduce collective with a Reduce-Scatter and All-Gather pair without increasing total communication volume:
+{\boldmath
+\begin{equation}
+\text{Volume}_{\text{SP}} \equiv \text{Volume}_{\text{TP}} = 2 \left( \frac{N - 1}{N} \right) M
+\end{equation}
+}
+while reducing activation memory by factor $N_{\text{tp}}$.
+\end{theorem}
+
+\begin{proof}
+In standard TP, the MLP outputs a full All-Reduce consisting of:
+- Reduce-Scatter: $\frac{N-1}{N} M$ bytes.
+- All-Gather: $\frac{N-1}{N} M$ bytes.
+Total = $2 \frac{N-1}{N} M$.
+In Sequence Parallelism (Korthikanti et al., 2022):
+- The MLP output executes only the Reduce-Scatter, leaving each rank with an activation chunk of length $L / N$.
+- LayerNorm and Dropout operate in parallel on the local $L / N$ tokens, consuming $\frac{1}{N}$ activation memory.
+- Immediately before the next linear layer, an All-Gather reconstructs the sequence for column GEMM.
+The total bytes transferred are:
+{\boldmath
+\begin{equation}
+\text{ReduceScatter} + \text{AllGather} = \left( \frac{N-1}{N} \right) M + \left( \frac{N-1}{N} \right) M = 2 \left( \frac{N-1}{N} \right) M
+\end{equation}
+}
+Communication volume is mathematically identical, while activation storage drops by factor $N$.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Divisibility Constraints}
+\textbf{Question:} Why must attention head count and hidden dimension divide evenly by $N_{\text{tp}}$?\\
+\textbf{Answer:} Attention heads are split across TP ranks (each GPU handles $H / N_{\text{tp}}$ heads). If $H = 32$ and $N_{\text{tp}} = 6$, fractional head splitting is impossible without padding or load imbalance. Standard models strictly design head counts as multiples of 8 (e.g. 32, 64, or 128) to support $N_{\text{tp}} \in \{2, 4, 8\}$.
+
+\subsection{Architectural Question 2: Why TP Fails Across Nodes}
+\textbf{Question:} Why is Tensor Parallelism almost never run across InfiniBand or Ethernet nodes?\\
+\textbf{Answer:} TP synchronizes inside every single layer ($2\times$ per layer $\times 80$ layers = 160 synchronizations per forward pass). Inter-node network latency ($1\text{--}5\,\mu\text{s}$ per transfer) accumulates to hundreds of milliseconds, stalling GPU compute cores. Inter-node scaling uses Pipeline Parallelism (#236) or Data Parallelism (#233), which communicate only at boundary stages or step completions.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Megatron Column-Row Tensor Parallelism Forward Step}
+\begin{algorithmic}[1]
+\Require Input activation $\mathbf{x} \in \mathbb{R}^{d_{\text{in}}}$, column shards $\{\mathbf{W}_{\text{col}}^p\}_{p=1}^{N_{\text{tp}}}$, row shards $\{\mathbf{W}_{\text{row}}^p\}_{p=1}^{N_{\text{tp}}}$
+\Ensure Output activation $\mathbf{y} \in \mathbb{R}^{d_{\text{out}}}$, shard states $\{\mathbf{z}^p\}$, comm volume $V$
+\State $d_{\text{mid\_shard}} \gets |\mathbf{W}_{\text{col}}^1|, \quad d_{\text{out}} \gets |\mathbf{W}_{\text{row}}^1|$
+\State Allocate $\mathbf{y} \gets \mathbf{0}_{d_{\text{out}}}$
+\For{$p = 1$ \textbf{to} $N_{\text{tp}}$}
+    \State Compute local hidden: $\mathbf{z}^p \gets \operatorname{GeLU}(\mathbf{W}_{\text{col}}^p \mathbf{x})$
+    \State Compute local partial: $\mathbf{y}^p \gets \mathbf{W}_{\text{row}}^p \mathbf{z}^p$
+    \State $\mathbf{y} \gets \mathbf{y} + \mathbf{y}^p$ \Comment{All-Reduce sum}
+\EndFor
+\State $V \gets 2 \cdot (N_{\text{tp}} - 1) \cdot d_{\text{out}}$
+\State \Return $(\mathbf{y}, \{\mathbf{z}^p\}, V)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Local GEMM Time}: $\Theta\left(\frac{d_{\text{in}} d_{\text{mid}} + d_{\text{mid}} d_{\text{out}}}{N_{\text{tp}}}\right)$ operations per worker.
+    \item \textbf{All-Reduce Collective Time}: $\Theta(d_{\text{out}})$ transfer elements.
+    \item \textbf{Memory Storage per Device}: $\Theta\left(\frac{P}{N_{\text{tp}}}\right)$ layer weights.
+    \item \textbf{Speedup Factor}: Linear $\Theta(N_{\text{tp}})$ reduction in matrix multiply time.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

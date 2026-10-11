@@ -1,0 +1,242 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Curriculum Learning and Pacing Functions in LLM Pretraining}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Non-Stationary Data Scheduling and Pacing Functions):}
+In classical empirical risk minimization, training batches are sampled uniformly and independently from an invariant data distribution $\mathcal{D}$. However, in complex high-dimensional sequence modeling, exposing randomly initialized models to extremely long, noisy, or linguistically intricate examples induces unstable gradient variance and slow optimization dynamics. \textbf{Curriculum Learning} imposes an explicit non-stationary data schedule ordered by difficulty, presenting simple, clean concepts early before progressively introducing harder, more nuanced distributions.
+
+Let each training example $x \in \mathcal{D}$ possess a difficulty metric $d(x) \in \mathbb{R}_{\ge 0}$ (e.g., sequence length $|x|$, loss under a small reference model $\mathcal{L}_{\text{ref}}(x)$, or parse-tree depth). A \textbf{Pacing Function} $g: [0, T_{\text{pace}}] \to [\gamma_0, 1.0]$ governs the fraction of easiest training examples available to the optimizer at training step $t$:
+{\boldmath
+\begin{equation}
+\mathcal{D}_t = \left\{ x \in \mathcal{D} \;\middle|\; d(x) \le F_d^{-1}(g(t)) \right\}
+\end{equation}
+}
+where $F_d(\cdot)$ is the cumulative distribution function of sample difficulties, $\gamma_0 \in (0, 1]$ is the initial data fraction, and $g(t)$ is monotonically non-decreasing.
+
+Common mathematical forms of pacing schedules include:
+\begin{enumerate}
+    \item \textbf{Linear Pacing}:
+    {\boldmath
+    \begin{equation}
+    g_{\text{linear}}(t) = \min\left(1.0, \; \gamma_0 + (1 - \gamma_0)\frac{t}{T_{\text{pace}}}\right)
+    \end{equation}
+    }
+    \item \textbf{Root Pacing} (rapid initial expansion):
+    {\boldmath
+    \begin{equation}
+    g_{\text{root}}(t) = \min\left(1.0, \; \gamma_0 + (1 - \gamma_0)\sqrt{\frac{t}{T_{\text{pace}}}}\right)
+    \end{equation}
+    }
+    \item \textbf{Geometric / Exponential Pacing}:
+    {\boldmath
+    \begin{equation}
+    g_{\text{exp}}(t) = \min\left(1.0, \; \gamma_0 \cdot \left(\frac{1}{\gamma_0}\right)^{t / T_{\text{pace}}}\right)
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{How Humans Learn}: We do not hand a 5-year-old child a 600-page textbook on quantum electrodynamics on their first day of kindergarten. We start with the alphabet, advance to short sentences, then paragraphs, and only later tackle advanced calculus.
+    \item \textbf{Avoiding Brain Overload}: When an artificial neural network starts with random weights, reading a 10,000-word convoluted legal contract produces chaotic gradients that knock its weights wildly out of alignment. Starting with simple, clear grammar helps it build foundational language concepts smoothly.
+    \item \textbf{The Pacing Valve}: A pacing function acts like a controlled valve. At step zero, it lets through only the gentlest 20\% of the data. Over the next 50,000 steps, it opens wider and wider until the entire dataset is flowing.
+    \item \textbf{Annealing Quality at the Finish Line}: In modern LLM training (Llama 3, DeepSeek), curriculum learning also runs in reverse at the very end (decay/annealing): during the final 10\% of training, the model is fed ultra-high-quality textbooks and math to polish its reasoning.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine learning to swim in an indoor pool:
+\begin{itemize}
+    \item \textbf{The Disaster Method}: Tossing a toddler straight into a 10-meter deep whirlpool with 3-meter waves!
+    \item \textbf{The Curriculum Method}:
+    \begin{enumerate}
+        \item Start in the 1-foot shallow wading pool with floaties (short, simple sentences).
+        \item Move to the 4-foot lane to practice kicking and breathing (medium paragraphs).
+        \item Finally, swim freely across the deep Olympic pool (massive documents and complex code).
+    \end{enumerate}
+    \item \textbf{Result}: The swimmer builds strong swimming muscles and confidence without ever swallowing water or panicking.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Pacing Function Schedule}
+{\boldmath
+\begin{equation}
+g(t) = \min\left(1.0, \; \gamma_0 + (1 - \gamma_0) \cdot \left(\frac{t}{T_{\text{pace}}}\right)^p\right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Generalized polynomial pacing function mapping step $t$ to accessible percentile of training data.
+    \item \textbf{What It Means}: Controls the velocity at which harder data examples are admitted into training batches ($p = 1$ is linear, $p = 0.5$ is root pacing).
+    \item \textbf{Why It Is Important}: Prevents catastrophic early gradient spikes while guaranteeing full dataset coverage before warmup ends.
+\end{itemize}
+
+\subsection{Empirical Difficulty Quantile Threshold}
+{\boldmath
+\begin{equation}
+d_{\text{thresh}}(t) = \inf \left\{ d \in \mathbb{R} \;\middle|\; \frac{1}{N}\sum_{i=1}^N \mathbb{I}(d(x_i) \le d) \ge g(t) \right\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The empirical cutoff value filtering training samples based on measured difficulty scores.
+    \item \textbf{What It Means}: Any sample with measured difficulty above this threshold is temporarily masked from optimization.
+    \item \textbf{Why It Is Important}: Converts abstract pacing proportions into concrete sample-level eligibility filtering masks.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $d(x)$ (difficulty score), $g(t)$ (pacing fraction), $\gamma_0$ (initial data fraction), $T_{\text{pace}}$ (pacing duration), $\mathcal{D}_t$ (active training subset).
+    \item \textbf{Epistemic Status}: Introduced by Bengio et al. (ICML, 2009); universally adapted in LLM pretraining (progressive length scaling and data annealing).
+    \item \textbf{Dependency Graph}: Dataset $\mathcal{D} \to \text{Difficulty Scoring } d(x) \to \text{Sort} \to g(t) \to \text{Active Batch Selection} \to \nabla_\theta \mathcal{L}$.
+    \item \textbf{Dimensions}: Total dataset size $N$, active subset size $N_t = \lceil g(t) N \rceil$.
+    \item \textbf{Regimes}: Language model pretraining, long-context extension, mathematical reasoning curriculum, speech recognition.
+    \item \textbf{Invariants}: If $t \ge T_{\text{pace}}$, then $g(t) \equiv 1.0$, $d_{\text{thresh}} = \max_i d(x_i)$, and all $N$ samples are eligible.
+    \item \textbf{Isomorphisms}: Curriculum learning is isomorphic to continuation methods in non-convex optimization and simulated annealing.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Monotonic Convex Hull Expansion of Curriculum Datasets]
+Let $g(t)$ be a monotonically non-decreasing pacing function: $g(t_1) \le g(t_2)$ for all $t_1 \le t_2$. Then the sequence of active datasets forms a monotonic filtration:
+{\boldmath
+\begin{equation}
+\mathcal{D}_{t_1} \subseteq \mathcal{D}_{t_2} \subseteq \mathcal{D}
+\end{equation}
+}
+and the convex hull of active data distributions expands monotonically: $\operatorname{conv}(\mathcal{D}_{t_1}) \subseteq \operatorname{conv}(\mathcal{D}_{t_2})$.
+\end{theorem}
+
+\begin{proof}
+Let $x \in \mathcal{D}_{t_1}$. By definition of the active subset:
+{\boldmath
+\begin{equation}
+d(x) \le F_d^{-1}(g(t_1))
+\end{equation}
+}
+Because $F_d(\cdot)$ is a non-decreasing cumulative distribution function, its generalized inverse $F_d^{-1}(\cdot)$ is monotonically non-decreasing.
+Since $t_1 \le t_2$ and $g$ is non-decreasing, $g(t_1) \le g(t_2)$, which implies:
+{\boldmath
+\begin{equation}
+F_d^{-1}(g(t_1)) \le F_d^{-1}(g(t_2))
+\end{equation}
+}
+Therefore:
+{\boldmath
+\begin{equation}
+d(x) \le F_d^{-1}(g(t_1)) \le F_d^{-1}(g(t_2)) \implies x \in \mathcal{D}_{t_2}
+\end{equation}
+}
+This proves $\mathcal{D}_{t_1} \subseteq \mathcal{D}_{t_2}$.
+Because the convex hull operation is monotone with respect to set inclusion ($A \subseteq B \implies \operatorname{conv}(A) \subseteq \operatorname{conv}(B)$), it follows directly that $\operatorname{conv}(\mathcal{D}_{t_1}) \subseteq \operatorname{conv}(\mathcal{D}_{t_2})$.
+\end{proof}
+
+\begin{theorem}[Variance Reduction Bound Under Initial Low-Difficulty Warmup]
+Let gradient noise covariance be proportional to sample loss: $\mathbb{E}[\|\nabla \ell(x) - \nabla L\|^2] \le C \cdot d(x)$. Then the initial gradient variance under curriculum learning is bounded by $\gamma_0 \cdot \operatorname{Var}_{\text{uniform}}$, strictly reducing initial optimization noise.
+\end{theorem}
+
+\begin{proof}
+Under uniform sampling from $\mathcal{D}$:
+{\boldmath
+\begin{equation}
+\operatorname{Var}_{\text{uniform}} \le C \cdot \mathbb{E}_{x \sim \mathcal{D}}[d(x)] = C \int_0^1 F_d^{-1}(u) \, du
+\end{equation}
+}
+Under curriculum pacing at step $t=0$, samples are drawn uniformly from the easiest fraction $\gamma_0$:
+{\boldmath
+\begin{equation}
+\operatorname{Var}_{\text{curr}}(0) \le C \cdot \mathbb{E}_{x \sim \mathcal{D}_0}[d(x)] = C \frac{1}{\gamma_0} \int_0^{\gamma_0} F_d^{-1}(u) \, du
+\end{equation}
+}
+Because $F_d^{-1}(u)$ is a non-decreasing function:
+{\boldmath
+\begin{equation}
+\frac{1}{\gamma_0} \int_0^{\gamma_0} F_d^{-1}(u) \, du \le F_d^{-1}(\gamma_0) \le \frac{1}{1 - \gamma_0} \int_{\gamma_0}^1 F_d^{-1}(u) \, du
+\end{equation}
+}
+Consequently, $\mathbb{E}_{x \sim \mathcal{D}_0}[d(x)] < \mathbb{E}_{x \sim \mathcal{D}}[d(x)]$ whenever the dataset difficulty is non-constant.
+Therefore, gradient variance during the critical initial optimization phase is strictly smaller than under uniform training, preventing catastrophic early divergence.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: How to Measure Difficulty at Scale}
+\textbf{Question:} How is sample difficulty practically computed for trillions of tokens in LLM pretraining?\\
+\textbf{Answer:} Computing complex metrics online is too slow. Two efficient offline heuristics dominate: (1) Sequence length, training first on 2K tokens, then 4K, 8K, and finally 32K/128K; and (2) Cross-entropy loss under a small fast reference model (e.g., a 1B parameter proxy model evaluated during dataset tokenization).
+
+\textbf{Meta-Question:} Can curriculum learning ever harm final model accuracy?\\
+\textbf{Answer:} Yes. If a model overfits to simple examples during a prolonged curriculum warmup, it can suffer from plasticity loss or catastrophic forgetting of complex reasoning. Pacing schedules must not dwell excessively on easy data, and the final 50--80\% of training should operate over the full unconstrained distribution.
+
+\subsection{Architectural Question 2: Standard Curriculum vs Anti-Curriculum}
+\textbf{Question:} When does an anti-curriculum (hard examples first) outperform easy-first training?\\
+\textbf{Answer:} In fine-tuning tasks where the model already has strong pre-existing representations, presenting difficult, high-information examples first forces rapid weight adaptation, whereas simple repetitive examples cause gradient wasting. Easy-first is optimal for pretraining from scratch; hard-first or mixed curriculum is often superior for domain adaptation.
+
+\textbf{Meta-Question:} How is curriculum learning implemented in mixture-of-experts (MoE) routing?\\
+\textbf{Answer:} In MoE training, routing entropy is paced: router auxiliary balance loss is kept high early in training to force balanced expert exploration, then gently relaxed later in training to allow specialized expert differentiation.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Curriculum Pacing and Batch Eligibility Filter}
+\begin{algorithmic}[1]
+\Require Sample difficulties $\mathbf{d} \in \mathbb{R}^N$, step $t$, pacing duration $T_{\text{pace}}$, mode $pacing\_type$, initial fraction $\gamma_0$
+\Ensure Eligible indices $\mathcal{I}_{\text{elig}}$, threshold $d_{\text{thresh}}$, active fraction $f$, sorted indices $\mathcal{I}_{\text{sort}}$
+\State $progress \gets \min(1.0, t / T_{\text{pace}})$
+\If{$progress \ge 1.0$}
+    \State $f \gets 1.0$
+\ElsIf{$pacing\_type == \text{"linear"}$}
+    \State $f \gets \gamma_0 + (1.0 - \gamma_0) \cdot progress$
+\ElsIf{$pacing\_type == \text{"root"}$}
+    \State $f \gets \gamma_0 + (1.0 - \gamma_0) \cdot \sqrt{progress}$
+\ElsIf{$pacing\_type == \text{"exponential"}$}
+    \State $f \gets \gamma_0 \cdot (1.0 / \gamma_0)^{progress}$
+\Else
+    \State $f \gets \gamma_0 + (1.0 - \gamma_0) \cdot progress$
+\EndIf
+\State $f \gets \max(\gamma_0, \min(1.0, f))$
+\State Sort pairs $(i, \mathbf{d}[i])$ ascending by difficulty to produce sorted indices $\mathcal{I}_{\text{sort}}$
+\State $count \gets \max(1, \min(N, \lceil f \cdot N \rceil))$
+\State $\mathcal{I}_{\text{elig}} \gets \mathcal{I}_{\text{sort}}[0 : count]$
+\State $d_{\text{thresh}} \gets \mathbf{d}[\mathcal{I}_{\text{elig}}[count - 1]]$
+\State \Return $(\mathcal{I}_{\text{elig}}, d_{\text{thresh}}, count / N, \mathcal{I}_{\text{sort}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Sorting Time Complexity}: $\Theta(N \log N)$ to rank sample difficulties.
+    \item \textbf{Pacing Fraction Evaluation}: $\Theta(1)$ scalar math operations.
+    \item \textbf{Subsetting and Slicing Time}: $\Theta(\lceil f N \rceil)$ index allocation.
+    \item \textbf{Space Complexity}: $\Theta(N)$ buffer for sorted index arrays.
+    \item \textbf{Parallel Sorting Depth}: $\mathcal{D} = \Theta(\log^2 N)$ under parallel bitonic sorting networks.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

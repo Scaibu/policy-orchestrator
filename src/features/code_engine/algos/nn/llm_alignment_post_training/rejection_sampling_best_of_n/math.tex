@@ -1,0 +1,264 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Rejection Sampling Fine-Tuning and Best-of-N Policy Iteration}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Test-Time Compute Allocation, Rejection Filtering, and Expert Iteration):}
+Reinforcement learning loops (such as PPO) are computationally fragile and complex to stabilize across large transformer architectures. \textbf{Rejection Sampling Fine-Tuning (RFT)} and \textbf{Best-of-N Search} provide a robust, non-differentiable framework for policy improvement: by trading test-time generation compute for output quality, candidate solutions are sampled, evaluated against an objective verifier or reward model, and the highest-performing completions are either returned directly at inference or distilled back into the policy via Supervised Fine-Tuning (SFT).
+
+For prompt $x$, the base generator policy $\pi_\theta$ samples a set of $N$ independent candidate completions:
+{\boldmath
+\begin{equation}
+\mathcal{Y}_N(x) = \{y_1, y_2, \dots, y_N\} \sim \pi_\theta(\cdot \mid x)
+\end{equation}
+}
+Each completion is evaluated by an outcome verifier or reward model $R(x, y_i) \in \mathbb{R}$.
+\begin{enumerate}
+    \item \textbf{Best-of-N Inference Policy}: At test time, the system selects the empirical argmax:
+    {\boldmath
+    \begin{equation}
+    y^* = \arg\max_{y \in \mathcal{Y}_N(x)} R(x, y)
+    \end{equation}
+    }
+    \item \textbf{Rejection Sampling Fine-Tuning (RFT)}: For dataset collection, solutions meeting an acceptance threshold $R(x, y) \ge \theta_{\text{acc}}$ (or top-$K$ candidates) are accepted into an aggregated training buffer $\mathcal{D}_{\text{accepted}}$, filtered for lexical and semantic diversity using a Jaccard token overlap constraint $\mathcal{J}(y_i, y_j) < \tau_{\text{sim}}$:
+    {\boldmath
+    \begin{equation}
+    \mathcal{J}(y_i, y_j) = \frac{|\operatorname{tokens}(y_i) \cap \operatorname{tokens}(y_j)|}{|\operatorname{tokens}(y_i) \cup \operatorname{tokens}(y_j)|}
+    \end{equation}
+    }
+    \item \textbf{Expert Iteration Loop}: The policy is updated by minimizing standard negative log-likelihood on accepted samples:
+    {\boldmath
+    \begin{equation}
+    \theta_{k+1} = \arg\min_\theta - \mathbb{E}_{(x, y) \sim \mathcal{D}_{\text{accepted}}} \left[ \ln \pi_\theta(y \mid x) \right]
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Power of Multiple Brainstorming Attempts}: If an author tries to write a poem on their first draft, it might be mediocre. If they write 10 completely different drafts and pick the single best one, the result is often a masterpiece! This is Best-of-$N$.
+    \item \textbf{Test-Time Compute}: Instead of spending millions of dollars making a neural network twice as large, you can keep the same medium-sized network and simply ask it to generate 8 or 16 diverse attempts when answering a difficult question.
+    \item \textbf{Distillation (Expert Iteration)}: Once the system collects all the brilliant answers found across those 16 attempts, it fine-tunes the model on those answers. Now the model learns to get it right on the very first try!
+    \item \textbf{Diversity Filtering}: If a model generates 10 attempts that are 99\% identical copies of each other with one comma changed, you have wasted your compute. Diversity filtering discards redundant clones, forcing the model to explore distinct algorithmic paths.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine building a tower out of wooden blocks:
+\begin{itemize}
+    \item \textbf{Single Attempt}: You stack blocks once. If a slight bump knocks it over, you fail.
+    \item \textbf{Best-of-N}: You build 5 different towers on different tables. Two fall over, two wobble, but the fifth tower has an interlocking triangular base that stands rock-solid!
+    \item \textbf{The Picture Book}: You take a photo of the winning triangular tower and glue it into your instruction handbook (Rejection Sampling Fine-Tuning).
+    \item \textbf{Master Builder}: The next time you build, you build the triangular base immediately on your first attempt!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Best-of-N Argmax Selection Rule}
+{\boldmath
+\begin{equation}
+y^* = \arg\max_{i \in \{1, \dots, N\}} R(x, y_i)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The decision rule returning the maximum-scoring candidate completion from an independent sample cohort of size $N$.
+    \item \textbf{What It Means}: Converts increased inference-time computation into monotonically higher expected reward.
+    \item \textbf{Why It Is Important}: Primary test-time compute scaling strategy in reasoning and coding benchmarks.
+\end{itemize}
+
+\subsection{Jaccard Token Diversity Metric}
+{\boldmath
+\begin{equation}
+\mathcal{J}(A, B) = \frac{|A \cap B|}{|A \cup B|} \in [0, 1]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Intersection-over-union metric evaluated on unique token sets of two candidate solutions.
+    \item \textbf{What It Means}: Quantifies lexical overlap; $\mathcal{J} > 0.9$ indicates near-verbatim clones.
+    \item \textbf{Why It Is Important}: Filters out redundant completions before SFT, preventing representation collapse and preserving exploratory entropy.
+\end{itemize}
+
+\subsection{Rejection Acceptance Rate}
+{\boldmath
+\begin{equation}
+\alpha_{\text{acc}} = \frac{|\mathcal{D}_{\text{accepted}}|}{N} = \frac{1}{N}\sum_{i=1}^N \mathbb{I}(R(x, y_i) \ge \theta_{\text{acc}} \;\land\; \text{diverse})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Fraction of sampled completions satisfying both threshold and diversity criteria.
+    \item \textbf{What It Means}: Diagnostic monitor for dataset harvest efficiency; very low rates ($< 1\%$) indicate the task is too difficult for the current base model.
+    \item \textbf{Why It Is Important}: Determines the compute budget required to generate training datasets of target volume.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $N$ (number of sampled candidates), $R(x, y)$ (reward score), $\theta_{\text{acc}}$ (acceptance threshold), $\mathcal{J}$ (Jaccard similarity).
+    \item \textbf{Epistemic Status}: Studied extensively in statistical sampling; popularized in LLM reasoning by Cobbe et al. (GSM8K, 2021) and Yuan et al. (RFT, 2023).
+    \item \textbf{Dependency Graph}: Prompt $x \to \text{Sample } \{y_1, \dots, y_N\} \to \text{Score } \{R\} \to \text{Dedup Filter} \to \mathcal{D}_{\text{accepted}} \to \text{SFT Retraining}$.
+    \item \textbf{Dimensions}: Candidate count $N$, sequence lengths $L$, accepted subset $K \le N$.
+    \item \textbf{Regimes}: Mathematical reasoning, coding synthesis, test-time scaling, synthetic data bootstrapping.
+    \item \textbf{Invariants}: If $K = 1$ and $\max_i R(x, y_i) \ge \theta_{\text{acc}}$, accepted candidate is exactly the Best-of-N winner $y^*$.
+    \item \textbf{Isomorphisms}: Best-of-N is isomorphic to order statistics of independent extreme values (Gumbel distributions).
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Monotonic Improvement of Expected Best-of-N Return]
+Let candidate rewards $R_1, \dots, R_N$ be independent and identically distributed continuous random variables with cumulative distribution function $F(r)$. Then the expected maximum reward $\mathbb{E}[\max_{i \le N} R_i]$ is strictly monotonically increasing with respect to sample budget $N$:
+{\boldmath
+\begin{equation}
+\mathbb{E}\left[ \max_{i \le N+1} R_i \right] > \mathbb{E}\left[ \max_{i \le N} R_i \right], \quad \forall N \ge 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $M_N = \max(R_1, \dots, R_N)$.
+The cumulative distribution function of the maximum of $N$ independent variables is:
+{\boldmath
+\begin{equation}
+F_{M_N}(r) = P(M_N \le r) = \prod_{i=1}^N P(R_i \le r) = (F(r))^N
+\end{equation}
+}
+For any non-negative random variable (or bounded support on $[a, b]$):
+{\boldmath
+\begin{equation}
+\mathbb{E}[M_N] = b - \int_a^b F_{M_N}(r) \, dr = b - \int_a^b (F(r))^N \, dr
+\end{equation}
+}
+Because $F(r) \in [0, 1]$ for all $r \in [a, b]$, and $F(r) < 1$ for all $r < b$:
+{\boldmath
+\begin{equation}
+(F(r))^{N+1} = F(r) \cdot (F(r))^N \le (F(r))^N
+\end{equation}
+}
+with strict inequality for all $r \in (a, b)$ where $0 < F(r) < 1$.
+Integrating strictly over the support:
+{\boldmath
+\begin{equation}
+\int_a^b (F(r))^{N+1} \, dr < \int_a^b (F(r))^N \, dr
+\end{equation}
+}
+Subtracting from $b$:
+{\boldmath
+\begin{equation}
+\mathbb{E}[M_{N+1}] = b - \int_a^b (F(r))^{N+1} \, dr > b - \int_a^b (F(r))^N \, dr = \mathbb{E}[M_N]
+\end{equation}
+}
+This proves that increasing test-time candidate generations monotonically increases expected solution quality.
+\end{proof}
+
+\begin{theorem}[Expert Iteration Convergence to Supported Optimal Policy]
+Let $\mathcal{Y}^* = \{y \mid R(x, y) = R_{\max}\}$. If the initial policy assigns positive probability to the optimal set: $P_{y \sim \pi_0}(y \in \mathcal{Y}^*) = p_0 > 0$, then under exact rejection sampling fine-tuning with threshold $\theta = R_{\max}$, the fine-tuned policy achieves $P_{y \sim \pi_1}(y \in \mathcal{Y}^*) = 1.0$ in a single iteration.
+\end{theorem}
+
+\begin{proof}
+Under exact rejection sampling with threshold $\theta = R_{\max}$, the acceptance filter discards all $y \notin \mathcal{Y}^*$.
+The conditional distribution of accepted training samples is:
+{\boldmath
+\begin{equation}
+P_{\text{acc}}(y \mid x) = \frac{\pi_0(y \mid x) \mathbb{I}(y \in \mathcal{Y}^*)}{\sum_{y' \in \mathcal{Y}^*} \pi_0(y' \mid x)}
+\end{equation}
+}
+Supervised fine-tuning minimizes cross-entropy against $P_{\text{acc}}$, which is equivalent to minimizing the Kullback-Leibler divergence $D_{\text{KL}}(P_{\text{acc}} \,||\, \pi_1)$.
+At the global minimum of the SFT objective:
+{\boldmath
+\begin{equation}
+\pi_1(y \mid x) = P_{\text{acc}}(y \mid x)
+\end{equation}
+}
+Evaluating the probability mass on the optimal set under $\pi_1$:
+{\boldmath
+\begin{equation}
+P_{y \sim \pi_1}(y \in \mathcal{Y}^*) = \sum_{y \in \mathcal{Y}^*} \pi_1(y \mid x) = \sum_{y \in \mathcal{Y}^*} P_{\text{acc}}(y \mid x) = 1.0
+\end{equation}
+}
+This confirms that distilling verified rejection-sampled solutions directly collapses policy probability mass onto the optimal solution manifold.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Best-of-N vs Tree Search (MCTS)}
+\textbf{Question:} When is parallel Best-of-N preferred over sequential tree search (MCTS)?\\
+\textbf{Answer:} Best-of-N sampling generates all $N$ completions completely independently in parallel, achieving maximum GPU batching throughput and minimal wall-clock latency. MCTS requires sequential rollouts and intermediate node evaluations, introducing latency bottlenecks. Best-of-N is ideal when candidate scoring is fast and problems can be solved in a single coherent flow.
+
+\textbf{Meta-Question:} At what budget $N$ does Best-of-N start suffering from diminishing returns?\\
+\textbf{Answer:} By extreme value theory, the expected maximum of $N$ Gaussian variables scales as $\sqrt{2 \ln N}$. Moving from $N = 1$ to $N = 16$ yields massive gains (e.g. $+30\%$ accuracy); moving from $N = 16$ to $N = 256$ yields small marginal gains ($+3\%$) while increasing inference compute by $16\times$.
+
+\subsection{Architectural Question 2: Reward Model Overfitting at Large $N$}
+\textbf{Question:} Why does Best-of-N with a learned reward model experience quality degradation when $N > 1000$?\\
+\textbf{Answer:} When $N$ is small, the reward model accurately discriminates good from bad answers. But at massive sample counts ($N > 10^3$), extreme outliers from the generator exploit tiny imperfections in the reward model's scalar head, causing the argmax selection to pick a pathological, reward-hacked completion rather than a genuinely correct one.
+
+\textbf{Meta-Question:} How does programmatic verification solve the large-$N$ scaling limit?\\
+\textbf{Answer:} Programmatic verifiers (unit tests, math checkers) have zero false positives ($P(\text{pass} \mid \text{incorrect}) = 0$). Thus, Best-of-N with programmatic verifiers can scale safely to $N = 10{,}000$ without ever suffering from reward hacking.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Rejection Sampling Best-of-N Selection and Diversity Filter}
+\begin{algorithmic}[1]
+\Require Scores $\mathbf{s} \in \mathbb{R}^N$, candidate token sequences $\mathbf{T}$, threshold $\theta$, top $K$, overlap limit $\tau_{\text{sim}}$
+\Ensure Best index $i^*$, accepted indices $\mathcal{I}_{\text{acc}}$, max score $s_{\max}$, acceptance rate $\alpha$, filtered count $c_{\text{dup}}$
+\State $i^* \gets \arg\max_{i} \mathbf{s}[i], \quad s_{\max} \gets \mathbf{s}[i^*]$
+\State Sort indices $\{0, \dots, N-1\}$ descending by score to produce ranked list $\mathcal{R}$
+\State Initialize $\mathcal{I}_{\text{acc}} \gets \emptyset, \quad \mathcal{S}_{\text{sets}} \gets \emptyset, \quad c_{\text{dup}} \gets 0$
+\For{$idx \in \mathcal{R}$}
+    \If{$|\mathcal{I}_{\text{acc}}| \ge K$} \State \textbf{break} \EndIf
+    \If{$\mathbf{s}[idx] < \theta$} \State \textbf{continue} \EndIf
+    \State $curr\_set \gets \operatorname{set}(\mathbf{T}[idx]), \quad is\_dup \gets \text{False}$
+    \For{$prev \in \mathcal{S}_{\text{sets}}$}
+        \State $jaccard \gets |curr\_set \cap prev| / |curr\_set \cup prev|$
+        \If{$jaccard \ge \tau_{\text{sim}}$}
+            \State $is\_dup \gets \text{True}$
+            \State \textbf{break}
+        \EndIf
+    \EndFor
+    \If{$is\_dup$}
+        \State $c_{\text{dup}} \gets c_{\text{dup}} + 1$
+    \Else
+        \State Append $idx$ to $\mathcal{I}_{\text{acc}}, \quad$ Append $curr\_set$ to $\mathcal{S}_{\text{sets}}$
+    \EndIf
+\EndFor
+\State $\alpha \gets |\mathcal{I}_{\text{acc}}| / N$
+\State \Return $(i^*, \mathcal{I}_{\text{acc}}, s_{\max}, \alpha, c_{\text{dup}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Sorting Time Complexity}: $\Theta(N \log N)$ to rank candidates by reward.
+    \item \textbf{Jaccard Token Comparison Time}: $\Theta(K^2 \cdot L)$ for set operations across top candidates.
+    \item \textbf{Argmax Search Time}: $\Theta(N)$ comparisons for Best-of-N selection.
+    \item \textbf{Space Complexity}: $\Theta(N \cdot L)$ memory buffer for token sets.
+    \item \textbf{Parallel Reduction Depth}: $\mathcal{D} = \Theta(\log N)$ for maximum score reduction.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

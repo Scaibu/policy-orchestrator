@@ -1,0 +1,228 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Long-Context Training via Progressive Sequence Length Schedules and RoPE Scaling}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Progressive Context Extension and Rotary Position Scaling):}
+Full pre-training of modern Large Language Models (LLMs) across ultra-long contexts ($L \ge 32\text{k}\text{--}128\text{k}$ tokens) from step zero is computationally prohibitive due to the quadratic complexity $\mathcal{O}(L^2)$ of standard self-attention mechanisms and the severe memory footprint of key-value activation caching. \textbf{Progressive Long-Context Training} stages pre-training across a sequence of discrete curriculum regimes $S_0, S_1, \dots, S_K$ with increasing context windows:
+{\boldmath
+\begin{equation}
+L_0 < L_1 < \dots < L_K, \quad L_k \in \mathbb{N}
+\end{equation}
+}
+where more than $90\%$ of total pre-training compute is allocated to short sequences ($L_0 = 2048$ or $4096$), and the final $1\%\text{--}5\%$ of training steps extend context to $L_K$ on curated high-quality long-document corpora (e.g. books, repositories, formal technical reports).
+
+To avoid out-of-distribution frequency collapse in Rotary Position Embeddings (RoPE, Su et al., 2024), the base frequency parameter $\theta_0$ is scaled dynamically across stages. For a token at position $m$ and hidden coordinate $i \in \{0, \dots, d/2 - 1\}$, the rotary frequency is:
+{\boldmath
+\begin{equation}
+\omega_i = \theta_{\text{base}}^{-2i / d}
+\end{equation}
+}
+During long-context adaptation, the base frequency $\theta_{\text{base}}$ is increased from $\theta_{\text{base}}^{(0)} = 10^4$ to $\theta_{\text{base}}^{(K)} = 5 \times 10^5$ (or higher, as in LLaMA-3), lowering the rotary rotation speed so that high-position tokens $m \gg L_0$ remain within the interpolation domain of the learned rotary sinusoids.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\begin{enumerate}
+    \item \textbf{Learning to Read Words Before Reading Encyclopedias}: You don't teach a child to read by handing them a 1,000-page legal brief on day one. You teach them short sentences and paragraphs ($L=2048$) so they learn grammar, logic, and facts cheaply. Only after they are fluent do you give them whole books ($L=32768$) to train their long-distance memory.
+    \item \textbf{95\% Compute Savings}: Because attention cost scales with the square of sequence length ($32768^2$ is 256 times larger than $2048^2$), training on short texts first and stretching the context at the very end saves over 95\% of GPU compute budget.
+    \item \textbf{Slowing Down the Clock (RoPE Scaling)}: Rotary embeddings are like clock hands spinning. At position 32,000, standard hands spin so fast they become a blurry mess. Increasing $\theta_{\text{base}}$ slows the clock hands down, so even at position 100,000, the model can still tell exactly what time it is!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a runner training for a marathon:
+\begin{itemize}
+    \item \textbf{Naive Long-Context Training}: Forcing a beginner runner to sprint 26 miles every single morning. They collapse from exhaustion on day one!
+    \item \textbf{Progressive Curriculum}: Running 1-mile sprints for 6 months to build strong leg muscles, then doing two 20-mile practice runs right before race day.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Rotary Frequency Scaling}
+{\boldmath
+\begin{equation}
+\theta_{\text{base}}^{(k)} = \theta_{\text{base}}^{(0)} \cdot \left( \frac{\theta_{\text{target}}}{\theta_{\text{base}}^{(0)}} \right)^{\frac{k}{K}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Exponential geometric scheduling of the rotary frequency base across $K$ curriculum stages.
+    \item \textbf{What It Means}: Smoothly adapts position frequencies to prevent sudden loss spikes during stage transitions.
+    \item \textbf{Why It Is Important}: Preserves short-context reasoning accuracy while establishing stable attention at long contexts.
+\end{itemize}
+
+\subsection{Relative Attention Compute Expansion}
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{attn}}(k) = \left( \frac{L_k}{L_0} \right)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Quadratic FLOP expansion factor of dense causal self-attention at stage $k$.
+    \item \textbf{What It Means}: Explains why long-context stages require context parallelism or kernel optimizations (FlashAttention).
+    \item \textbf{Why It Is Important}: Primary metric governing batch size and memory allocation during extended training.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $L_k$ (sequence length at stage $k$), $\theta_{\text{base}}$ (RoPE frequency constant), $d$ (head dimension), $K$ (total stages).
+    \item \textbf{Epistemic Status}: Rozière et al. (Code LLaMA, 2023); Xiong et al. (LLaMA-2-Long, 2023). Industry standard for frontier context expansion.
+    \item \textbf{Dependency Graph}: Step $t \to \text{Stage Index } k \to \text{Length } L_k, \theta_k \to \text{Compute Attention} \to \text{Optimizer Step}$.
+    \item \textbf{Dimensions}: Sequence length $L \in [2048, 131072]$, head dimension $d \in [64, 128]$.
+    \item \textbf{Regimes}: Pre-training stage 2 annealing, long-document fine-tuning, whole-repo coding models.
+    \item \textbf{Invariants}: At stage 0, $L_0$ and $\theta_0$ match the standard base pre-training baseline.
+    \item \textbf{Isomorphisms}: Isomorphic to simulated annealing where the state space expands geometrically.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Upper Bound on RoPE Inner Product Angle Drift]
+Let $q, k \in \mathbb{R}^d$ be query and key vectors at relative distance $\Delta m = m - n$. Under scaled RoPE base $\theta_{\text{base}}' = \beta \theta_{\text{base}}$ with expansion factor $\beta > 1$, the maximum rotation angle across all dimension coordinates satisfies:
+{\boldmath
+\begin{equation}
+\max_{i} \omega_i' \Delta m \le \beta^{-2(d/2 - 1)/d} \cdot \max_{i} (\omega_i \Delta m) < \max_i (\omega_i \Delta m)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition of RoPE frequencies:
+{\boldmath
+\begin{equation}
+\omega_i = \theta_{\text{base}}^{-2i/d}, \quad \omega_i' = (\beta \theta_{\text{base}})^{-2i/d} = \beta^{-2i/d} \omega_i
+\end{equation}
+}
+For index $i = 0$, $\omega_0' = \beta^0 \omega_0 = \omega_0 = 1$.
+For all higher coordinates $i > 0$, since $\beta > 1$ and $2i/d > 0$:
+{\boldmath
+\begin{equation}
+\beta^{-2i/d} < 1 \implies \omega_i' < \omega_i
+\end{equation}
+}
+The lowest frequency coordinate is $i = d/2 - 1$, where the scaling factor achieves its minimum value:
+{\boldmath
+\begin{equation}
+\omega_{\min}' = \beta^{-2(d/2 - 1)/d} \omega_{\min}
+\end{equation}
+}
+Thus, for any relative distance $\Delta m$:
+{\boldmath
+\begin{equation}
+\omega_i' \Delta m = \beta^{-2i/d} (\omega_i \Delta m) \le \omega_i \Delta m
+\end{equation}
+}
+This strictly bounds the phase rotation of the highest-frequency dimensions, preventing phase wrapping (aliasing) at large relative distances $\Delta m \gg L_0$.
+\end{proof}
+
+\begin{theorem}[Quadratic Total Compute Economy of Staged Training]
+Let $N_{\text{total}}$ be the total tokens trained across $M$ short steps with length $L_0$ and $N_{\text{long}}$ tokens trained across long steps with length $L_{\text{long}} = \gamma L_0$ ($\gamma > 1$). If $N_{\text{long}} = \epsilon N_{\text{total}}$ with $\epsilon \ll 1$, the compute savings ratio relative to training all tokens at length $L_{\text{long}}$ is bounded by:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{progressive}}}{\mathcal{C}_{\text{uniform}}} \approx \frac{1}{\gamma} + \epsilon \ll 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+The total attention FLOPs for an autoregressive transformer processing sequence length $L$ scales as $\mathcal{O}(L)$ per token (totaling $\mathcal{O}(L^2)$ per sequence).
+For uniform training of $N_{\text{total}}$ tokens at context length $L_{\text{long}}$:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{uniform}} \propto N_{\text{total}} \cdot L_{\text{long}} = N_{\text{total}} \cdot (\gamma L_0)
+\end{equation}
+}
+For progressive training with $(1 - \epsilon) N_{\text{total}}$ tokens at length $L_0$ and $\epsilon N_{\text{total}}$ tokens at length $\gamma L_0$:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{progressive}} \propto (1 - \epsilon) N_{\text{total}} \cdot L_0 + \epsilon N_{\text{total}} \cdot (\gamma L_0)
+\end{equation}
+}
+Taking the ratio:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{progressive}}}{\mathcal{C}_{\text{uniform}}} = \frac{(1 - \epsilon) L_0 + \epsilon \gamma L_0}{\gamma L_0} = \frac{1 - \epsilon}{\gamma} + \epsilon \approx \frac{1}{\gamma} + \epsilon
+\end{equation}
+}
+For $\gamma = 16$ ($2\text{k} \to 32\text{k}$) and $\epsilon = 0.05$ (5\% long-context tuning):
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{progressive}}}{\mathcal{C}_{\text{uniform}}} = \frac{0.95}{16} + 0.05 \approx 0.059 + 0.05 = 0.109 \quad (\approx 89.1\% \text{ savings})
+\end{equation}
+}
+This proves massive computational savings while achieving high long-context retrieval fidelity.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Synthetic vs. Real Long Documents}
+\textbf{Question:} Can long-context adaptation be performed by simply concatenating short documents?\\
+\textbf{Answer:} No. Concatenating unrelated short web pages does not train the model to build long-range dependency representations; it merely tests sequence packing. Effective long-context adaptation requires genuinely cohesive long-form texts: complete GitHub repositories, legal transcripts, books, and long scientific papers where resolving queries requires retrieving information across thousands of tokens.
+
+\textbf{Meta-Question:} How should the Needle-In-A-Haystack (NIAH) benchmark be evaluated?\\
+\textbf{Answer:} NIAH tests retrieval of an arbitrary fact placed at varied document depths ($0\%\text{--}100\%$) and varied context lengths ($1\text{k}\text{--}128\text{k}$). A properly trained model should achieve $100\%$ retrieval accuracy across all depths without degradation at the extreme tail.
+
+\subsection{Architectural Question 2: Learning Rate Schedules During Extension}
+\textbf{Question:} What learning rate schedule is recommended during the final long-context stage?\\
+\textbf{Answer:} The learning rate is typically reset to $10\%\text{--}20\%$ of the initial pre-training maximum learning rate, followed by a short linear warmup and cosine decay. Training for too many steps or with too high a learning rate causes catastrophic regression on short-context benchmarks.
+
+\textbf{Meta-Question:} Does extending context require modifying the attention mask?\\
+\textbf{Answer:} In dense training, causal masking is preserved. However, to prevent memory explosion on GPU clusters, sequence parallelism (Ring Attention, #237) or chunked cross-device attention is mandatory.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Progressive Long-Context Stage Transition and RoPE Scaling}
+\begin{algorithmic}[1]
+\Require Current step $t$, total steps $T$, boundaries $\mathbf{B} \in \mathbb{N}^{K-1}$, sequence lengths $\mathbf{L} \in \mathbb{N}^K$, base RoPE $\theta_0$, target RoPE $\theta_{\text{target}}$
+\Ensure Active length $L_{\text{act}}$, active RoPE $\theta_{\text{act}}$, stage index $k$, progress $\rho$, compute factor $\mathcal{C}$
+\State $k \gets 0$
+\For{$i = 0$ \textbf{to} $K-2$}
+    \If{$t \ge \mathbf{B}[i]$}
+        \State $k \gets i + 1$
+    \EndIf
+\EndFor
+\State $t_{\text{start}} \gets (k == 0) \; ? \; 0 : \mathbf{B}[k-1]$
+\State $t_{\text{end}} \gets (k < K-1) \; ? \; \mathbf{B}[k] : T$
+\State $\rho \gets \min(1.0, \max(0.0, (t - t_{\text{start}}) / (t_{\text{end}} - t_{\text{start}})))$
+\State $L_{\text{act}} \gets \mathbf{L}[k]$
+\State $\text{ratio} \gets k / (K - 1)$
+\State $\theta_{\text{act}} \gets \exp\left( \ln \theta_0 + \text{ratio} \cdot (\ln \theta_{\text{target}} - \ln \theta_0) \right)$
+\State $\mathcal{C} \gets (L_{\text{act}} / \mathbf{L}[0])^2$
+\State \Return $(L_{\text{act}}, \theta_{\text{act}}, k, \rho, \mathcal{C})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Stage Selection Time}: $\Theta(K)$ linear search operations over stage boundaries.
+    \item \textbf{RoPE Interpolation Time}: $\Theta(1)$ constant mathematical evaluations.
+    \item \textbf{Total Time Complexity}: $\Theta(K)$ per training step.
+    \item \textbf{Space Complexity}: $\Theta(1)$ auxiliary memory.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}
