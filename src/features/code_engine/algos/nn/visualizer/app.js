@@ -918,7 +918,7 @@ function renderCatalogGrid() {
 // ==========================================
 // PROOFS CATALOG (250 LATEX SPECIFICATIONS)
 // ==========================================
-let currentProofDomain = "all";
+let currentProofDomain = "categories";
 let currentProofSearch = "";
 let selectedProofId = null;
 
@@ -932,20 +932,24 @@ function renderProofDomainTabs() {
   const container = document.getElementById("proofs-domain-tabs");
   if (!container || typeof PROOFS_DATA === "undefined") return;
 
-  const domainCounts = {};
+  const domainMap = {};
   PROOFS_DATA.forEach(p => {
-    domainCounts[p.domain] = (domainCounts[p.domain] || 0) + 1;
+    if (!domainMap[p.domain]) {
+      domainMap[p.domain] = { domain: p.domain, label: p.domainLabel || p.domain.replace(/_/g, ' '), count: 0 };
+    }
+    domainMap[p.domain].count++;
   });
 
-  const domains = Object.keys(domainCounts).sort();
-  
-  let html = `<button class="proof-domain-btn ${currentProofDomain === 'all' ? 'active' : ''}" onclick="setProofDomainFilter('all')">ALL (${PROOFS_DATA.length})</button>`;
-  
+  const domains = Object.values(domainMap).sort((a, b) => a.label.localeCompare(b.label));
+
+  let html = `<button class="proof-domain-btn ${currentProofDomain === 'categories' ? 'active' : ''}" onclick="setProofDomainFilter('categories')">CATEGORIES (${domains.length})</button>`;
+  html += `<button class="proof-domain-btn ${currentProofDomain === 'all' ? 'active' : ''}" onclick="setProofDomainFilter('all')">ALL (${PROOFS_DATA.length})</button>`;
+
   domains.forEach(d => {
-    const label = d.replace(/_/g, ' ').toUpperCase();
-    const count = domainCounts[d];
-    const isActive = currentProofDomain === d ? 'active' : '';
-    html += `<button class="proof-domain-btn ${isActive}" onclick="setProofDomainFilter('${d}')">${label} (${count})</button>`;
+    const label = d.label.toUpperCase();
+    const count = d.count;
+    const isActive = currentProofDomain === d.domain ? 'active' : '';
+    html += `<button class="proof-domain-btn ${isActive}" onclick="setProofDomainFilter('${d.domain}')">${escapeHtml(label)} (${count})</button>`;
   });
 
   container.innerHTML = html;
@@ -960,6 +964,13 @@ function setProofDomainFilter(domain) {
 function filterProofs() {
   const input = document.getElementById("proofs-search");
   currentProofSearch = input ? input.value.trim().toLowerCase() : "";
+  renderProofsGrid();
+}
+
+function clearProofSearch() {
+  const input = document.getElementById("proofs-search");
+  if (input) input.value = "";
+  currentProofSearch = "";
   renderProofsGrid();
 }
 
@@ -997,8 +1008,59 @@ function renderProofsGrid() {
   const counter = document.getElementById("proofs-counter");
   if (!grid || typeof PROOFS_DATA === "undefined") return;
 
+  if (currentProofDomain === "categories" && !currentProofSearch) {
+    const domainMap = {};
+    PROOFS_DATA.forEach(p => {
+      if (!domainMap[p.domain]) {
+        domainMap[p.domain] = {
+          domain: p.domain,
+          label: p.domainLabel || p.domain.replace(/_/g, ' '),
+          count: 0,
+          sampleAlgos: []
+        };
+      }
+      domainMap[p.domain].count++;
+      if (domainMap[p.domain].sampleAlgos.length < 3) {
+        domainMap[p.domain].sampleAlgos.push(p.algoName);
+      }
+    });
+
+    const domains = Object.values(domainMap).sort((a, b) => a.label.localeCompare(b.label));
+
+    if (counter) {
+      counter.textContent = `SHOWING ${domains.length} DOMAIN CATEGORIES · ${PROOFS_DATA.length} PROOFS`;
+    }
+
+    grid.innerHTML = domains.map((d, i) => {
+      const idxStr = String(i + 1).padStart(2, "0");
+      const sampleTags = d.sampleAlgos
+        .map(name => `<span class="domain-sample-tag">${escapeHtml(name)}</span>`)
+        .join("");
+      const moreTag = d.count > 3 ? `<span class="domain-sample-more">+${d.count - 3} more</span>` : "";
+
+      return `
+        <div class="domain-card" onclick="setProofDomainFilter('${escapeHtml(d.domain)}')">
+          <div class="domain-card-header">
+            <span class="domain-card-idx">§${idxStr} · CATEGORY</span>
+            <span class="domain-card-count">${d.count} PROOFS</span>
+          </div>
+          <div class="domain-card-title">${escapeHtml(d.label.toUpperCase())}</div>
+          <div class="domain-card-sample">
+            ${sampleTags}
+            ${moreTag}
+          </div>
+          <div class="domain-card-footer">
+            <span class="domain-card-action">Explore ${d.count} Proofs</span>
+            <span class="domain-card-arrow">→</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+    return;
+  }
+
   const filtered = PROOFS_DATA.filter(p => {
-    const matchDomain = currentProofDomain === "all" || p.domain === currentProofDomain;
+    const matchDomain = currentProofDomain === "all" || currentProofDomain === "categories" || p.domain === currentProofDomain;
     if (!matchDomain) return false;
     if (!currentProofSearch) return true;
     const q = currentProofSearch;
@@ -1008,16 +1070,60 @@ function renderProofsGrid() {
            p.excerpt.toLowerCase().includes(q);
   });
 
+  let activeDomainLabel = "";
+  if (currentProofDomain !== "all" && currentProofDomain !== "categories") {
+    const match = PROOFS_DATA.find(p => p.domain === currentProofDomain);
+    activeDomainLabel = match ? match.domainLabel : currentProofDomain;
+  }
+
   if (counter) {
-    counter.textContent = `SHOWING ${filtered.length} OF ${PROOFS_DATA.length} PROOFS`;
+    if (currentProofSearch) {
+      counter.textContent = `SHOWING ${filtered.length} OF ${PROOFS_DATA.length} PROOFS`;
+    } else if (currentProofDomain === "all") {
+      counter.textContent = `SHOWING 300 OF 300 PROOFS`;
+    } else {
+      counter.textContent = `SHOWING ${filtered.length} OF 300 PROOFS (${activeDomainLabel.toUpperCase()})`;
+    }
+  }
+
+  let bannerHtml = "";
+  if (currentProofSearch) {
+    bannerHtml = `
+      <div class="proofs-nav-banner">
+        <button class="proof-back-btn" onclick="clearProofSearch()">← Clear Search &amp; Return</button>
+        <div class="proofs-nav-details">
+          <span class="proofs-nav-label">SEARCH QUERY:</span>
+          <span class="proofs-nav-title">"${escapeHtml(currentProofSearch)}"</span>
+          <span class="proofs-nav-count">(${filtered.length} PROOFS FOUND)</span>
+        </div>
+      </div>
+    `;
+  } else if (currentProofDomain !== "categories") {
+    bannerHtml = `
+      <div class="proofs-nav-banner">
+        <button class="proof-back-btn" onclick="setProofDomainFilter('categories')">← Back to All 35 Categories</button>
+        <div class="proofs-nav-details">
+          <span class="proofs-nav-label">DOMAIN:</span>
+          <span class="proofs-nav-title">${escapeHtml((activeDomainLabel || currentProofDomain).toUpperCase())}</span>
+          <span class="proofs-nav-count">(${filtered.length} PROOFS)</span>
+        </div>
+      </div>
+    `;
   }
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--ink-dim); font-family: var(--font-dspl);">NO MATHEMATICAL SPECIFICATIONS FOUND MATCHING QUERY</div>`;
+    grid.innerHTML = bannerHtml + `
+      <div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--ink-dim); font-family: var(--font-dspl);">
+        NO MATHEMATICAL SPECIFICATIONS FOUND MATCHING QUERY
+        <div style="margin-top: 14px;">
+          <button class="proof-back-btn" onclick="clearProofSearch(); setProofDomainFilter('categories');">← Return to All Categories</button>
+        </div>
+      </div>
+    `;
     return;
   }
 
-  grid.innerHTML = filtered.map(p => {
+  const cardsHtml = filtered.map(p => {
     const isSelected = p.id === selectedProofId ? "active" : "";
     const pdfBtn = p.pdf ? `<a class="proof-btn" href="${escapeHtml(p.pdf)}" target="_blank" onclick="event.stopPropagation()">[pdf]</a>` : "";
     return `
@@ -1036,6 +1142,8 @@ function renderProofsGrid() {
       </div>
     `;
   }).join("");
+
+  grid.innerHTML = bannerHtml + cardsHtml;
 }
 
 function selectProof(id) {
