@@ -166,6 +166,260 @@ flowchart TD
 
 ---
 
+### 1.1.1 Phase 1 Detailed Architecture: Data Ingestion, Mixture Optimization & Packing
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef source fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef filter fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef mixture fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef pack fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+
+    subgraph CurationTrack ["Data Quality & Deduplication"]
+        RawCorpus["Raw Web & Synthetic Corpus"]:::source --> FilterAlgo["Synthetic Data Quality Filtering\n• Threshold: quality >= 0.70\n• Bounds: 10 <= tokens <= 1000"]:::filter
+        FilterAlgo --> DedupAlgo["N-Gram Jaccard Deduplication\n• Discards overlap > 0.80"]:::filter
+    end
+
+    subgraph MixtureTrack ["DoReMi Dynamic Mixture Optimization"]
+        DedupAlgo --> DomainSplits["Domain Partitioning (Code, Math, Books, Web)"]:::source
+        DomainSplits --> ProxyLoss["Proxy Model Domain Losses"]:::mixture
+        DomainSplits --> RefLoss["Reference Baseline Losses"]:::mixture
+        ProxyLoss & RefLoss --> ExcessLoss["Compute Excess Loss: Delta_d = L_proxy - L_ref"]:::mixture
+        ExcessLoss --> MirrorDescent["DoReMi Exponentiated Gradient Mirror Descent\n• Updates domain sampling weights on simplex"]:::mixture
+    end
+
+    subgraph PackingTrack ["Sequence Packing & Mask Synthesis"]
+        MirrorDescent --> WeightedSampler["Dynamic Domain Data Sampler"]:::mixture
+        WeightedSampler --> DocSequences["Variable-Length Document Sequences"]:::source
+        DocSequences --> BinPack["Sequence Packing (First-Fit Decreasing)\n• Capacity: max_sequence_length"]:::pack
+        BinPack --> SegmentIDs["Generate Segment IDs & Monotonic Position IDs"]:::pack
+        BinPack --> MaskGen["2D Block-Diagonal Causal Attention Mask Generator\n• Zero cross-document attention leakage"]:::pack
+    end
+
+    SegmentIDs & MaskGen --> DataLoaderOut["Distributed DataLoader Batch to Embedding Layer"]:::pack
+```
+
+---
+
+### 1.1.2 Phase 2 Detailed Architecture: Transformer Block Micro-Architecture & Activation Dynamics
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef act fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef norm fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef attn fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef ffn fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+
+    InputTokens["Packed Token Batch [Batch, SeqLen]"]:::act --> Emb["Vocabulary Embedding Lookup"]:::act
+    Emb --> PreAttnNorm["Pre-Attention RMSNorm (Unit RMS Scaling)"]:::norm
+
+    subgraph AttentionBlock ["Attention Projection & Context Dynamics"]
+        PreAttnNorm --> QKV_GEMM["Q, K, V Linear Projections"]:::attn
+        QKV_GEMM --> RoPE_Kernel["Rotary Position Embeddings (RoPE)"]:::attn
+        QKV_GEMM --> YaRN_Kernel["YaRN / LongRoPE Context Window Extension"]:::attn
+        RoPE_Kernel & YaRN_Kernel --> FlashKernel["FlashAttention Tiled SRAM Softmax Engine"]:::attn
+        FlashKernel --> Sinks["Attention Sinks & Streaming Context Retainers"]:::attn
+        Sinks --> OutProj["Attention Output Projection Matrix W_o"]:::attn
+    end
+
+    OutProj --> Skip1["Residual Addition + DropPath Stochastic Depth"]:::act
+    Emb -.-> Skip1
+    Skip1 --> PreFFNNorm["Pre-FFN RMSNorm Normalization"]:::norm
+
+    subgraph ExpertFFNBlock ["Mixture-of-Experts & Feed-Forward Block"]
+        PreFFNNorm --> MoERouter["Top-K Softmax Gating Router"]:::ffn
+        MoERouter --> DispatchTokens["Token Dispatch across Specialized Experts"]:::ffn
+        DispatchTokens --> SwiGLU_Experts["SwiGLU Expert Projections: (W_gate * x) * SiLU(W_up * x)"]:::ffn
+        SwiGLU_Experts --> CombineTokens["Weighted Expert Token Aggregation"]:::ffn
+        CombineTokens --> DownProj["Row Down-Projection W_down"]:::ffn
+    end
+
+    DownProj --> Skip2["Residual Addition + Highway Connection"]:::act
+    Skip1 -.-> Skip2
+    Skip2 --> BlockOut["Output Hidden Activations to Next Layer"]:::act
+```
+
+---
+
+### 1.1.3 Phase 3 Detailed Architecture: 5D Distributed Cluster Scaling & Hardware Execution Mesh
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef nvlink fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef ib fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef pipe fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef zero fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+
+    subgraph IntraNode ["1. Intra-Node NVLink Mesh: Tensor Parallelism (TP)"]
+        ColGEMM["Column-Parallel GEMM: Sharded across 8 GPUs"]:::nvlink --> GeLUAct["GeLU / SwiGLU Local Activation"]:::nvlink
+        GeLUAct --> RowGEMM["Row-Parallel GEMM: Sharded across 8 GPUs"]:::nvlink
+        RowGEMM --> AllReduceTP["NVLink All-Reduce Sum Collective"]:::nvlink
+    end
+
+    subgraph ContextRing ["2. Inter-Node InfiniBand Ring: Context Parallelism (CP)"]
+        AllReduceTP --> RingChunks["Split Sequence S into N_cp Chunks"]:::ib
+        RingChunks --> RingShift["P2P Ring Send/Recv Key-Value Activations"]:::ib
+        RingShift --> LocalAttn["Local Block-Causal Attention Computation"]:::ib
+    end
+
+    subgraph PipelineRack ["3. Inter-Rack Pipeline Parallelism (PP)"]
+        LocalAttn --> PP1F1B["1F1B Interleaved Pipeline Schedule"]:::pipe
+        PP1F1B --> StageForward["P2P Activation Forwarding to Next Stage"]:::pipe
+        PP1F1B --> StageBackward["P2P Gradient Backpropagation to Prior Stage"]:::pipe
+    end
+
+    subgraph MemoryMesh ["4. Memory Optimization: ZeRO-3 & Precision"]
+        StageForward & StageBackward --> ZeROSharding["ZeRO-3 / FSDP Sharding: Weights, Gradients, Optimizers"]:::zero
+        ZeROSharding --> FP8Exec["FP8 E4M3 Forward / FP8 E5M2 Backward Tensor Cores"]:::zero
+        FP8Exec --> ActOffload["Selective Activation Checkpointing & CPU Offloading"]:::zero
+    end
+```
+
+---
+
+### 1.1.4 Phase 4 Detailed Architecture: Objective Loss Optimization, Autodiff & Recovery Engine
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef loss fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef grad fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef opt fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef watchdog fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+
+    ModelLogits["Model Output Logits [Batch, SeqLen, Vocab]"]:::loss --> CELoss["Cross-Entropy Loss with Label Smoothing"]:::loss
+    ModelLogits --> ZLossCalc["Logit Stabilization Z-Loss Regularization"]:::loss
+    CELoss & ZLossCalc --> TotalLoss["Total Optimization Objective"]:::loss
+
+    subgraph AutodiffEngine ["Reverse-Mode Autodiff & Gradient Processing"]
+        TotalLoss --> VJP["Reverse-Mode Autodiff Vector-Jacobian Products"]:::grad
+        VJP --> Recomp["Activation Checkpointing Recomputation"]:::grad
+        Recomp --> MicroBuf["Gradient Accumulation Micro-Batch Buffer"]:::grad
+        MicroBuf --> GradSync["ZeRO-2 Reduce-Scatter Gradient Accumulation"]:::grad
+    end
+
+    subgraph DynamicsWatchdog ["Scale Dynamics & Anomaly Detection"]
+        GradSync --> NoiseEstimator["Critical Batch Size Noise Scale Estimator: tr(Sigma) / norm(G)^2"]:::watchdog
+        NoiseEstimator --> BatchTuner["Dynamic Micro-Batch & Step Size Tuner"]:::watchdog
+        GradSync --> SpikeMonitor["Loss Spike & Gradient Norm Watchdog"]:::watchdog
+        SpikeMonitor -->|"If Divergence Detected"| Rollback["Elastic Rollback to Prior Checkpoint"]:::watchdog
+    end
+
+    subgraph OptimizationStep ["Adaptive Parameter Updates"]
+        BatchTuner --> WSD_Sched["Warmup-Stable-Decay (WSD) Learning Rate Schedule"]:::opt
+        WSD_Sched --> MuP_Scale["Maximal Update Parametrization (muP) Scaling"]:::opt
+        MuP_Scale --> AdamW_Step["AdamW Decoupled Weight Decay Optimizer"]:::opt
+        AdamW_Step --> Checkpoint["Distributed Elastic Checkpointing & Persistence"]:::opt
+    end
+```
+
+---
+
+### 1.1.5 Phase 5 Detailed Architecture: Post-Training Dual-Track Alignment & Verifiable Reasoning Loop
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef base fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef pref fill:#4a154b,stroke:#f5c2e7,stroke-width:2px,color:#cdd6f4;
+    classDef reason fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef merge fill:#204040,stroke:#94e2d5,stroke-width:2px,color:#cdd6f4;
+
+    PretrainedBase["Pre-Trained Foundation Weights"]:::base --> SFT["Supervised Fine-Tuning (SFT) Core"]:::base
+
+    subgraph PreferenceTrack ["Track A: Human Preference Alignment"]
+        SFT --> PairData["Winning vs Losing Pairwise Comparisons"]:::pref
+        PairData --> BT_Model["Bradley-Terry Reward Model Training"]:::pref
+        BT_Model --> RLHF_PPO["RLHF PPO Policy Optimization + Adaptive KL Penalty"]:::pref
+        PairData --> DPO_Algo["Direct Preference Optimization (DPO)"]:::pref
+        PairData --> SimPO_KTO["SimPO Length Normalization & KTO Prospect Loss"]:::pref
+    end
+
+    subgraph ReasoningTrack ["Track B: Verifiable Mathematical & Code Reasoning"]
+        SFT --> MathPrompts["Complex Reasoning Prompts (MATH, Code, Logic)"]:::reason
+        MathPrompts --> RolloutSampler["Group Policy Rollouts: Sample G Outputs per Prompt"]:::reason
+        RolloutSampler --> SandboxEnv["Deterministic Verification Sandbox (Python / Sympy / Tests)"]:::reason
+        SandboxEnv --> GRPO_Algo["Group Relative Policy Optimization (Critic-Free Advantages)"]:::reason
+        SandboxEnv --> RLVR_Algo["Reinforcement Learning with Verifiable Rewards (RLVR)"]:::reason
+        RolloutSampler --> PRM_Model["Process Reward Models (Step-Level Credit PRM)"]:::reason
+        PRM_Model --> ConstitutionalAI["Constitutional AI Self-Critique & Best-of-N Rejection"]:::reason
+    end
+
+    RLHF_PPO & DPO_Algo & SimPO_KTO --> PrefCheckpoint["Aligned Conversational Checkpoint"]:::pref
+    GRPO_Algo & RLVR_Algo & ConstitutionalAI --> ReasonCheckpoint["Aligned Deep Reasoning Checkpoint"]:::reason
+
+    PrefCheckpoint & ReasonCheckpoint --> MergeEngine["TIES & DARE Multi-Task Sign-Concordant Checkpoint Merging"]:::merge
+    MergeEngine --> UnifiedFrontier["Unified Frontier Aligned Reasoning Model"]:::merge
+```
+
+---
+
+### 1.1.6 Phase 6 Detailed Architecture: Parameter-Efficiency, Compression & Hardware Sparsification
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef peft fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef distill fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef prune fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef deploy fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+
+    AlignedWeights["Aligned Frontier Checkpoint Weights"]:::peft --> LoRA_Family["Low-Rank Adapters: LoRA, QLoRA NF4, DoRA"]:::peft
+    LoRA_Family --> TIES_Merge["TIES & DARE Multi-Task Weight Consolidation"]:::peft
+
+    subgraph DistillContinual ["Knowledge Distillation & Continual Retention"]
+        TIES_Merge --> TeacherStudent["Knowledge Distillation (Soft Targets & On-Policy Rollouts)"]:::distill
+        TeacherStudent --> EWC_Consolidation["Elastic Weight Consolidation (EWC Fisher Information Matrix)"]:::distill
+        EWC_Consolidation --> RetainedWeights["Memory-Preserved Compact Student Weights"]:::distill
+    end
+
+    subgraph PruneSparse ["One-Shot Pruning & Hardware Sparsity"]
+        RetainedWeights --> WandaPruning["Wanda One-Shot Activation-Weighted Weight Pruning"]:::prune
+        WandaPruning --> Sparse24_Tensors["Semi-Structured 2:4 Sparse Tensor Cores Projector\n• Exactly 2 non-zeros per 4 contiguous elements\n• 50% physical weight reduction"]:::prune
+    end
+
+    Sparse24_Tensors --> ProductionWeights["Hardware-Optimized Compact Weights Ready for Serving"]:::deploy
+```
+
+---
+
+### 1.1.7 Phase 7 Detailed Architecture: Ultra-Fast Production Serving & Constrained Generation
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef req fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef paged fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef decode fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef stream fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+
+    ClientRequests["Client Streaming Prompt Ingestion"]:::req --> ContinuousBatching["Continuous Dynamic Batching Scheduler"]:::req
+
+    subgraph VirtualMemoryKV ["PagedAttention Virtual Memory Management"]
+        ContinuousBatching --> BlockTable["Virtual Memory Block Table Manager"]:::paged
+        BlockTable --> NonContigHBM["Physical GPU HBM KV Cache (Non-Contiguous Pages)"]:::paged
+        NonContigHBM --> FlashDecode["FlashDecoding Parallel Split-K Attention Reduction"]:::paged
+    end
+
+    subgraph SpeculativeEngine ["Speculative Draft & Verification"]
+        FlashDecode --> DraftModel["Small Speculative Draft Model (Generates K Candidates)"]:::decode
+        DraftModel --> VerifyMain["Main Model Parallel Verification of K Tokens"]:::decode
+        VerifyMain --> VerifiedTokens["Accepted Verified Token Sequence"]:::decode
+    end
+
+    subgraph ConstrainedSampling ["Grammar Enforcement & Deterministic Sampling"]
+        VerifiedTokens --> GrammarFSM["Constrained Grammar FSM (JSON Schema / CFG Regex Masking)"]:::decode
+        GrammarFSM --> SamplerModes["Sampling Selection: Contrastive Search, Min-P, Greedy Argmax"]:::decode
+    end
+
+    SamplerModes --> OutputSocket["Streaming Token Socket Delivery to Client Application"]:::stream
+```
+
+---
+
 ### 1.2 Control Plane Architecture: High-Level & Low-Level
 
 The **Control Plane** orchestrates cluster topology assignment, elastic state synchronization, fault tolerance, and per-iteration adaptive feedback loops.
@@ -238,27 +492,27 @@ flowchart TD
     StepExec["Step t Execution (Forward + Backward Pass)"]:::telemetry
 
     %% Control Loop 1: Noise Scale
-    StepExec -->|Per-Sample Gradient Covariance| Telemetry1["tr(Sigma) and ||G||^2 Telemetry"]:::telemetry
+    StepExec -->|"Per-Sample Gradient Covariance"| Telemetry1["Covariance and Gradient Norm Telemetry"]:::telemetry
     Telemetry1 --> CtlNoise["Critical Batch Noise Scale Controller"]:::controller
-    CtlNoise -->|Computes B_noise = tr(Sigma) / ||G||^2| ActBatch["Adapts Micro-Batch Size & Gradient Accumulation Count"]:::action
+    CtlNoise -->|"Computes B_noise = tr(Sigma) / norm(G)^2"| ActBatch["Adapts Micro-Batch Size & Gradient Accumulation Count"]:::action
 
     %% Control Loop 2: Loss Spike Watchdog
-    StepExec -->|Step Loss L_t and Gradient Norm ||g_t||| Telemetry2["Loss & Gradient Norm Telemetry"]:::telemetry
+    StepExec -->|"Step Loss L_t and Gradient Norm norm(g_t)"| Telemetry2["Loss & Gradient Norm Telemetry"]:::telemetry
     Telemetry2 --> CtlSpike["Loss Spike & Divergence Watchdog"]:::controller
-    CtlSpike -->|If L_t > MovingAvg + 4*StdDev| AlertRollback["Trigger Rollback to Checkpoint t-100"]:::alert
-    CtlSpike -->|If Normal| ActLR["Apply Warmup-Stable-Decay Learning Rate"]:::action
-    AlertRollback -->|Attenuate Learning Rate by 50%| ActLR
+    CtlSpike -->|"If L_t > MovingAvg + 4*StdDev"| AlertRollback["Trigger Rollback to Checkpoint t-100"]:::alert
+    CtlSpike -->|"If Normal"| ActLR["Apply Warmup-Stable-Decay Learning Rate"]:::action
+    AlertRollback -->|"Attenuate Learning Rate by 50%"| ActLR
 
     %% Control Loop 3: FP8 & Mixed-Precision Scaler
-    StepExec -->|Tensor Max Absolute Value amax| Telemetry3["FP8 Quantization Exponent Telemetry"]:::telemetry
+    StepExec -->|"Tensor Max Absolute Value amax"| Telemetry3["FP8 Quantization Exponent Telemetry"]:::telemetry
     Telemetry3 --> CtlFP8["Dynamic Delayed Loss & Tensor Scaler"]:::controller
-    CtlFP8 -->|Detects Inf/NaN Overflow| ActSkip["Skip Optimizer Step & Downscale Scale Factor S"]:::alert
-    CtlFP8 -->|Stable Dynamic Range| ActScale["Upscale S for Maximum FP8 Mantissa Utilization"]:::action
+    CtlFP8 -->|"Detects Inf/NaN Overflow"| ActSkip["Skip Optimizer Step & Downscale Scale Factor S"]:::alert
+    CtlFP8 -->|"Stable Dynamic Range"| ActScale["Upscale S for Maximum FP8 Mantissa Utilization"]:::action
 
     %% Control Loop 4: DoReMi Domain Mixture
-    StepExec -->|Domain Cross-Entropy Losses| Telemetry4["Proxy vs Reference Domain Losses"]:::telemetry
+    StepExec -->|"Domain Cross-Entropy Losses"| Telemetry4["Proxy vs Reference Domain Losses"]:::telemetry
     Telemetry4 --> CtlDoReMi["DoReMi Simplex Mirror Descent Controller"]:::controller
-    CtlDoReMi -->|Exponentiated Excess Loss Update| ActMixture["Adjust Next Epoch Domain Sampling Probabilities"]:::action
+    CtlDoReMi -->|"Exponentiated Excess Loss Update"| ActMixture["Adjust Next Epoch Domain Sampling Probabilities"]:::action
 
     %% Actions feed into next step
     ActBatch --> NextStep["Configure Step t+1 Parameters"]:::telemetry
@@ -319,60 +573,39 @@ flowchart TD
     end
 ```
 
-#### 1.3.2 Low-Level Intra-Block Tensor Data Plane (Forward Pass, Micro-Tiling & Backward VJP)
+#### 1.3.2 How Data Moves Through a Transformer Layer (Simple Explanation)
 
-Inside each transformer block, the exact tensor shapes $[B, S, D]$, matrix multiplications, rotary embeddings, causal softmax reductions, and reverse-mode autodiff vector-jacobian products flow as follows:
+A single Transformer layer does two main jobs:
+1. **The Forward Pass (Making Predictions)**: Words come in as numbers, the model cleans them up, adds word positions, lets words compare and pay attention to each other, looks up facts in feed-forward layers, and produces new, smarter representations.
+2. **The Backward Pass (Learning from Errors)**: The model checks how far off its prediction was, sends error signals (gradients) backward through each step, and updates its weights using AdamW so it makes fewer mistakes next time.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
-    classDef tensor fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
-    classDef op fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
-    classDef comm fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
-    classDef bwd fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+    classDef input fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef step fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef network fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef learn fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
 
-    %% Forward Pass Flow
-    subgraph FwdPipeline ["Forward Tensor Computation Pipeline"]
-        X_in["Input Hidden States X: Shape [Batch, SeqLen, HiddenDim]"]:::tensor --> LN1["Pre-Attention RMSNorm: x_norm = x / sqrt(mean(x^2) + eps)"]:::op
-        LN1 --> ColGEMM["Column-Parallel GEMM: W_q, W_k, W_v [HiddenDim, 3 * HeadDim * NumHeads / TP]"]:::op
-        ColGEMM --> RoPE_Kernel["Rotary Position Embeddings: Q_rot = R_theta * Q, K_rot = R_theta * K"]:::op
-
-        RoPE_Kernel --> FlashTiling["FlashAttention Kernel: Tiled Online Softmax over SRAM Blocks"]:::op
-        FlashTiling --> OutGEMM["Row-Parallel Output GEMM: W_o [HiddenDim / TP, HiddenDim]"]:::op
-        OutGEMM --> TP_AllRed1["Tensor Parallel All-Reduce Sum Collective"]:::comm
-
-        TP_AllRed1 --> ResAdd1["Residual Connection: X_mid = X + Dropout(AttnOut)"]:::op
-        ResAdd1 --> LN2["Pre-FFN RMSNorm: x_mid_norm = x_mid / sqrt(mean(x_mid^2) + eps)"]:::op
-
-        LN2 --> MoERoute["Top-K Softmax Gating: Softmax(W_gate * x_mid_norm)"]:::op
-        MoERoute --> EP_Dispatch["All-to-All Token Dispatch Collective across Expert Ranks"]:::comm
-        EP_Dispatch --> SwiGLU_GEMM["SwiGLU Expert GEMMs: (W_gate * x) * Silu(W_up * x)"]:::op
-        SwiGLU_GEMM --> EP_Combine["All-to-All Token Combine Collective"]:::comm
-
-        EP_Combine --> DownGEMM["Row-Parallel Down Projection GEMM: W_down"]:::op
-        DownGEMM --> TP_AllRed2["Tensor Parallel All-Reduce Sum Collective"]:::comm
-        TP_AllRed2 --> ResAdd2["Residual Connection: X_out = X_mid + FFN(X_mid)"]:::op
-        ResAdd2 --> Out_Tensor["Output Hidden States X_out: Shape [Batch, SeqLen, HiddenDim]"]:::tensor
+    subgraph ForwardPass ["1. Forward Pass (Processing Words into Smarter Meanings)"]
+        WordInputs["Input Word Representations"]:::input --> CleanNumbers["1. Normalize Values with RMSNorm\n(Keeps numbers stable so they don't explode)"]:::step
+        CleanNumbers --> AddPositions["2. Add Word Order with RoPE\n(Tells the model which word came first, second, etc.)"]:::step
+        AddPositions --> AttentionCompare["3. Multi-Head Attention\n(Lets words look at and compare each other)"]:::step
+        AttentionCompare --> CombineAttn["4. Combine Attention Output\n(Puts all head discoveries back together)"]:::step
+        CombineAttn --> AddSkip1["5. Add Skip Connection\n(Adds input back so the model never forgets original context)"]:::step
+        AddSkip1 --> CleanNumbers2["6. Second Normalization (RMSNorm)\n(Prepares numbers for feed-forward knowledge lookup)"]:::step
+        CleanNumbers2 --> ExpertLookup["7. Feed-Forward / Expert Networks (MLP / MoE)\n(Looks up facts and deeper linguistic concepts)"]:::step
+        ExpertLookup --> AddSkip2["8. Second Skip Connection\n(Adds previous layer output back for stable gradient flow)"]:::step
+        AddSkip2 --> WordOutputs["Output Representations Ready for Next Layer"]:::input
     end
 
-    %% Backward Pass Flow
-    subgraph BwdPipeline ["Backward Autodiff & Gradient Flow (VJP)"]
-        dOut["Incoming Loss Gradient dX_out: Shape [Batch, SeqLen, HiddenDim]"]:::tensor --> dDownGEMM["Autodiff VJP through Down Projection GEMM"]:::bwd
-        dDownGEMM --> dSwiGLU["Autodiff VJP through SwiGLU Gated Multiplier"]:::bwd
-        dSwiGLU --> dMoERoute["Autodiff VJP through Top-K Gating Router"]:::bwd
-
-        dMoERoute --> dLN2["Autodiff VJP through Pre-FFN RMSNorm"]:::bwd
-        dLN2 --> dOutGEMM["Autodiff VJP through Output Projection GEMM"]:::bwd
-        dOutGEMM --> dFlash["Autodiff VJP through FlashAttention Online Tiling"]:::bwd
-        dFlash --> dRoPE["Autodiff VJP through Rotary Kernel"]:::bwd
-        dRoPE --> dQKV["Autodiff VJP through QKV Column Projections"]:::bwd
-        dQKV --> dLN1["Autodiff VJP through Pre-Attention RMSNorm"]:::bwd
-
-        dLN1 --> GradSync["ZeRO-2 / FSDP Reduce-Scatter Gradient Accumulation"]:::comm
-        GradSync --> OptStep["Sharded AdamW Weight Mutation: theta = theta - lr * m_hat / (sqrt(v_hat) + eps)"]:::bwd
+    subgraph BackwardPass ["2. Backward Pass (Learning from Mistakes)"]
+        LossError["Calculate Error at Output\n(How wrong was the model's guess?)"]:::learn --> SendBackErrors["Send Gradients Backward\n(Reverse-mode autodiff calculates each step's blame)"]:::learn
+        SendBackErrors --> SyncAcrossGPUs["Synchronize Gradients Across GPUs\n(Share what every GPU learned across the cluster)"]:::network
+        SyncAcrossGPUs --> UpdateWeights["Update Weights with AdamW\n(Nudge parameters in the right direction)"]:::learn
     end
 
-    Out_Tensor -.->|Feeds Objective Loss Function| dOut
+    WordOutputs -.->|"Feeds Loss Function"| LossError
 ```
 
 ---
@@ -577,273 +810,162 @@ Every algorithm implementation adheres to strict architectural guarantees:
 
 ### 4.1 Master End-to-End Inter-Component Data Transmission Diagram
 
-The diagram below details the exact directional data pathways, payload dictionaries, and field types transmitted from each upstream algorithmic component to its downstream recipient:
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 1: DATA CURATION & VERIFICATION                                                                  │
-│ Proper Algorithm Name: Synthetic Data Quality Filtering and Deduplication                              │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • candidate_samples: List[Dict[str, Any]] (records containing 'text', 'quality_score', 'token_count')│
-│   • min_quality_score: float (e.g. 0.70)                                                               │
-│   • min_token_length: int (e.g. 10)                                                                    │
-│   • max_token_length: int (e.g. 1000)                                                                  │
-│   • jaccard_dedup_threshold: float (e.g. 0.80)                                                         │
-│                                                                                                        │
-│ Algorithm Computation: Bounded scalar filtering, token length pruning, N-gram lexical deduplication   │
-│ Invariant Certificate: Accepted samples satisfy quality thresholds, length bounds, and uniqueness     │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "accepted_samples": List[Dict[str, Any]],
-                                                    │    "acceptance_rate": float,
-                                                    │    "rejected_count": int
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 2: SEQUENCE INGESTION & DOCUMENT MASKING                                                         │
-│ Proper Algorithm Name: Sequence Packing with Causal Document Masking                                   │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • document_lengths: List[int] (derived from accepted_samples)                                        │
-│   • max_sequence_length: int (capacity limit per packed sequence bin, e.g. 8192)                       │
-│                                                                                                        │
-│ Algorithm Computation: First-Fit-Decreasing bin packing, position counter resets, causal boundary map  │
-│ Invariant Certificate: Total bin length <= max_sequence_length; document boundaries monotonically rise │
-└───────────────────────────┬────────────────────────────────────────────────┬───────────────────────────┘
-                            │                                                │
-                            │  DIRECTIONAL DATA TRANSMISSION                 │  DIRECTIONAL DATA TRANSMISSION
-                            │  Payload Transmitted:                          │  Payload Transmitted:
-                            │  {                                             │  {
-                            │    "packed_sequences": List[List[int]],        │    "position_ids": List[List[int]]
-                            │    "document_boundaries": List[List[int]]      │  }
-                            │  }                                             │
-                            ▼                                                ▼
-┌──────────────────────────────────────────────────────────┐   ┌─────────────────────────────────────────┐
-│ STAGE 3A: ACTIVATION NORMALIZATION                       │   │ STAGE 3B: ROTARY POSITIONAL ENCODINGS   │
-│ Proper Algorithm Name: Root Mean Square Normalization    │   │ Proper Algorithm Name: Rotary Position  │
-│                                                          │   │                        Embeddings (RoPE)│
-│ Input Received:                                          │   │                                         │
-│   • input_tensor: List[List[float]] (dim [B, D])         │   │ Input Received:                         │
-│   • gamma: List[float] (gain vector of length D)         │   │   • vectors: List[List[float]] (Q and K)│
-│   • eps: float (numerical stability regularizer)         │   │   • positions: List[int] (position_ids) │
-│                                                          │   │   • base: float (default 10000.0)       │
-│ Computation: Activation scaling by inverse RMS norm      │   │ Computation: 2D complex plane rotation  │
-│ Certificate: Unit root-mean-square norm preserved        │   │ Certificate: Vector inner-product norm  │
-└─────────────────────────────┬────────────────────────────┘   └────────────────────┬────────────────────┘
-                              │                                                     │
-                              │  DIRECTIONAL DATA TRANSMISSION                      │  DIRECTIONAL DATA TRANSMISSION
-                              │  Payload Transmitted:                               │  Payload Transmitted:
-                              │  {                                                  │  {
-                              │    "normalized_tensor": List[List[float]],          │    "rotated_vectors": List[List[float]]
-                              │    "rms_values": List[float]                        │  }
-                              │  }                                                  │
-                              └──────────────────────────┬──────────────────────────┘
-                                                         │
-                                                         ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 4: CONTEXTUAL ATTENTION PROJECTION                                                               │
-│ Proper Algorithm Name: Multi-Head Attention                                                            │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • query: List[List[float]] (rotated Q activations of shape [N_q, d_model])                           │
-│   • key: List[List[float]] (rotated K activations of shape [N_k, d_model])                             │
-│   • value: List[List[float]] (normalized V activations of shape [N_k, d_model])                        │
-│   • num_heads: int (number of parallel projection heads)                                               │
-│   • mask: List[List[float]] (document boundary masking matrix derived from Stage 2)                    │
-│                                                                                                        │
-│ Algorithm Computation: Multi-head projection, scaled dot-product softmax, head concatenation           │
-│ Invariant Certificate: Head outputs are convex combinations of value vectors bounded by unit softmax   │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "output": List[List[float]],
-                                                    │    "head_outputs": List[List[List[float]]],
-                                                    │    "head_dim": int
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 5: DISTRIBUTED ACCELERATION & SHARDING                                                           │
-│ Proper Algorithm Name: Megatron Tensor Parallelism                                                     │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • input_vector: List[float] (concatenated attention output projection)                               │
-│   • column_shards: List[List[List[float]]] (partitioned weight matrices across TP ranks)               │
-│   • row_shards: List[List[List[float]]] (partitioned reduction weight matrices across TP ranks)        │
-│                                                                                                        │
-│ Algorithm Computation: Column GEMM -> GeLU -> Row GEMM -> Cross-rank All-Reduce collective summation   │
-│ Invariant Certificate: Sharded computation algebraically matches dense matrix product output           │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION (Backward Autodiff)
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "output_vector": List[float],
-                                                    │    "per_sample_gradients": List[List[float]],
-                                                    │    "current_step": int
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 6A: DYNAMIC BATCH TUNING                                                                         │
-│ Proper Algorithm Name: Critical Batch Size Noise Scale Estimator                                       │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • per_sample_gradients: List[List[float]]                                                            │
-│   • current_step: int, total_steps: int, min_batch_size: int, max_batch_size: int                      │
-│                                                                                                        │
-│ Algorithm Computation: Trace of gradient covariance matrix divided by squared mean gradient norm       │
-│ Output Transmitted:                                                                                    │
-│   • recommended_batch_size: int, estimated_noise_scale_b_noise: float                                  │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "parameters": List[float],
-                                                    │    "gradients": List[float],
-                                                    │    "exp_avg": List[float],
-                                                    │    "exp_avg_sq": List[float],
-                                                    │    "lr": float, "weight_decay": float
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 6B: DECOUPLED WEIGHT DECAY OPTIMIZATION                                                          │
-│ Proper Algorithm Name: AdamW Decoupled Weight Decay Optimizer                                          │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • parameters: List[float], gradients: List[float]                                                    │
-│   • exp_avg: List[float], exp_avg_sq: List[float]                                                      │
-│   • step: int, lr: float, beta1: float, beta2: float, eps: float, weight_decay: float                  │
-│                                                                                                        │
-│ Algorithm Computation: Decoupled weight decay subtraction; bias-corrected first and second moments     │
-│ Invariant Certificate: Parameters updated via finite bounded step; variance tracking strictly positive │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "updated_parameters": List[float]
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 7: REASONING ALIGNMENT POST-TRAINING                                                             │
-│ Proper Algorithm Name: Group Relative Policy Optimization (GRPO)                                       │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • group_rewards: List[float] (mathematical / code execution verification scores across rollout group)│
-│   • group_policy_log_probs: List[List[float]] (current policy action log-probabilities)                │
-│   • group_old_log_probs: List[List[float]] (sampling rollout log-probabilities)                        │
-│   • group_ref_log_probs: List[List[float]] (frozen base reference model log-probabilities)             │
-│   • clip_epsilon: float (0.2), kl_coeff: float (0.04)                                                  │
-│                                                                                                        │
-│ Algorithm Computation: Critic-free group advantage standardization: (R - mean(R)) / std(R); clipped loss│
-│ Invariant Certificate: Normalized group advantages sum to zero; surrogate policy updates bounded by eps│
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "aligned_weight_vector": List[float]
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 8: HARDWARE WEIGHT COMPRESSION & PRUNING                                                         │
-│ Proper Algorithm Name: Semi-Structured 2:4 Sparse Tensor Cores                                         │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • dense_vector: List[float] (trained weight parameters)                                              │
-│   • importance_metric: str ("magnitude")                                                               │
-│                                                                                                        │
-│ Algorithm Computation: Contiguous 4-element partitioning; retain top 2 elements, zero bottom 2        │
-│ Output Transmitted:                                                                                    │
-│   • sparse_vector: List[float], compressed_values: List[float], group_2bit_indices: List[List[int]]    │
-│ Invariant Certificate: Exactly 2 non-zero elements per 4-element block; 50% physical compression      │
-└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                                    │
-                                                    │  DIRECTIONAL DATA TRANSMISSION
-                                                    │  Payload Transmitted:
-                                                    │  {
-                                                    │    "logits": List[float],
-                                                    │    "temperature": float
-                                                    │  }
-                                                    ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ STAGE 9: HIGH-THROUGHPUT SERVING DECODING                                                              │
-│ Proper Algorithm Name: Greedy Temperature Sampling                                                     │
-│                                                                                                        │
-│ Input Received:                                                                                        │
-│   • logits: List[float] (unnormalized next-token output logits)                                        │
-│   • temperature: float (e.g. 0.0 for greedy argmax, > 0.0 for stochastic sampling)                    │
-│                                                                                                        │
-│ Algorithm Computation: Logit temperature division, softmax normalization, argmax / multinomial choice │
-│ Invariant Certificate: Selected token index within vocabulary bounds [0, V-1]; probabilities sum to 1.0│
-│                                                                                                        │
-│ Final Output Emitted:                                                                                  │
-│   • selected_token: int (streamed to client application)                                               │
-│   • probabilities: List[float]                                                                         │
-│   • is_greedy: bool                                                                                    │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 4.2 Data Flow Diagram with Direct Transmission Schemas
-
-The Mermaid diagram below visualizes the pipeline's operational direction with the exact JSON data keys transmitted along each link:
+The diagram below maps the complete end-to-end algorithmic data transmission architecture in Mermaid, covering data curation, micro-architecture, 5D scaling, loss optimization, post-training reasoning alignment, hardware compression, and high-throughput serving:
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
 flowchart TD
-    classDef stage fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
-    classDef data fill:#2d1b4e,stroke:#cba6f7,stroke-width:1.5px,color:#cdd6f4;
+    classDef curation fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef arch fill:#2d1b4e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef scale fill:#3d1f00,stroke:#fe8019,stroke-width:2px,color:#cdd6f4;
+    classDef opt fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
+    classDef align fill:#4a154b,stroke:#f5c2e7,stroke-width:2px,color:#cdd6f4;
+    classDef peft fill:#204040,stroke:#94e2d5,stroke-width:2px,color:#cdd6f4;
+    classDef serve fill:#2b2c3b,stroke:#f9e2af,stroke-width:2px,color:#cdd6f4;
 
-    subgraph DataPrep ["Data Preparation & Ingestion"]
-        Curation["Synthetic Data Quality Filtering and Deduplication\nIn: candidate_samples, min_quality_score, min_token_length\nOut: accepted_samples, rejection_breakdown, acceptance_rate"]:::stage
-        Packing["Sequence Packing with Causal Document Masking\nIn: document_lengths, max_sequence_length\nOut: packed_bins, bin_lengths, position_ids, document_boundaries"]:::stage
+    %% -------------------------------------------------------------------------
+    %% 1. DATA CURATION & SEQUENCE PREPARATION
+    %% -------------------------------------------------------------------------
+    subgraph S1 ["1. Data Curation & Dynamic Mixture Ingestion"]
+        Curation["Synthetic Data Quality Filtering and Deduplication\n• In: candidate_samples, min_quality_score, jaccard_dedup_threshold\n• Out: accepted_samples, rejection_breakdown, acceptance_rate"]:::curation
+        DoReMi["DoReMi Dynamic Domain Reweighting\n• In: domain_losses_proxy, domain_losses_reference, current_domain_weights\n• Out: updated_domain_weights, excess_losses, worst_case_domain_idx"]:::curation
+        Packing["Sequence Packing with Causal Document Masking\n• In: document_lengths, max_sequence_length\n• Out: packed_sequences, position_ids, document_boundary_masks"]:::curation
 
-        Curation -->|"transmits { accepted_samples }"| Packing
+        Curation -->|"transmits { accepted_samples }"| DoReMi
+        DoReMi -->|"transmits { updated_domain_weights }"| Packing
     end
 
-    subgraph ForwardPass ["Transformer Forward Pass & Parallelism"]
-        RMSNorm["Root Mean Square Normalization\nIn: input_tensor, gamma, eps\nOut: normalized_tensor, rms_values"]:::stage
-        RoPE["Rotary Position Embeddings\nIn: vectors, positions, base\nOut: rotated_vectors, dim"]:::stage
-        MHA["Multi-Head Attention\nIn: query, key, value, num_heads, mask\nOut: output, head_outputs, head_dim"]:::stage
-        Megatron["Megatron Tensor Parallelism\nIn: input_vector, column_shards, row_shards\nOut: output_vector, shard_hidden_activations"]:::stage
+    %% -------------------------------------------------------------------------
+    %% 2. TRANSFORMER BLOCK MICRO-ARCHITECTURE
+    %% -------------------------------------------------------------------------
+    subgraph S2 ["2. Transformer Layer Activations & Attention Dynamics"]
+        Emb["Embedding Lookup & High-Dimensional Projection\n• In: token_ids, embedding_table\n• Out: embedded_representations"]:::arch
+        RMSNorm["Root Mean Square Normalization (RMSNorm)\n• In: input_tensor, gamma, eps\n• Out: normalized_tensor, rms_values"]:::arch
+        RoPE["Rotary Position Embeddings (RoPE) & YaRN\n• In: vectors, positions, base\n• Out: rotated_vectors, dim"]:::arch
+        MHA["Multi-Head Attention & Attention Sinks\n• In: query, key, value, num_heads, mask\n• Out: output, head_outputs, head_dim"]:::arch
+        MoERoute["Top-K Mixture-of-Experts Router\n• In: input_activations, routing_weights\n• Out: expert_dispatch_indices, routing_probabilities"]:::arch
+        SwiGLU["SwiGLU Gated Feedforward Networks\n• In: gate_tensor, up_tensor, down_tensor\n• Out: expert_output_activations"]:::arch
+        Residual["Residual Addition & Highway Connections\n• In: identity_tensor, transformed_tensor\n• Out: output_hidden_states"]:::arch
 
-        Packing -->|"transmits { packed_sequences, document_boundaries }"| RMSNorm
+        Packing -->|"transmits { packed_sequences }"| Emb
         Packing -.->|"transmits { position_ids }"| RoPE
-        RMSNorm -->|"transmits { normalized_tensor }"| MHA
+        Packing -.->|"transmits { document_boundary_masks }"| MHA
+        Emb -->|"transmits { embedded_representations }"| RMSNorm
+        RMSNorm -->|"transmits { normalized_tensor }"| RoPE
         RoPE -->|"transmits { rotated_vectors }"| MHA
-        MHA -->|"transmits { output }"| Megatron
+        MHA -->|"transmits { output }"| MoERoute
+        MoERoute -->|"transmits { expert_dispatch_indices }"| SwiGLU
+        SwiGLU -->|"transmits { expert_output_activations }"| Residual
     end
 
-    subgraph ScalingOpt ["Scale Optimization & Reasoning Alignment"]
-        NoiseScale["Critical Batch Size Noise Scale Estimator\nIn: per_sample_gradients, current_step\nOut: recommended_batch_size, estimated_noise_scale_b_noise"]:::stage
-        AdamW["AdamW Decoupled Weight Decay Optimizer\nIn: parameters, gradients, exp_avg, exp_avg_sq, lr\nOut: updated_parameters, updated_exp_avg, updated_exp_avg_sq"]:::stage
-        GRPO["Group Relative Policy Optimization\nIn: group_rewards, group_policy_log_probs, group_ref_log_probs\nOut: group_advantages, grpo_loss, approx_kl"]:::stage
+    %% -------------------------------------------------------------------------
+    %% 3. 5D DISTRIBUTED HARDWARE PARALLELISM
+    %% -------------------------------------------------------------------------
+    subgraph S3 ["3. 5D Distributed Hardware Parallel Execution"]
+        TP["Megatron Tensor Parallelism (Column/Row GEMM)\n• In: input_vector, column_shards, row_shards\n• Out: output_vector, shard_hidden_activations, tp_degree"]:::scale
+        CP["Context Parallelism (Ring Attention)\n• In: local_q_chunks, local_k_chunks, local_v_chunks\n• Out: context_attended_hidden_states"]:::scale
+        PP["Pipeline Parallelism (1F1B Micro-Batches)\n• In: microbatch_activations, stage_id\n• Out: forward_activations, backward_gradients"]:::scale
+        ZeRO["ZeRO-3 / FSDP Memory Sharding\n• In: sharded_weights, sharded_gradients, sharded_optimizer_states\n• Out: all_gathered_weights, partitioned_updates"]:::scale
+        FP8["FP8 Mixed-Precision Tensor Core Scaling\n• In: fp32_tensors, dynamic_scale_factor_S\n• Out: fp8_e4m3_forward, fp8_e5m2_backward"]:::scale
 
-        Megatron -->|"transmits { per_sample_gradients }"| NoiseScale
+        Residual -->|"transmits { output_hidden_states }"| TP
+        TP -->|"transmits { output_vector }"| CP
+        CP -->|"transmits { context_attended_hidden_states }"| PP
+        PP -->|"transmits { forward_activations }"| ZeRO
+        ZeRO -->|"transmits { all_gathered_weights }"| FP8
+    end
+
+    %% -------------------------------------------------------------------------
+    %% 4. LOSS OPTIMIZATION & AUTODIFF DYNAMICS
+    %% -------------------------------------------------------------------------
+    subgraph S4 ["4. Loss Computation, Autodiff & Gradient Optimization"]
+        Loss["Cross-Entropy Loss with Label Smoothing & Z-Loss\n• In: logits, targets, label_smoothing, z_loss_tau\n• Out: cross_entropy_loss, z_loss_term, total_objective"]:::opt
+        VJP["Reverse-Mode Autodiff Vector-Jacobian Products\n• In: objective_loss, saved_activation_graph\n• Out: parameter_gradients, activation_adjoints"]:::opt
+        NoiseScale["Critical Batch Size Noise Scale Estimator\n• In: per_sample_gradients, current_step, total_steps\n• Out: recommended_batch_size, estimated_noise_scale_b_noise"]:::opt
+        AdamW["AdamW Decoupled Weight Decay Optimizer\n• In: parameters, gradients, exp_avg, exp_avg_sq, lr, weight_decay\n• Out: updated_parameters, updated_exp_avg, updated_exp_avg_sq"]:::opt
+        WSD["Warmup-Stable-Decay Learning Rate Scheduler\n• In: step, total_steps, warmup_ratio, decay_ratio\n• Out: scheduled_learning_rate"]:::opt
+        Watchdog["Loss Spike Divergence Watchdog\n• In: current_step_loss, moving_average, moving_std\n• Out: is_anomaly_detected, rollback_trigger"]:::opt
+
+        FP8 -->|"transmits { forward_activations }"| Loss
+        Loss -->|"transmits { total_objective }"| VJP
+        VJP -->|"transmits { parameter_gradients }"| NoiseScale
         NoiseScale -->|"transmits { recommended_batch_size }"| AdamW
-        AdamW -->|"transmits { updated_parameters }"| GRPO
+        WSD -->|"transmits { scheduled_learning_rate }"| AdamW
+        VJP -->|"transmits { per_sample_gradients }"| Watchdog
+        AdamW -->|"transmits { updated_parameters }"| CheckpointSave["Elastic Distributed Checkpoint State"]:::opt
     end
 
-    subgraph CompressionServing ["Compression & Production Serving"]
-        Sparsity["Semi-Structured 2:4 Sparse Tensor Cores\nIn: dense_vector, importance_metric\nOut: sparse_vector, compressed_values, group_2bit_indices"]:::stage
-        Decoding["Greedy Temperature Sampling\nIn: logits, temperature\nOut: selected_token, probabilities, is_greedy"]:::stage
+    %% -------------------------------------------------------------------------
+    %% 5. POST-TRAINING ALIGNMENT & REASONING SELF-PLAY
+    %% -------------------------------------------------------------------------
+    subgraph S5 ["5. Post-Training Dual-Track Alignment & Reasoning Engine"]
+        SFT["Supervised Fine-Tuning (SFT) Core\n• In: base_weights, instruction_demonstrations\n• Out: instruction_tuned_weights"]:::align
+        
+        %% Human Preference Track
+        BT["Bradley-Terry Reward Modeling\n• In: pairwise_comparisons, reward_network_weights\n• Out: winning_scalar_rewards, losing_scalar_rewards"]:::align
+        RLHF["RLHF PPO with Adaptive KL Penalty\n• In: policy_rollouts, reward_scores, reference_log_probs\n• Out: ppo_policy_gradient_loss, kl_penalty_metric"]:::align
+        DPO["Direct Preference Optimization & SimPO/KTO\n• In: winning_log_probs, losing_log_probs, ref_log_probs\n• Out: dpo_loss, implicit_reward_margins"]:::align
 
-        GRPO -->|"transmits { aligned_model_weights }"| Sparsity
-        Sparsity -->|"transmits { compressed_values, group_2bit_indices }"| Decoding
+        %% Reasoning Track
+        Rollouts["Group Policy Rollout Sampler\n• In: reasoning_prompts, rollout_group_size_G\n• Out: candidate_reasoning_traces"]:::align
+        Sandbox["Deterministic Execution Sandbox (Python / Sympy / Unit Tests)\n• In: candidate_reasoning_traces, test_assertions\n• Out: binary_outcome_rewards, execution_logs"]:::align
+        GRPO["Group Relative Policy Optimization (GRPO)\n• In: group_rewards, group_policy_log_probs, group_ref_log_probs\n• Out: group_advantages, grpo_loss, approx_kl"]:::align
+        PRM["Process Reward Models (Step-Level Credit PRM)\n• In: step_decomposed_solutions, step_verifier\n• Out: step_credit_scores, best_of_n_selection"]:::align
+        Merge["TIES & DARE Multi-Task Model Merging\n• In: preference_model_weights, reasoning_model_weights\n• Out: unified_frontier_aligned_weights"]:::align
+
+        CheckpointSave -->|"transmits { updated_parameters }"| SFT
+        SFT -->|"transmits { instruction_tuned_weights }"| BT
+        BT -->|"transmits { winning_scalar_rewards }"| RLHF
+        SFT -->|"transmits { instruction_tuned_weights }"| DPO
+        SFT -->|"transmits { instruction_tuned_weights }"| Rollouts
+        Rollouts -->|"transmits { candidate_reasoning_traces }"| Sandbox
+        Sandbox -->|"transmits { binary_outcome_rewards }"| GRPO
+        Rollouts -->|"transmits { candidate_reasoning_traces }"| PRM
+        RLHF & DPO -->|"transmits { preference_checkpoint }"| Merge
+        GRPO & PRM -->|"transmits { reasoning_checkpoint }"| Merge
+    end
+
+    %% -------------------------------------------------------------------------
+    %% 6. PEFT, COMPRESSION & HARDWARE PRUNING
+    %% -------------------------------------------------------------------------
+    subgraph S6 ["6. Parameter-Efficiency, Compression & Hardware Sparsity"]
+        LoRA["LoRA, QLoRA NF4 & DoRA Low-Rank Adaptation\n• In: frozen_dense_weights, adapter_matrices_A_B\n• Out: low_rank_adapted_weights"]:::peft
+        Distill["Knowledge Distillation (Soft Targets & On-Policy)\n• In: teacher_logits, student_logits, temperature\n• Out: distillation_kl_loss, student_parameter_updates"]:::peft
+        EWC["Elastic Weight Consolidation (EWC)\n• In: previous_task_weights, fisher_information_matrix\n• Out: continual_retention_loss"]:::peft
+        Wanda["Wanda One-Shot Activation-Weighted Pruning\n• In: weight_matrix, activation_norm_vector\n• Out: structured_sparse_weight_matrix"]:::peft
+        Sparse24["Semi-Structured 2:4 Sparse Tensor Cores\n• In: dense_vector, importance_metric\n• Out: sparse_vector, compressed_values, group_2bit_indices"]:::peft
+
+        Merge -->|"transmits { unified_frontier_aligned_weights }"| LoRA
+        LoRA -->|"transmits { low_rank_adapted_weights }"| Distill
+        Distill -->|"transmits { student_parameter_updates }"| EWC
+        EWC -->|"transmits { memory_retained_weights }"| Wanda
+        Wanda -->|"transmits { structured_sparse_weight_matrix }"| Sparse24
+    end
+
+    %% -------------------------------------------------------------------------
+    %% 7. ULTRA-FAST INFERENCE SERVING & CONSTRAINED DECODING
+    %% -------------------------------------------------------------------------
+    subgraph S7 ["7. Production Serving, PagedAttention & Grammar Decoding"]
+        Continuous["Continuous Dynamic Batching Scheduler\n• In: incoming_requests, max_batch_slots\n• Out: active_generation_batch"]:::serve
+        PagedKV["PagedAttention Virtual Memory Block Manager\n• In: block_table, logical_kv_cache, physical_pages\n• Out: paged_attention_context"]:::serve
+        FlashDecode["FlashDecoding Parallel Split-K Attention\n• In: split_k_queries, paged_keys, paged_values\n• Out: reduced_attention_activations"]:::serve
+        Speculative["Speculative Draft-Verify Decoding\n• In: draft_tokens_K, target_model_verification_logits\n• Out: accepted_tokens, rollback_token_count"]:::serve
+        Grammar["Constrained Grammar FSM (JSON / CFG Masking)\n• In: raw_next_token_logits, schema_grammar_fsm\n• Out: grammar_constrained_logits"]:::serve
+        Sampling["Greedy Temperature Sampling\n• In: logits, temperature\n• Out: selected_token, probabilities, is_greedy"]:::serve
+
+        Sparse24 -->|"transmits { compressed_values, group_2bit_indices }"| PagedKV
+        Continuous -->|"transmits { active_generation_batch }"| PagedKV
+        PagedKV -->|"transmits { paged_attention_context }"| FlashDecode
+        FlashDecode -->|"transmits { reduced_attention_activations }"| Speculative
+        Speculative -->|"transmits { accepted_tokens }"| Grammar
+        Grammar -->|"transmits { grammar_constrained_logits }"| Sampling
+        Sampling -->|"transmits { selected_token } to client streaming socket"| ClientOut["Streamed Token Output Stream"]:::serve
     end
 ```
 
 ---
 
-### 4.3 Inter-Component Data Contract Transition Matrix
+### 4.2 Inter-Component Data Contract Transition Matrix
 
 The table below details the exact input fields, output fields, data types, and consumer targets across the end-to-end pipeline:
 
