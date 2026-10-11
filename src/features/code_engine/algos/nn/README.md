@@ -573,6 +573,481 @@ Every algorithm implementation adheres to strict architectural guarantees:
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
+---
+
+### 4.1 Master End-to-End Inter-Component Data Transmission Diagram
+
+The diagram below details the exact directional data pathways, payload dictionaries, and field types transmitted from each upstream algorithmic component to its downstream recipient:
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 1: DATA CURATION & VERIFICATION                                                                  │
+│ Proper Algorithm Name: Synthetic Data Quality Filtering and Deduplication                              │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • candidate_samples: List[Dict[str, Any]] (records containing 'text', 'quality_score', 'token_count')│
+│   • min_quality_score: float (e.g. 0.70)                                                               │
+│   • min_token_length: int (e.g. 10)                                                                    │
+│   • max_token_length: int (e.g. 1000)                                                                  │
+│   • jaccard_dedup_threshold: float (e.g. 0.80)                                                         │
+│                                                                                                        │
+│ Algorithm Computation: Bounded scalar filtering, token length pruning, N-gram lexical deduplication   │
+│ Invariant Certificate: Accepted samples satisfy quality thresholds, length bounds, and uniqueness     │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "accepted_samples": List[Dict[str, Any]],
+                                                    │    "acceptance_rate": float,
+                                                    │    "rejected_count": int
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 2: SEQUENCE INGESTION & DOCUMENT MASKING                                                         │
+│ Proper Algorithm Name: Sequence Packing with Causal Document Masking                                   │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • document_lengths: List[int] (derived from accepted_samples)                                        │
+│   • max_sequence_length: int (capacity limit per packed sequence bin, e.g. 8192)                       │
+│                                                                                                        │
+│ Algorithm Computation: First-Fit-Decreasing bin packing, position counter resets, causal boundary map  │
+│ Invariant Certificate: Total bin length <= max_sequence_length; document boundaries monotonically rise │
+└───────────────────────────┬────────────────────────────────────────────────┬───────────────────────────┘
+                            │                                                │
+                            │  DIRECTIONAL DATA TRANSMISSION                 │  DIRECTIONAL DATA TRANSMISSION
+                            │  Payload Transmitted:                          │  Payload Transmitted:
+                            │  {                                             │  {
+                            │    "packed_sequences": List[List[int]],        │    "position_ids": List[List[int]]
+                            │    "document_boundaries": List[List[int]]      │  }
+                            │  }                                             │
+                            ▼                                                ▼
+┌──────────────────────────────────────────────────────────┐   ┌─────────────────────────────────────────┐
+│ STAGE 3A: ACTIVATION NORMALIZATION                       │   │ STAGE 3B: ROTARY POSITIONAL ENCODINGS   │
+│ Proper Algorithm Name: Root Mean Square Normalization    │   │ Proper Algorithm Name: Rotary Position  │
+│                                                          │   │                        Embeddings (RoPE)│
+│ Input Received:                                          │   │                                         │
+│   • input_tensor: List[List[float]] (dim [B, D])         │   │ Input Received:                         │
+│   • gamma: List[float] (gain vector of length D)         │   │   • vectors: List[List[float]] (Q and K)│
+│   • eps: float (numerical stability regularizer)         │   │   • positions: List[int] (position_ids) │
+│                                                          │   │   • base: float (default 10000.0)       │
+│ Computation: Activation scaling by inverse RMS norm      │   │ Computation: 2D complex plane rotation  │
+│ Certificate: Unit root-mean-square norm preserved        │   │ Certificate: Vector inner-product norm  │
+└─────────────────────────────┬────────────────────────────┘   └────────────────────┬────────────────────┘
+                              │                                                     │
+                              │  DIRECTIONAL DATA TRANSMISSION                      │  DIRECTIONAL DATA TRANSMISSION
+                              │  Payload Transmitted:                               │  Payload Transmitted:
+                              │  {                                                  │  {
+                              │    "normalized_tensor": List[List[float]],          │    "rotated_vectors": List[List[float]]
+                              │    "rms_values": List[float]                        │  }
+                              │  }                                                  │
+                              └──────────────────────────┬──────────────────────────┘
+                                                         │
+                                                         ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 4: CONTEXTUAL ATTENTION PROJECTION                                                               │
+│ Proper Algorithm Name: Multi-Head Attention                                                            │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • query: List[List[float]] (rotated Q activations of shape [N_q, d_model])                           │
+│   • key: List[List[float]] (rotated K activations of shape [N_k, d_model])                             │
+│   • value: List[List[float]] (normalized V activations of shape [N_k, d_model])                        │
+│   • num_heads: int (number of parallel projection heads)                                               │
+│   • mask: List[List[float]] (document boundary masking matrix derived from Stage 2)                    │
+│                                                                                                        │
+│ Algorithm Computation: Multi-head projection, scaled dot-product softmax, head concatenation           │
+│ Invariant Certificate: Head outputs are convex combinations of value vectors bounded by unit softmax   │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "output": List[List[float]],
+                                                    │    "head_outputs": List[List[List[float]]],
+                                                    │    "head_dim": int
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 5: DISTRIBUTED ACCELERATION & SHARDING                                                           │
+│ Proper Algorithm Name: Megatron Tensor Parallelism                                                     │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • input_vector: List[float] (concatenated attention output projection)                               │
+│   • column_shards: List[List[List[float]]] (partitioned weight matrices across TP ranks)               │
+│   • row_shards: List[List[List[float]]] (partitioned reduction weight matrices across TP ranks)        │
+│                                                                                                        │
+│ Algorithm Computation: Column GEMM -> GeLU -> Row GEMM -> Cross-rank All-Reduce collective summation   │
+│ Invariant Certificate: Sharded computation algebraically matches dense matrix product output           │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION (Backward Autodiff)
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "output_vector": List[float],
+                                                    │    "per_sample_gradients": List[List[float]],
+                                                    │    "current_step": int
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 6A: DYNAMIC BATCH TUNING                                                                         │
+│ Proper Algorithm Name: Critical Batch Size Noise Scale Estimator                                       │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • per_sample_gradients: List[List[float]]                                                            │
+│   • current_step: int, total_steps: int, min_batch_size: int, max_batch_size: int                      │
+│                                                                                                        │
+│ Algorithm Computation: Trace of gradient covariance matrix divided by squared mean gradient norm       │
+│ Output Transmitted:                                                                                    │
+│   • recommended_batch_size: int, estimated_noise_scale_b_noise: float                                  │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "parameters": List[float],
+                                                    │    "gradients": List[float],
+                                                    │    "exp_avg": List[float],
+                                                    │    "exp_avg_sq": List[float],
+                                                    │    "lr": float, "weight_decay": float
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 6B: DECOUPLED WEIGHT DECAY OPTIMIZATION                                                          │
+│ Proper Algorithm Name: AdamW Decoupled Weight Decay Optimizer                                          │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • parameters: List[float], gradients: List[float]                                                    │
+│   • exp_avg: List[float], exp_avg_sq: List[float]                                                      │
+│   • step: int, lr: float, beta1: float, beta2: float, eps: float, weight_decay: float                  │
+│                                                                                                        │
+│ Algorithm Computation: Decoupled weight decay subtraction; bias-corrected first and second moments     │
+│ Invariant Certificate: Parameters updated via finite bounded step; variance tracking strictly positive │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "updated_parameters": List[float]
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 7: REASONING ALIGNMENT POST-TRAINING                                                             │
+│ Proper Algorithm Name: Group Relative Policy Optimization (GRPO)                                       │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • group_rewards: List[float] (mathematical / code execution verification scores across rollout group)│
+│   • group_policy_log_probs: List[List[float]] (current policy action log-probabilities)                │
+│   • group_old_log_probs: List[List[float]] (sampling rollout log-probabilities)                        │
+│   • group_ref_log_probs: List[List[float]] (frozen base reference model log-probabilities)             │
+│   • clip_epsilon: float (0.2), kl_coeff: float (0.04)                                                  │
+│                                                                                                        │
+│ Algorithm Computation: Critic-free group advantage standardization: (R - mean(R)) / std(R); clipped loss│
+│ Invariant Certificate: Normalized group advantages sum to zero; surrogate policy updates bounded by eps│
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "aligned_weight_vector": List[float]
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 8: HARDWARE WEIGHT COMPRESSION & PRUNING                                                         │
+│ Proper Algorithm Name: Semi-Structured 2:4 Sparse Tensor Cores                                         │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • dense_vector: List[float] (trained weight parameters)                                              │
+│   • importance_metric: str ("magnitude")                                                               │
+│                                                                                                        │
+│ Algorithm Computation: Contiguous 4-element partitioning; retain top 2 elements, zero bottom 2        │
+│ Output Transmitted:                                                                                    │
+│   • sparse_vector: List[float], compressed_values: List[float], group_2bit_indices: List[List[int]]    │
+│ Invariant Certificate: Exactly 2 non-zero elements per 4-element block; 50% physical compression      │
+└───────────────────────────────────────────────────┬────────────────────────────────────────────────────┘
+                                                    │
+                                                    │  DIRECTIONAL DATA TRANSMISSION
+                                                    │  Payload Transmitted:
+                                                    │  {
+                                                    │    "logits": List[float],
+                                                    │    "temperature": float
+                                                    │  }
+                                                    ▼
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ STAGE 9: HIGH-THROUGHPUT SERVING DECODING                                                              │
+│ Proper Algorithm Name: Greedy Temperature Sampling                                                     │
+│                                                                                                        │
+│ Input Received:                                                                                        │
+│   • logits: List[float] (unnormalized next-token output logits)                                        │
+│   • temperature: float (e.g. 0.0 for greedy argmax, > 0.0 for stochastic sampling)                    │
+│                                                                                                        │
+│ Algorithm Computation: Logit temperature division, softmax normalization, argmax / multinomial choice │
+│ Invariant Certificate: Selected token index within vocabulary bounds [0, V-1]; probabilities sum to 1.0│
+│                                                                                                        │
+│ Final Output Emitted:                                                                                  │
+│   • selected_token: int (streamed to client application)                                               │
+│   • probabilities: List[float]                                                                         │
+│   • is_greedy: bool                                                                                    │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 4.2 Data Flow Diagram with Direct Transmission Schemas
+
+The Mermaid diagram below visualizes the pipeline's operational direction with the exact JSON data keys transmitted along each link:
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#1e1e2e", "primaryTextColor": "#cdd6f4", "primaryBorderColor": "#89b4fa", "lineColor": "#a6adc8", "secondaryColor": "#181825", "tertiaryColor": "#11111b", "background": "#1e1e2e", "mainBkg": "#1e1e2e", "nodeBorder": "#89b4fa", "clusterBkg": "#181825", "clusterBorder": "#45475a", "titleColor": "#cdd6f4", "edgeLabelBackground": "#313244", "fontFamily": "ui-monospace, monospace"}}}%%
+flowchart TD
+    classDef stage fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;
+    classDef data fill:#2d1b4e,stroke:#cba6f7,stroke-width:1.5px,color:#cdd6f4;
+
+    subgraph DataPrep ["Data Preparation & Ingestion"]
+        Curation["Synthetic Data Quality Filtering and Deduplication\nIn: candidate_samples, min_quality_score, min_token_length\nOut: accepted_samples, rejection_breakdown, acceptance_rate"]:::stage
+        Packing["Sequence Packing with Causal Document Masking\nIn: document_lengths, max_sequence_length\nOut: packed_bins, bin_lengths, position_ids, document_boundaries"]:::stage
+
+        Curation -->|"transmits { accepted_samples }"| Packing
+    end
+
+    subgraph ForwardPass ["Transformer Forward Pass & Parallelism"]
+        RMSNorm["Root Mean Square Normalization\nIn: input_tensor, gamma, eps\nOut: normalized_tensor, rms_values"]:::stage
+        RoPE["Rotary Position Embeddings\nIn: vectors, positions, base\nOut: rotated_vectors, dim"]:::stage
+        MHA["Multi-Head Attention\nIn: query, key, value, num_heads, mask\nOut: output, head_outputs, head_dim"]:::stage
+        Megatron["Megatron Tensor Parallelism\nIn: input_vector, column_shards, row_shards\nOut: output_vector, shard_hidden_activations"]:::stage
+
+        Packing -->|"transmits { packed_sequences, document_boundaries }"| RMSNorm
+        Packing -.->|"transmits { position_ids }"| RoPE
+        RMSNorm -->|"transmits { normalized_tensor }"| MHA
+        RoPE -->|"transmits { rotated_vectors }"| MHA
+        MHA -->|"transmits { output }"| Megatron
+    end
+
+    subgraph ScalingOpt ["Scale Optimization & Reasoning Alignment"]
+        NoiseScale["Critical Batch Size Noise Scale Estimator\nIn: per_sample_gradients, current_step\nOut: recommended_batch_size, estimated_noise_scale_b_noise"]:::stage
+        AdamW["AdamW Decoupled Weight Decay Optimizer\nIn: parameters, gradients, exp_avg, exp_avg_sq, lr\nOut: updated_parameters, updated_exp_avg, updated_exp_avg_sq"]:::stage
+        GRPO["Group Relative Policy Optimization\nIn: group_rewards, group_policy_log_probs, group_ref_log_probs\nOut: group_advantages, grpo_loss, approx_kl"]:::stage
+
+        Megatron -->|"transmits { per_sample_gradients }"| NoiseScale
+        NoiseScale -->|"transmits { recommended_batch_size }"| AdamW
+        AdamW -->|"transmits { updated_parameters }"| GRPO
+    end
+
+    subgraph CompressionServing ["Compression & Production Serving"]
+        Sparsity["Semi-Structured 2:4 Sparse Tensor Cores\nIn: dense_vector, importance_metric\nOut: sparse_vector, compressed_values, group_2bit_indices"]:::stage
+        Decoding["Greedy Temperature Sampling\nIn: logits, temperature\nOut: selected_token, probabilities, is_greedy"]:::stage
+
+        GRPO -->|"transmits { aligned_model_weights }"| Sparsity
+        Sparsity -->|"transmits { compressed_values, group_2bit_indices }"| Decoding
+    end
+```
+
+---
+
+### 4.3 Inter-Component Data Contract Transition Matrix
+
+The table below details the exact input fields, output fields, data types, and consumer targets across the end-to-end pipeline:
+
+| Pipeline Phase | Algorithm Component | Upstream Caller / Source | Exact Input Payload Fields & Types | Exact Output Payload Fields & Types | Downstream Consumer / Target | Invariant Certificate |
+|---|---|---|---|---|---|---|
+| **Data Curation** | `Synthetic Data Quality Filtering and Deduplication` | Synthetic Generation Worker Pool | • `candidate_samples`: `List[Dict]`<br>• `min_quality_score`: `float`<br>• `min_token_length`: `int`<br>• `max_token_length`: `int`<br>• `jaccard_dedup_threshold`: `float` | • `accepted_samples`: `List[Dict]`<br>• `rejection_breakdown`: `Dict[str, int]`<br>• `acceptance_ratio`: `float`<br>• `total_candidates_processed`: `int` | `Sequence Packing` & Tokenizer Ingestion | Only candidate samples satisfying quality, length bounds, and sub-threshold Jaccard similarity are accepted. |
+| **Data Mixture** | `DoReMi Dynamic Domain Reweighting` | Pre-Training Scheduler / Proxy Evaluator | • `domain_losses_proxy`: `List[float]`<br>• `domain_losses_reference`: `List[float]`<br>• `current_domain_weights`: `List[float]`<br>• `step_size_eta`: `float`<br>• `smoothing_epsilon`: `float` | • `updated_domain_weights`: `List[float]`<br>• `excess_losses`: `List[float]`<br>• `worst_case_domain_idx`: `int`<br>• `max_excess_loss`: `float`<br>• `num_domains`: `int` | Distributed DataLoader Sampler | Domain weights are updated via exponentiated excess loss and normalized to a valid simplex summing to 1. |
+| **Sequence Packing** | `Sequence Packing with Causal Document Masking` | Tokenized Corpus Reader | • `document_token_sequences`: `List[List[int]]`<br>• `max_sequence_length`: `int`<br>• `padding_token_id`: `int` | • `packed_sequences`: `List[List[int]]`<br>• `segment_ids`: `List[List[int]]`<br>• `position_ids`: `List[List[int]]`<br>• `document_boundary_masks`: `List[List[List[int]]]`<br>• `packing_efficiency`: `float`<br>• `num_packed_sequences`: `int` | Embedding Lookup & Attention Engine | Sequence packing preserves intra-document token causality while cross-document attention is strictly zeroed. |
+| **Normalization** | `Root Mean Square Normalization (RMSNorm)` | Layer Input / Residual Stream | • `input_tensor`: `List[List[float]]`<br>• `gamma`: `List[float]`<br>• `eps`: `float` | • `normalized_tensor`: `List[List[float]]`<br>• `rms_values`: `List[float]` | Linear QKV GEMM Projections | Normalized activations maintain unit root-mean-square magnitude scaled by gamma weights. |
+| **Position Encoding** | `Rotary Position Embeddings (RoPE)` | Q & K Projection GEMMs | • `vectors`: `List[List[float]]`<br>• `positions`: `List[int]`<br>• `base`: `float` | • `rotated_vectors`: `List[List[float]]`<br>• `dim`: `int` | FlashAttention Causal Kernel | Rotary transformation preserves inner-product norm while embedding relative positional distance. |
+| **Attention** | `Multi-Head Attention` | Q, K, V Rotated Tensors | • `query`: `List[List[float]]`<br>• `key`: `List[List[float]]`<br>• `value`: `List[List[float]]`<br>• `num_heads`: `int`<br>• `mask`: `List[List[float]]` (optional) | • `output`: `List[List[float]]`<br>• `head_outputs`: `List[List[List[float]]]`<br>• `head_dim`: `int` | Output Projection Matrix $W_o$ | Multi-head attention outputs convex combinations of value vectors weighted by softmax scores. |
+| **Tensor Parallelism** | `Megatron Tensor Parallelism (Column/Row GEMM)` | Intra-Node Attention / MLP Block | • `input_vector`: `List[float]`<br>• `column_shards`: `List[List[List[float]]]`<br>• `row_shards`: `List[List[List[float]]]` | • `output_vector`: `List[float]`<br>• `shard_hidden_activations`: `List[List[float]]`<br>• `tp_degree`: `int`<br>• `communication_volume_elements`: `int` | Residual Stream Addition | Column-parallel GEMM followed by row-parallel GEMM and All-Reduce reproduces exact dense projection. |
+| **Batch Noise Scaling** | `Critical Batch Size Noise Scale Estimator` | Gradient Accumulator Engine | • `per_sample_gradients`: `List[List[float]]`<br>• `current_step`: `int`<br>• `total_steps`: `int`<br>• `min_batch_size`: `int`<br>• `max_batch_size`: `int` | • `estimated_noise_scale_b_noise`: `float`<br>• `gradient_trace_covariance`: `float`<br>• `mean_gradient_squared_norm`: `float`<br>• `recommended_batch_size`: `int`<br>• `compute_efficiency`: `float` | Cluster Job Dynamic Batch Tuner | Critical batch size $B_{\text{noise}}$ is estimated from the ratio of gradient covariance trace to squared mean norm. |
+| **Optimization** | `AdamW Decoupled Weight Decay Optimizer` | Autodiff VJP Backward Engine | • `parameters`: `List[float]`<br>• `gradients`: `List[float]`<br>• `exp_avg`: `List[float]`<br>• `exp_avg_sq`: `List[float]`<br>• `step`: `int`<br>• `lr`: `float`<br>• `beta1`: `float`<br>• `beta2`: `float`<br>• `eps`: `float`<br>• `weight_decay`: `float` | • `updated_parameters`: `List[float]`<br>• `updated_exp_avg`: `List[float]`<br>• `updated_exp_avg_sq`: `List[float]` | Model Weight Parameter Buffer | AdamW decouples $L_2$ weight decay from first and second gradient moment moving averages. |
+| **Alignment (Reasoning)** | `Group Relative Policy Optimization (GRPO)` | Candidate Rollout Sampler & Ground Truth Verifier | • `group_rewards`: `List[float]`<br>• `group_policy_log_probs`: `List[List[float]]`<br>• `group_old_log_probs`: `List[List[float]]`<br>• `group_ref_log_probs`: `List[List[float]]`<br>• `clip_epsilon`: `float`<br>• `kl_coeff`: `float` | • `group_advantages`: `List[float]`<br>• `mean_group_reward`: `float`<br>• `std_group_reward`: `float`<br>• `grpo_loss`: `float`<br>• `approx_kl`: `float` | Autodiff Policy Gradient Engine | Group advantages are normalized to zero-mean and unit-variance across group rollouts without a critic. |
+| **Hardware Sparsity** | `Semi-Structured 2:4 Sparse Tensor Cores` | Trained Dense Weight Matrix | • `dense_vector`: `List[float]`<br>• `importance_metric`: `str` | • `sparse_vector`: `List[float]`<br>• `compressed_values`: `List[float]`<br>• `group_2bit_indices`: `List[List[int]]`<br>• `compression_ratio`: `float`<br>• `block_count`: `int` | NVIDIA Sparse Tensor Core GEMM | Exactly 2 out of every 4 contiguous elements are zeroed, achieving 50% storage compression. |
+| **Serving Decoding** | `Greedy Temperature Sampling` | Logit Projection Layer | • `logits`: `List[float]`<br>• `temperature`: `float` | • `selected_token`: `int`<br>• `probabilities`: `List[float]`<br>• `is_greedy`: `bool` | Client Streaming Output Socket | Temperature-scaled softmax distribution produces deterministic argmax at $T=0$. |
+
+---
+
+### 4.3 Exact Concrete JSON Payloads Across Pipeline Boundaries
+
+Below are the exact input and output JSON payloads as strictly defined in each algorithm's contract and implemented in `impl.py`:
+
+#### 1. Data Curation: Synthetic Data Quality Filtering and Deduplication
+```json
+// Input payload received by Synthetic Data Quality Filtering and Deduplication
+{
+  "candidate_samples": [
+    { "text": "Proof of Fermat Last Theorem for n=3 using algebraic integers.", "quality_score": 0.88, "token_count": 12 },
+    { "text": "Click here to buy discount tickets right now!", "quality_score": 0.35, "token_count": 8 },
+    { "text": "proof of fermat last theorem for n=3 using algebraic integers.", "quality_score": 0.86, "token_count": 12 }
+  ],
+  "min_quality_score": 0.70,
+  "min_token_length": 10,
+  "max_token_length": 1000,
+  "jaccard_dedup_threshold": 0.80
+}
+
+// Output payload produced and transmitted to Sequence Packing with Causal Document Masking
+{
+  "accepted_samples": [
+    { "text": "Proof of Fermat Last Theorem for n=3 using algebraic integers.", "quality_score": 0.88, "token_count": 12 }
+  ],
+  "rejection_breakdown": {
+    "low_quality": 1,
+    "length_violation": 0,
+    "duplicate": 1
+  },
+  "acceptance_ratio": 0.3333333333333333,
+  "total_candidates_processed": 3
+}
+```
+
+#### 2. Sequence Packing: Document Boundary Masking
+```json
+// Input payload received by Sequence Packing with Causal Document Masking
+{
+  "document_token_sequences": [
+    [101, 2054, 2003, 102],
+    [101, 1037, 2793, 102],
+    [101, 4937, 102]
+  ],
+  "max_sequence_length": 8,
+  "padding_token_id": 0
+}
+
+// Output payload produced and transmitted to Embedding and Attention Layers
+{
+  "packed_sequences": [
+    [101, 2054, 2003, 102, 101, 1037, 2793, 102]
+  ],
+  "segment_ids": [
+    [1, 1, 1, 1, 2, 2, 2, 2]
+  ],
+  "position_ids": [
+    [0, 1, 2, 3, 0, 1, 2, 3]
+  ],
+  "document_boundary_masks": [
+    [
+      [1, 0, 0, 0, 0, 0, 0, 0],
+      [1, 1, 0, 0, 0, 0, 0, 0],
+      [1, 1, 1, 0, 0, 0, 0, 0],
+      [1, 1, 1, 1, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0],
+      [0, 0, 0, 0, 1, 1, 0, 0],
+      [0, 0, 0, 0, 1, 1, 1, 0],
+      [0, 0, 0, 0, 1, 1, 1, 1]
+    ]
+  ],
+  "packing_efficiency": 1.0,
+  "num_packed_sequences": 1
+}
+```
+
+#### 3. Micro-Architecture: Root Mean Square Normalization (RMSNorm)
+```json
+// Input payload received by Root Mean Square Normalization
+{
+  "input_tensor": [
+    [1.0, 2.0, -1.0, 0.5],
+    [0.2, -0.8, 1.4, -0.4]
+  ],
+  "gamma": [1.0, 1.0, 1.0, 1.0],
+  "eps": 1e-6
+}
+
+// Output payload produced and transmitted to Multi-Head Attention
+{
+  "normalized_tensor": [
+    [0.768221, 1.536442, -0.768221, 0.384110],
+    [0.237356, -0.949425, 1.661494, -0.474712]
+  ],
+  "rms_values": [1.301441, 0.842614]
+}
+```
+
+#### 4. Distributed Scale: Megatron Tensor Parallelism
+```json
+// Input payload received by Megatron Tensor Parallelism
+{
+  "input_vector": [1.0, 0.5],
+  "column_shards": [
+    [[0.5, -0.2]],
+    [[0.1, 0.8]]
+  ],
+  "row_shards": [
+    [[0.4], [-0.1]],
+    [[0.2], [0.3]]
+  ]
+}
+
+// Output payload produced and transmitted to Residual Stream & Autodiff Backward Engine
+{
+  "output_vector": [0.26, 0.11],
+  "shard_hidden_activations": [
+    [0.4],
+    [0.5]
+  ],
+  "tp_degree": 2,
+  "communication_volume_elements": 2
+}
+```
+
+#### 5. Reasoning Alignment: Group Relative Policy Optimization (GRPO)
+```json
+// Input payload received by Group Relative Policy Optimization
+{
+  "group_rewards": [1.0, 0.0, 0.5, 0.0],
+  "group_policy_log_probs": [
+    [-0.1, -0.2],
+    [-0.8, -0.9],
+    [-0.3, -0.4],
+    [-0.7, -0.8]
+  ],
+  "group_old_log_probs": [
+    [-0.15, -0.25],
+    [-0.75, -0.85],
+    [-0.35, -0.45],
+    [-0.65, -0.75]
+  ],
+  "group_ref_log_probs": [
+    [-0.2, -0.3],
+    [-0.7, -0.8],
+    [-0.4, -0.5],
+    [-0.6, -0.7]
+  ],
+  "clip_epsilon": 0.2,
+  "kl_coeff": 0.04
+}
+
+// Output payload produced and transmitted to Parameter Buffer Updates
+{
+  "group_advantages": [1.3416407, -0.8944271, 0.2236067, -0.8944271],
+  "mean_group_reward": 0.375,
+  "std_group_reward": 0.4654746,
+  "grpo_loss": -0.2814032,
+  "approx_kl": 0.0425
+}
+```
+
+#### 6. Compression & Inference: Semi-Structured 2:4 Sparsity
+```json
+// Input payload received by Semi-Structured 2:4 Sparse Tensor Cores
+{
+  "dense_vector": [0.8, -0.1, 0.05, 1.4, -0.9, 0.02, 0.7, -0.01],
+  "importance_metric": "magnitude"
+}
+
+// Output payload produced and transmitted to Hardware Tensor Core Engine
+{
+  "sparse_vector": [0.8, 0.0, 0.0, 1.4, -0.9, 0.0, 0.7, 0.0],
+  "compressed_values": [0.8, 1.4, -0.9, 0.7],
+  "group_2bit_indices": [
+    [0, 3],
+    [0, 2]
+  ],
+  "compression_ratio": 0.5,
+  "block_count": 2
+}
+```
+
+---
+
 ### Accompanying LaTeX Documentation (`math.tex` & `math.pdf`)
 Every single algorithm directory contains a publication-grade LaTeX paper compiled to `math.pdf`:
 - **Team Scaibu Authorship**: Authored by Team Scaibu Core Architecture Team with October 2026 date.
@@ -585,46 +1060,55 @@ Every single algorithm directory contains a publication-grade LaTeX paper compil
 
 ---
 
-## 5. Usage & Composition Example
+## 5. End-to-End Execution Sequence & Data Transmission Specification
 
-Algorithms can be imported and composed cleanly in pure Python without initializing GPU runtimes:
+The algorithms interact seamlessly across the computational pipeline without framework dependencies, maintaining strict mathematical contracts:
 
-```python
-# Composing Multi-Head Attention with RMSNorm and AdamW Optimization
-from features.code_engine.algos.nn.normalization.rmsnorm import NnAlgoRmsnorm
-from features.code_engine.algos.nn.attention_objectives.multi_head_attention import NnAlgoMultiHeadAttention
-from features.code_engine.algos.nn.optimizers.adamw_optimizer import NnAlgoAdamwOptimizer
-from features.code_engine.algos.nn.decoding.greedy_temperature_sampling import NnAlgoGreedyTemperatureSampling
+### Step 1: Activation Ingestion & Normalization
+- **Executing Algorithm**: `Root Mean Square Normalization`
+- **Data Received**:
+  - `input_tensor`: 2D activation matrix $[B, D]$ where $B=2$ tokens and hidden dimension $D=4$.
+  - `gamma`: Learned gain vector $[1.0, 1.0, 1.0, 1.0]$ of length $D$.
+  - `eps`: Stability regularizer $10^{-5}$.
+- **Mathematical Transformation**: Scales activations by the inverse root-mean-square norm without mean subtraction, preserving sign and unit energy.
+- **Data Transmitted Downstream**:
+  - `normalized_tensor`: Normalized activation tensor $[B, D]$ sent directly into attention projection kernels.
+  - `rms_values`: Root-mean-square magnitude vector of length $B$ forwarded to telemetry and loss monitors.
 
-# 1. Normalize token embeddings (seq_len=2, dim=4)
-x = [[0.8, -0.4, 1.2, 0.1], [0.1, 0.9, -0.5, 0.3]]
-norm_out = NnAlgoRmsnorm.forward(
-    input_vector=x[0],
-    gamma_weights=[1.0, 1.0, 1.0, 1.0],
-    epsilon=1e-5
-)
-normalized_tokens = norm_out["normalized_vector"]
+### Step 2: Contextual Representation & Multi-Head Projection
+- **Executing Algorithm**: `Multi-Head Attention`
+- **Data Received**:
+  - `query`, `key`, `value`: Rotated and normalized activation projections of shapes $[N_q, d_{\text{model}}]$ and $[N_k, d_{\text{model}}]$.
+  - `num_heads`: Number of parallel attention heads (e.g. 8).
+  - `mask`: Causal document boundary attention mask ensuring strict zero cross-document contamination.
+- **Mathematical Transformation**: Computes scaled dot-product attention per head $\text{Softmax}(Q K^T / \sqrt{d_k}) V$, concatenates outputs, and applies output linear projection.
+- **Data Transmitted Downstream**:
+  - `output`: Contextualized activation matrix $[N_q, d_{\text{model}}]$ transmitted to downstream MLP layers and backward pass autodiff graph.
+  - `head_outputs`: Per-head intermediate representation tensors forwarded to interpretability probes.
 
-# 2. Update model parameter vector via AdamW
-adam_out = NnAlgoAdamwOptimizer.forward(
-    params=[0.5, -0.2, 0.1],
-    grads=[0.05, -0.01, 0.02],
-    m_first_moment=[0.0, 0.0, 0.0],
-    v_second_moment=[0.0, 0.0, 0.0],
-    time_step=1,
-    learning_rate=0.001,
-    weight_decay=0.01
-)
-updated_weights = adam_out["updated_params"]
+### Step 3: Parameter Optimization & Decoupled Weight Regularization
+- **Executing Algorithm**: `AdamW Decoupled Weight Decay Optimizer`
+- **Data Received**:
+  - `parameters`: Model weight vector of dimension $P$.
+  - `gradients`: First-order loss gradients $\nabla_\theta \mathcal{L}$ of dimension $P$.
+  - `exp_avg`: Exponentially decaying first-moment running average vector.
+  - `exp_avg_sq`: Exponentially decaying second-moment running average vector.
+  - `step`, `lr`, `beta1`, `beta2`, `eps`, `weight_decay`: Scalar hyperparameter configuration.
+- **Mathematical Transformation**: Decouples $L_2$ weight regularization $\theta \leftarrow \theta (1 - \eta \lambda)$ from adaptive moment estimation, preventing scale distortions under sparse gradients.
+- **Data Transmitted Downstream**:
+  - `updated_parameters`: Mutated parameter vector written directly into active model weight storage.
+  - `updated_exp_avg` & `updated_exp_avg_sq`: Moment tensors persisted for subsequent optimization iterations.
 
-# 3. Sample next token logits greedily
-sample_out = NnAlgoGreedyTemperatureSampling.forward(
-    logits=[2.4, 0.1, 5.8, 1.2],
-    temperature=0.0
-)
-next_token_id = sample_out["sampled_index"]
-print(f"Sampled Next Token: {next_token_id}")  # Outputs: 2
-```
+### Step 4: Constrained Token Generation & Client Serving
+- **Executing Algorithm**: `Greedy Temperature Sampling`
+- **Data Received**:
+  - `logits`: Output log-odds vector over vocabulary $[V]$.
+  - `temperature`: Temperature scaling scalar (e.g. $0.0$ for deterministic greedy selection).
+- **Mathematical Transformation**: Computes temperature-scaled softmax probabilities $p_i = \exp(z_i / T) / \sum_j \exp(z_j / T)$, yielding deterministic argmax at $T=0$.
+- **Data Transmitted Downstream**:
+  - `selected_token`: Discrete token identifier integer streamed to client applications.
+  - `probabilities`: Categorical probability distribution over vocabulary.
+  - `is_greedy`: Boolean flag confirming deterministic selection mode.
 
 ---
 
