@@ -1116,6 +1116,53 @@ function renderProofMath(container, proof) {
   }
 }
 
+function extractBalancedArg(str, cmdName) {
+  const prefix = "\\" + cmdName + "{";
+  const idx = str.indexOf(prefix);
+  if (idx === -1) return null;
+  let depth = 1;
+  let end = idx + prefix.length;
+  while (end < str.length && depth > 0) {
+    if (str[end] === "{") depth++;
+    else if (str[end] === "}") depth--;
+    end++;
+  }
+  if (depth === 0) {
+    return str.slice(idx + prefix.length, end - 1);
+  }
+  return null;
+}
+
+function replaceLatexCommand(str, cmdName, replaceFn) {
+  const prefix = "\\" + cmdName + "{";
+  let pos = 0;
+  let result = "";
+  while (pos < str.length) {
+    const idx = str.indexOf(prefix, pos);
+    if (idx === -1) {
+      result += str.slice(pos);
+      break;
+    }
+    result += str.slice(pos, idx);
+    let depth = 1;
+    let end = idx + prefix.length;
+    while (end < str.length && depth > 0) {
+      if (str[end] === "{") depth++;
+      else if (str[end] === "}") depth--;
+      end++;
+    }
+    if (depth === 0) {
+      const content = str.slice(idx + prefix.length, end - 1);
+      result += replaceFn(content);
+      pos = end;
+    } else {
+      result += str.slice(idx, idx + prefix.length);
+      pos = idx + prefix.length;
+    }
+  }
+  return result;
+}
+
 function parseTexToHtml(src) {
   let body = src.includes("\\begin{document}") ? src.split("\\begin{document}")[1].split("\\end{document}")[0] : src;
   
@@ -1129,19 +1176,27 @@ function parseTexToHtml(src) {
   body = body.replace(/\\label\{[^}]*\}/g, "");
   body = body.replace(/\\cite\{[^}]*\}/g, "[Ref]");
   body = body.replace(/\\ref\{([^}]*)\}/g, "$1");
+  body = body.replace(/\\eqref\{([^}]*)\}/g, "($1)");
   body = body.replace(/``/g, "\"").replace(/''/g, "\"");
+  body = body.replace(/--/g, "–");
+  body = body.replace(/\\par\b/g, "\n\n");
+  body = body.replace(/\\quad\b/g, " ");
+  body = body.replace(/\\qquad\b/g, "  ");
+  body = body.replace(/\\dots\b/g, "…");
+  body = body.replace(/\\textbackslash\b/g, "\\");
+  body = body.replace(/\\underline\{([^}]+)\}/g, "<u>$1</u>");
 
   body = body.replace(/\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g, (match, eq) => {
-    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq, true) + "</div>\n\n";
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq.trim(), true) + "</div>\n\n";
   });
   body = body.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (match, eq) => {
     return "\n\n<div class=\"tex-equation\">" + renderKaTeX("\\begin{aligned}" + eq.trim() + "\\end{aligned}", true) + "</div>\n\n";
   });
   body = body.replace(/\$\$([\s\S]*?)\$\$/g, (match, eq) => {
-    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq, true) + "</div>\n\n";
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq.trim(), true) + "</div>\n\n";
   });
   body = body.replace(/\\\[([\s\S]*?)\\\]/g, (match, eq) => {
-    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq, true) + "</div>\n\n";
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq.trim(), true) + "</div>\n\n";
   });
 
   body = body.replace(/\\begin\{theorem\}(?:\[([^\]]*)\])?([\s\S]*?)\\end\{theorem\}/g, (m, opt, content) => {
@@ -1164,6 +1219,10 @@ function parseTexToHtml(src) {
     return `\n\n<div class="tex-proof"><strong>Proof:</strong> ${content.trim()} <span class="proof-qed">∎</span></div>\n\n`;
   });
 
+  body = body.replace(/\\begin\{abstract\}([\s\S]*?)\\end\{abstract\}/g, (m, content) => {
+    return `\n\n<div class="tex-abstract"><div class="tex-abstract-title">ABSTRACT</div><div class="tex-abstract-body">${content.trim()}</div></div>\n\n`;
+  });
+
   body = body.replace(/\\begin\{algorithm\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{algorithm\}/g, (match, block) => {
     const capMatch = block.match(/\\caption\{([^}]+)\}/);
     const caption = capMatch ? capMatch[1] : "Algorithm";
@@ -1173,16 +1232,18 @@ function parseTexToHtml(src) {
       return `\n\n<div class="tex-algorithm"><div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">${caption}</strong></div></div>\n\n`;
     }
 
-    const rawLines = algMatch[1].trim().split("\n");
+    let rawLines = algMatch[1]
+      .replace(/\\(State|If|Else|ElsIf|EndIf|For|EndFor|While|EndWhile|Function|EndFunction|Return)\b/g, "\n\\$1")
+      .split("\n")
+      .map(s => s.trim())
+      .filter(Boolean);
+
     let html = `\n\n<div class="tex-algorithm">\n  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">${caption}</strong></div>\n  <div class="algo-body">\n`;
     
     let ln = 1;
     let indent = 0;
 
-    for (let rawL of rawLines) {
-      let l = rawL.trim();
-      if (!l) continue;
-
+    for (let l of rawLines) {
       if (l.startsWith("\\Require")) {
         let req = l.slice(8).trim();
         req = req.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
@@ -1197,9 +1258,21 @@ function parseTexToHtml(src) {
       }
 
       l = l.replace(/\\Comment\{([^}]+)\}/g, '<span class="algo-comment">// $1</span>');
+      l = l.replace(/\\Call\{([^}]+)\}\{([^}]+)\}/g, '<span class="algo-fn">$1</span>($2)');
 
-      if (l.startsWith("\\EndFor") || l.startsWith("\\EndIf") || l.startsWith("\\EndWhile")) {
+      if (l.startsWith("\\EndFor") || l.startsWith("\\EndIf") || l.startsWith("\\EndWhile") || l.startsWith("\\EndFunction")) {
         indent = Math.max(0, indent - 1);
+        continue;
+      }
+
+      if (l.startsWith("\\Function")) {
+        let sig = l.slice(9).trim();
+        const m = sig.match(/^\{([^}]+)\}\{([^}]+)\}/);
+        const fnName = m ? m[1] : sig;
+        const fnArgs = m ? m[2] : "";
+        html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">function</strong> <span class="algo-fn">${fnName}</span>(${fnArgs})</span></div>\n`;
+        ln++;
+        indent++;
         continue;
       }
 
@@ -1263,19 +1336,17 @@ function parseTexToHtml(src) {
 
   function parseCell(c) {
     let cell = c.trim();
-    cell = cell.replace(/\\textbf\{([^}]+)\}/g, "<strong>$1</strong>");
-    cell = cell.replace(/\\textit\{([^}]+)\}/g, "<em>$1</em>");
-    cell = cell.replace(/\\texttt\{([^}]+)\}/g, "<code>$1</code>");
-    cell = cell.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
+    cell = replaceLatexCommand(cell, "textbf", v => `<strong>${v}</strong>`);
+    cell = replaceLatexCommand(cell, "textit", v => `<em>${v}</em>`);
+    cell = replaceLatexCommand(cell, "texttt", v => `<code>${v}</code>`);
+    cell = cell.replace(/\$([^$\n]+)\$/g, (m, eq) => renderKaTeX(eq, false));
     return cell;
   }
 
   body = body.replace(/\\begin\{table\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{table\}/g, (m, content) => {
-    let caption = "";
-    const capMatch = content.match(/\\caption\{([\s\S]*?)\}(?=\s*\\begin\{tabular\}|\s*$)/);
-    if (capMatch) {
-      caption = capMatch[1].replace(/\\textbf\{([^}]+)\}/g, "$1").trim();
-    }
+    let caption = extractBalancedArg(content, "caption") || "";
+    caption = caption.replace(/\\textbf\{([^}]+)\}/g, "$1").trim();
+    
     const tabMatch = content.match(/\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/);
     if (!tabMatch) return "";
     const rawRows = tabMatch[1]
@@ -1301,30 +1372,53 @@ function parseTexToHtml(src) {
   });
   body = body.replace(/\\centering\b/g, "");
 
-
-  body = body.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (match, content) => {
-    const items = content.split(/\\item\s+/).filter(i => i.trim());
-    const listHtml = items.map(it => "<li>" + it.trim() + "</li>").join("\n");
-    return "\n\n<ul class=\"tex-list\">\n" + listHtml + "\n</ul>\n\n";
+  body = body.replace(/\\begin\{thebibliography\}(?:\{[^}]*\})?([\s\S]*?)\\end\{thebibliography\}/g, (m, content) => {
+    const rawParts = content.split(/\\bibitem/);
+    rawParts.shift();
+    let bibItemsHtml = "";
+    rawParts.forEach((part, idx) => {
+      let text = part.trim();
+      let key = String(idx + 1);
+      const keyMatch = text.match(/^(?:\[[^\]]*\])?\{([^}]+)\}/);
+      if (keyMatch) {
+        key = keyMatch[1];
+        text = text.slice(keyMatch[0].length).trim();
+      }
+      text = text.replace(/~/g, " ");
+      text = text.replace(/``/g, '"').replace(/''/g, '"');
+      text = text.replace(/--/g, "–");
+      text = replaceLatexCommand(text, "emph", v => `<em>${v}</em>`);
+      text = replaceLatexCommand(text, "textit", v => `<em>${v}</em>`);
+      text = replaceLatexCommand(text, "textbf", v => `<strong>${v}</strong>`);
+      text = replaceLatexCommand(text, "url", v => `<a href="${v}" target="_blank" class="tex-url">${v}</a>`);
+      text = text.replace(/https?:\/\/[^\s<)]+/g, (url) => `<a href="${url}" target="_blank" class="tex-url">${url}</a>`);
+      text = text.replace(/\$([^$\n]+)\$/g, (m, eq) => renderKaTeX(eq, false));
+      bibItemsHtml += `  <li class="tex-bib-item" id="bib-${escapeHtml(key)}"><span class="tex-bib-key">[${idx + 1}]</span> <span class="tex-bib-text">${text}</span></li>\n`;
+    });
+    return `\n\n<div class="tex-bibliography"><h4 class="tex-h4">References</h4><ol class="tex-bib-list">\n${bibItemsHtml}</ol></div>\n\n`;
   });
-  body = body.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (match, content) => {
-    const items = content.split(/\\item\s+/).filter(i => i.trim());
-    const listHtml = items.map(it => "<li>" + it.trim() + "</li>").join("\n");
-    return "\n\n<ol class=\"tex-list\">\n" + listHtml + "\n</ol>\n\n";
-  });
 
-  body = body.replace(/\\section\{\\textbf\{([^}]+)\}\}/g, "<h3 class=\"tex-h3\">$1</h3>");
-  body = body.replace(/\\subsection\{\\textbf\{([^}]+)\}\}/g, "<h4 class=\"tex-h4\">$1</h4>");
-  body = body.replace(/\\subsubsection\{\\textbf\{([^}]+)\}\}/g, "<h5 class=\"tex-h5\">$1</h5>");
-  body = body.replace(/\\section\{([^}]+)\}/g, "<h3 class=\"tex-h3\">$1</h3>");
-  body = body.replace(/\\subsection\{([^}]+)\}/g, "<h4 class=\"tex-h4\">$1</h4>");
-  body = body.replace(/\\subsubsection\{([^}]+)\}/g, "<h5 class=\"tex-h5\">$1</h5>");
+  while (/\\begin\{(?:itemize|enumerate)\}/.test(body)) {
+    const prev = body;
+    body = body.replace(/\\begin\{(itemize|enumerate)\}((?:(?!\\begin\{(?:itemize|enumerate)\})[\s\S])*?)\\end\{\1\}/g, (match, envType, content) => {
+      const items = content.split(/\\item\s+/).filter(i => i.trim());
+      const tag = envType === "itemize" ? "ul" : "ol";
+      const listHtml = items.map(it => "<li>" + it.trim() + "</li>").join("\n");
+      return `\n\n<${tag} class="tex-list">\n${listHtml}\n</${tag}>\n\n`;
+    });
+    if (body === prev) break;
+  }
 
-  body = body.replace(/\\textbf\{([^}]+)\}/g, "<strong>$1</strong>");
-  body = body.replace(/\\textit\{([^}]+)\}/g, "<em>$1</em>");
-  body = body.replace(/\\emph\{([^}]+)\}/g, "<em>$1</em>");
-  body = body.replace(/\\texttt\{([^}]+)\}/g, "<code>$1</code>");
-  body = body.replace(/\\url\{([^}]+)\}/g, "<a href=\"$1\" target=\"_blank\" class=\"tex-url\">$1</a>");
+  body = replaceLatexCommand(body, "section", c => `<h3 class="tex-h3">${c}</h3>`);
+  body = replaceLatexCommand(body, "subsection", c => `<h4 class="tex-h4">${c}</h4>`);
+  body = replaceLatexCommand(body, "subsubsection", c => `<h5 class="tex-h5">${c}</h5>`);
+  body = replaceLatexCommand(body, "paragraph", c => `<h5 class="tex-h5">${c}</h5>`);
+
+  body = replaceLatexCommand(body, "textbf", c => `<strong>${c}</strong>`);
+  body = replaceLatexCommand(body, "textit", c => `<em>${c}</em>`);
+  body = replaceLatexCommand(body, "emph", c => `<em>${c}</em>`);
+  body = replaceLatexCommand(body, "texttt", c => `<code>${c}</code>`);
+  body = replaceLatexCommand(body, "url", c => `<a href="${c}" target="_blank" class="tex-url">${c}</a>`);
 
   body = body.replace(/\$([^$\n]+)\$/g, (m, eq) => {
     return renderKaTeX(eq, false);
