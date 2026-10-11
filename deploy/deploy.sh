@@ -22,6 +22,15 @@ sync_core_assets() {
   if [ -f "$src_dir/logo.svg" ]; then
     cp -f "$src_dir/logo.svg" "$dest_dir/logo.svg"
   fi
+  if [ -f "$src_dir/robots.txt" ]; then
+    cp -f "$src_dir/robots.txt" "$dest_dir/robots.txt"
+  fi
+  if [ -f "$src_dir/sitemap.xml" ]; then
+    cp -f "$src_dir/sitemap.xml" "$dest_dir/sitemap.xml"
+  fi
+  for vfile in "$src_dir"/google*.html; do
+    [ -f "$vfile" ] && cp -f "$vfile" "$dest_dir/"
+  done
   if [ -d "$src_dir/diagrams" ]; then
     mkdir -p "$dest_dir/diagrams"
     cp -rf "$src_dir/diagrams/"* "$dest_dir/diagrams/"
