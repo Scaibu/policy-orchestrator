@@ -1062,8 +1062,17 @@ h1.hero .ghost {
 }
 
 /* KaTeX styling safeguards */
-.katex-mathml {
+.katex-mathml,
+math,
+annotation {
   display: none !important;
+  position: absolute !important;
+  clip: rect(1px, 1px, 1px, 1px) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  height: 1px !important;
+  width: 1px !important;
+  overflow: hidden !important;
 }
 
 .katex {
@@ -1285,7 +1294,7 @@ h1.hero .ghost {
 
 .tex-table th, .tex-table td {
   border: 1px solid var(--rule);
-  padding: 8px 12px;
+  padding: 9px 13px;
   text-align: left;
   line-height: 1.5;
 }
@@ -1304,6 +1313,10 @@ h1.hero .ghost {
   color: #cdd6f4;
 }
 
+.tex-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .tex-center {
   text-align: center;
   margin: 16px 0;
@@ -1317,6 +1330,84 @@ h1.hero .ghost {
 
 .tex-url:hover {
   color: var(--accent);
+}
+
+/* Abstract Box */
+.tex-abstract {
+  background: rgba(22, 23, 34, 0.7);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 16px 20px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.tex-abstract-title {
+  font-family: var(--font-dspl);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.tex-abstract-body {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+  text-align: left;
+}
+
+/* Bibliography & Citations */
+.tex-bibliography {
+  margin: 32px 0 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  text-align: left;
+}
+
+.tex-bib-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.tex-bib-item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+  text-align: left;
+}
+
+.tex-bib-key {
+  font-family: var(--font-dspl);
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 12px;
+  min-width: 28px;
+  user-select: none;
+}
+
+.tex-bib-text {
+  flex: 1;
+  color: var(--ink-dim);
+  text-align: left;
+}
+
+.tex-bib-text em {
+  color: var(--ink);
+  font-style: italic;
+}
+
+.tex-bib-text strong {
+  color: var(--ink);
 }
 
 .tex-list {
@@ -1762,5 +1853,353 @@ h1.hero .ghost {
 
   h2 {
     font-size: 19px !important;
+  }
+}
+
+/* ==========================================================================
+   IPHONE & MOBILE STRICT RESPONSIVE REINFORCEMENTS
+   Guarantees zero horizontal page spill, full touch targets,
+   proper dynamic font clamps, and safe-area insets.
+   ========================================================================== */
+
+html, body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+.frame {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+main {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Ensure no child element causes horizontal overflow */
+*, *::before, *::after {
+  max-width: 100%;
+}
+
+/* Allow scrolling on explicitly scrollable containers */
+.topbar,
+.statusbar,
+.diagram-tabs,
+.proofs-domain-tabs,
+.mermaid-wrap,
+.asciibox,
+.inspector-code-box,
+.tex-equation,
+.tex-modal-body,
+.tex-rendered-container,
+.katex-display,
+.algo-body,
+pre,
+code {
+  max-width: none !important;
+}
+
+@media screen and (max-width: 480px) {
+  :root {
+    --pad: 12px;
+    --sf: 12.5px;
+  }
+
+  body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .frame {
+    margin: 0 !important;
+    border: none !important;
+  }
+
+  /* Topbar brand and tabs */
+  .topbar {
+    height: 40px !important;
+    padding: 0 4px !important;
+    overflow-x: scroll !important;
+    scrollbar-width: none;
+  }
+  .topbar::-webkit-scrollbar { display: none; }
+
+  .topbar .seg {
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    height: 40px !important;
+  }
+
+  .topbar .seg.brand {
+    font-size: 11.5px !important;
+    padding-left: 6px !important;
+  }
+
+  .topbar .brand-mark {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Section rows */
+  section.row {
+    padding: 20px 12px !important;
+  }
+
+  .panes > section {
+    padding: 18px 12px !important;
+  }
+
+  /* Typography */
+  h1.hero {
+    font-size: 24px !important;
+    letter-spacing: -0.01em !important;
+    line-height: 1.15 !important;
+    margin-bottom: 14px !important;
+    word-break: break-word !important;
+  }
+
+  h2 {
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+    margin-bottom: 12px !important;
+    word-break: break-word !important;
+  }
+
+  .sub, .h2lead {
+    font-size: 12.5px !important;
+    line-height: 1.5 !important;
+    margin-bottom: 18px !important;
+  }
+
+  /* CTA buttons */
+  .cta-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-top: 14px !important;
+    width: 100% !important;
+  }
+
+  .cta-row .btn {
+    width: 100% !important;
+    padding: 10px 14px !important;
+    font-size: 12px !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .copy-install {
+    width: 100% !important;
+    padding: 8px 10px !important;
+    font-size: 10.5px !important;
+    justify-content: space-between !important;
+  }
+
+  .copy-install span:nth-child(2) {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    max-width: 220px !important;
+  }
+
+  /* Herometa */
+  .herometa {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0 !important;
+    margin-top: 20px !important;
+  }
+
+  .herometa .kv {
+    padding: 10px 6px !important;
+  }
+
+  .herometa .v {
+    font-size: 20px !important;
+  }
+
+  .herometa .k {
+    font-size: 9px !important;
+    letter-spacing: .06em !important;
+  }
+
+  /* Diagrams Tabs */
+  .diagram-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+    gap: 6px !important;
+    scrollbar-width: none;
+  }
+  .diagram-tabs::-webkit-scrollbar { display: none; }
+
+  .diagram-tab-btn {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    padding: 6px 10px !important;
+    font-size: 10.5px !important;
+  }
+
+  /* Diagrams wrappers */
+  .mermaid-wrap {
+    padding: 12px 8px !important;
+    margin-bottom: 12px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .mermaid-wrap svg {
+    min-width: 500px !important;
+  }
+
+  /* Proofs Toolbar & Search */
+  .proofs-toolbar {
+    gap: 8px !important;
+  }
+
+  .proofs-search-row {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+
+  .proofs-search-input {
+    width: 100% !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+
+  .proofs-counter {
+    font-size: 9.5px !important;
+    text-align: left !important;
+  }
+
+  .proofs-domain-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-height: none !important;
+    padding: 4px 0 8px !important;
+    scrollbar-width: none;
+  }
+  .proofs-domain-tabs::-webkit-scrollbar { display: none; }
+
+  .proof-domain-btn {
+    flex-shrink: 0 !important;
+    font-size: 9.5px !important;
+    padding: 4px 8px !important;
+  }
+
+  /* Proofs Grid */
+  .proofs-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .proof-card {
+    padding: 12px 10px !important;
+    border-radius: 4px !important;
+  }
+
+  .proof-card-name {
+    font-size: 12.5px !important;
+  }
+
+  .proof-card-title {
+    font-size: 10.5px !important;
+  }
+
+  .proof-card-excerpt {
+    font-size: 10.5px !important;
+  }
+
+  .proof-card-actions {
+    flex-direction: row !important;
+    gap: 6px !important;
+  }
+
+  .proof-btn {
+    flex: 1 !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    text-align: center !important;
+  }
+
+  /* Modals on iPhone */
+  .tex-modal {
+    padding: 6px !important;
+  }
+
+  .tex-modal-dialog {
+    max-height: 94vh !important;
+    width: 100% !important;
+  }
+
+  .tex-modal-header {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .tex-modal-title {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+  }
+
+  .tex-modal-actions {
+    display: flex !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .tex-modal-actions .tex-mode-btn {
+    padding: 4px 10px !important;
+    font-size: 10px !important;
+  }
+
+  .tex-modal-body {
+    padding: 14px 10px !important;
+  }
+
+  .tex-rendered-container .tex-h3 {
+    font-size: 15px !important;
+  }
+
+  .tex-rendered-container .tex-h4 {
+    font-size: 13px !important;
+  }
+
+  .tex-rendered-container p, .tex-p {
+    font-size: 12px !important;
+  }
+
+  /* Architectural slices 30-grid */
+  .agents-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+
+  .agents-grid > div {
+    border-right: none !important;
+    border-bottom: 1px solid var(--rule) !important;
+    padding: 14px !important;
+  }
+
+  .agents-grid > div:last-child {
+    border-bottom: none !important;
+  }
+
+  /* Statusbar footer */
+  .statusbar {
+    height: 32px !important;
+    font-size: 9.5px !important;
+  }
+
+  .statusbar .seg {
+    padding: 0 6px !important;
   }
 }
