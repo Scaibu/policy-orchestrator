@@ -234,7 +234,7 @@
       <section class="row" id="sec-proofs">
         <div class="row-label">
           <span>§03 · math proofs</span>
-          <span>250 formal LaTeX specifications · 29 domains</span>
+          <span>300 formal LaTeX specifications · 29 domains</span>
         </div>
         <h2>Formal Mathematical Proofs.<br />Compiled TeX specifications.</h2>
         <p class="h2lead">
@@ -244,8 +244,8 @@
         <!-- Proofs Toolbar -->
         <div class="proofs-toolbar">
           <div class="proofs-search-row">
-            <input type="text" id="proofs-search" class="proofs-search-input" placeholder="Search 250 proofs by algorithm, domain, theorem or keyword..." oninput="filterProofs()">
-            <span id="proofs-counter" class="proofs-counter">SHOWING 250 OF 250 PROOFS</span>
+            <input type="text" id="proofs-search" class="proofs-search-input" placeholder="Search 300 proofs by algorithm, domain, theorem or keyword..." oninput="filterProofs()">
+            <span id="proofs-counter" class="proofs-counter">SHOWING 300 OF 300 PROOFS</span>
           </div>
           <div class="proofs-domain-tabs" id="proofs-domain-tabs"></div>
         </div>
@@ -1242,12 +1242,11 @@ erDiagram
           <div class="tex-modal-title" id="modal-title">Mathematical Specification</div>
         </div>
         <div class="tex-modal-actions">
-          <button class="tex-mode-btn active" id="btn-mode-render" onclick="setTexViewMode('rendered')">📐 Rendered Math</button>
-          <button class="tex-mode-btn" id="btn-mode-source" onclick="setTexViewMode('source')">📝 Raw TeX</button>
-          <button class="tex-mode-btn" id="btn-mode-pdf" onclick="openCurrentPdf()">📄 Open PDF ↗</button>
-          <button class="tex-mode-btn" onclick="copyCurrentTex()">📋 Copy TeX</button>
+          <button class="tex-mode-btn active" id="btn-mode-render" onclick="setTexViewMode('rendered')">Rendered Math</button>
+          <button class="tex-mode-btn" id="btn-mode-pdf" onclick="openCurrentPdf()">PDF ↗</button>
           <button class="tex-modal-close" onclick="closeTexModal()">✕</button>
         </div>
+
       </div>
       <div class="tex-modal-body">
         <div id="tex-rendered-view" class="tex-rendered-container"></div>

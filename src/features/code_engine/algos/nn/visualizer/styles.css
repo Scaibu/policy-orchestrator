@@ -928,12 +928,9 @@ h1.hero .ghost {
 
 .proofs-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
   margin-bottom: 24px;
-  max-height: 650px;
-  overflow-y: auto;
-  padding-right: 6px;
   align-items: stretch;
 }
 
@@ -941,35 +938,36 @@ h1.hero .ghost {
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: 4px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 220px;
+  min-height: 175px;
   box-sizing: border-box;
-  transition: border-color .15s, transform .15s;
+  transition: border-color .15s, background .15s;
   cursor: pointer;
 }
 
 .proof-card:hover {
   border-color: var(--accent);
+  background: rgba(123, 243, 123, 0.02);
 }
 
 .proof-card.active {
   border-color: var(--accent);
-  background: rgba(139,196,250,.04);
+  background: rgba(123, 243, 123, 0.05);
 }
 
 .proof-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .proof-domain-tag {
   font-family: var(--font-dspl);
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--teal);
   background: rgba(148,226,213,.08);
   border: 1px solid rgba(148,226,213,.2);
@@ -981,13 +979,13 @@ h1.hero .ghost {
 
 .proof-lines-tag {
   font-family: var(--font-dspl);
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--ink-dimmer);
 }
 
 .proof-card-name {
   font-family: var(--font);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink);
   margin-bottom: 4px;
@@ -1006,7 +1004,6 @@ h1.hero .ghost {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 29px;
 }
 
 .proof-card-excerpt {
@@ -1023,9 +1020,8 @@ h1.hero .ghost {
 
 .proof-card-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
-  flex-wrap: wrap;
   margin-top: auto;
   padding-top: 8px;
   border-top: 1px dashed var(--rule);
@@ -1033,15 +1029,18 @@ h1.hero .ghost {
 
 .proof-btn {
   font-family: var(--font-dspl);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--ink-dim);
   border: 1px solid var(--rule);
-  padding: 3px 8px;
+  padding: 4px 12px;
   border-radius: 2px;
   text-decoration: none;
   background: var(--bg);
   cursor: pointer;
   transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .proof-btn:hover {
@@ -1050,16 +1049,34 @@ h1.hero .ghost {
 }
 
 .proof-btn.primary {
-  color: var(--teal);
-  border-color: rgba(148,226,213,.3);
-  background: rgba(148,226,213,.05);
+  color: var(--accent);
+  border-color: rgba(123, 243, 123, 0.4);
+  background: rgba(123, 243, 123, 0.08);
+  font-weight: 600;
 }
 
 .proof-btn.primary:hover {
-  border-color: var(--teal);
-  background: rgba(148,226,213,.15);
+  border-color: var(--accent);
+  background: rgba(123, 243, 123, 0.2);
   color: #fff;
 }
+
+/* KaTeX styling safeguards */
+.katex-mathml {
+  display: none !important;
+}
+
+.katex {
+  font-size: 1.05em;
+  text-rendering: auto;
+}
+
+.katex-display {
+  display: block;
+  margin: 1em 0;
+  text-align: center;
+}
+
 
 /* TeX Live Math Modal */
 .tex-modal {
@@ -1174,6 +1191,7 @@ h1.hero .ghost {
   line-height: 1.7;
   max-width: 880px;
   margin: 0 auto;
+  text-align: left;
 }
 
 .tex-rendered-container .tex-h3 {
@@ -1183,6 +1201,7 @@ h1.hero .ghost {
   border-bottom: 1px solid var(--rule);
   padding-bottom: 6px;
   margin: 28px 0 14px;
+  text-align: left;
 }
 
 .tex-rendered-container .tex-h4 {
@@ -1190,12 +1209,14 @@ h1.hero .ghost {
   font-size: 15px;
   color: var(--teal);
   margin: 20px 0 10px;
+  text-align: left;
 }
 
-.tex-rendered-container p {
+.tex-rendered-container p, .tex-p {
   margin: 0 0 14px;
   font-size: 14px;
   color: #cdd6f4;
+  text-align: left;
 }
 
 .tex-rendered-container strong {
@@ -1236,19 +1257,84 @@ h1.hero .ghost {
   margin: 0;
 }
 
+.tex-table-wrap {
+  margin: 20px 0;
+  overflow-x: auto;
+}
+
+.tex-table-caption {
+  font-family: var(--font-dspl);
+  font-size: 11px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 8px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.tex-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #11121a;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tex-table th, .tex-table td {
+  border: 1px solid var(--rule);
+  padding: 8px 12px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.tex-table th {
+  background: var(--panel);
+  color: var(--accent);
+  font-family: var(--font-dspl);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+
+.tex-table td {
+  color: #cdd6f4;
+}
+
+.tex-center {
+  text-align: center;
+  margin: 16px 0;
+}
+
+.tex-url {
+  color: var(--teal);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.tex-url:hover {
+  color: var(--accent);
+}
+
 .tex-list {
+
   margin: 12px 0 18px 24px;
   padding: 0;
   color: #cdd6f4;
   font-size: 13.5px;
   line-height: 1.6;
+  text-align: left;
 }
 
 .tex-list li {
   margin-bottom: 6px;
+  text-align: left;
 }
 
-.tex-theorem, .tex-definition, .tex-lemma, .tex-remark {
+.tex-theorem, .tex-definition, .tex-lemma, .tex-remark, .tex-proof {
   background: rgba(137, 180, 250, 0.05);
   border-left: 3px solid var(--accent);
   padding: 14px 18px;
@@ -1257,9 +1343,11 @@ h1.hero .ghost {
   font-size: 13.5px;
   color: #cdd6f4;
   line-height: 1.6;
+  text-align: left;
 }
 
 .tex-definition {
+
   border-left-color: var(--teal);
   background: rgba(148, 226, 213, 0.05);
 }

@@ -966,6 +966,32 @@ function filterProofs() {
 let currentModalProof = null;
 let currentTexViewMode = "rendered";
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderKaTeX(latex, isDisplay) {
+  if (window.katex && typeof window.katex.renderToString === "function") {
+    try {
+      return window.katex.renderToString(latex.trim(), {
+        displayMode: isDisplay,
+        throwOnError: false,
+        output: "html"
+      });
+    } catch (e) {
+      console.warn("KaTeX render error:", e);
+    }
+  }
+  const safe = escapeHtml(latex);
+  return isDisplay ? `<div class="tex-equation">$$${safe}$$</div>` : `$${safe}$`;
+}
+
 function renderProofsGrid() {
   const grid = document.getElementById("proofs-grid");
   const counter = document.getElementById("proofs-counter");
@@ -993,21 +1019,19 @@ function renderProofsGrid() {
 
   grid.innerHTML = filtered.map(p => {
     const isSelected = p.id === selectedProofId ? "active" : "";
-    const pdfBtn = p.pdf ? `<a class="proof-btn" href="${p.pdf}" target="_blank" onclick="event.stopPropagation()">[pdf ↗]</a>` : "";
+    const pdfBtn = p.pdf ? `<a class="proof-btn" href="${escapeHtml(p.pdf)}" target="_blank" onclick="event.stopPropagation()">[pdf]</a>` : "";
     return `
-      <div class="proof-card ${isSelected}" onclick="openTexModal('${p.id}')">
+      <div class="proof-card ${isSelected}" onclick="openTexModal('${escapeHtml(p.id)}')">
         <div class="proof-card-header">
-          <span class="proof-domain-tag">${p.domainLabel}</span>
+          <span class="proof-domain-tag">${escapeHtml(p.domainLabel)}</span>
           <span class="proof-lines-tag">${p.lines} lines · TeX</span>
         </div>
-        <div class="proof-card-name">${p.algoName}</div>
-        <div class="proof-card-title">${p.title}</div>
-        <div class="proof-card-excerpt">${p.excerpt}</div>
+        <div class="proof-card-name">${escapeHtml(p.algoName)}</div>
+        <div class="proof-card-title">${escapeHtml(p.title)}</div>
+        <div class="proof-card-excerpt">${escapeHtml(p.excerpt)}</div>
         <div class="proof-card-actions">
-          <button class="proof-btn primary" onclick="event.stopPropagation(); openTexModal('${p.id}')">[render math 📐]</button>
-          <button class="proof-btn" onclick="event.stopPropagation(); openTexModal('${p.id}', 'source')">[source tex]</button>
+          <button class="proof-btn primary" onclick="event.stopPropagation(); openTexModal('${escapeHtml(p.id)}')">[render]</button>
           ${pdfBtn}
-          <button class="proof-btn" onclick="event.stopPropagation(); copyText('${p.tex}')">[copy path]</button>
         </div>
       </div>
     `;
@@ -1083,6 +1107,7 @@ function renderProofMath(container, proof) {
           { left: "\\(", right: "\\)", display: false },
           { left: "\\[", right: "\\]", display: true }
         ],
+        output: "html",
         throwOnError: false
       });
     } catch (e) {
@@ -1094,37 +1119,51 @@ function renderProofMath(container, proof) {
 function parseTexToHtml(src) {
   let body = src.includes("\\begin{document}") ? src.split("\\begin{document}")[1].split("\\end{document}")[0] : src;
   
-  // Clean frontmatter
   body = body.replace(/\\maketitle/g, "");
-  
-  // Clean boldmath and bracket wrappers around equations
   body = body.replace(/\\boldmath/g, "");
   body = body.replace(/\{\s*\\begin\{equation\*?\}/g, "\\begin{equation}");
   body = body.replace(/\\end\{equation\*?\}\s*\}/g, "\\end{equation}");
   body = body.replace(/\{\s*\\begin\{align\*?\}/g, "\\begin{align}");
   body = body.replace(/\\end\{align\*?\}\s*\}/g, "\\end{align}");
 
-  // Clean labels, refs, citations and quotes
   body = body.replace(/\\label\{[^}]*\}/g, "");
   body = body.replace(/\\cite\{[^}]*\}/g, "[Ref]");
   body = body.replace(/\\ref\{([^}]*)\}/g, "$1");
   body = body.replace(/``/g, "\"").replace(/''/g, "\"");
 
-  // Display equations
   body = body.replace(/\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g, (match, eq) => {
-    return "\n\n<div class=\"tex-equation\">$$" + eq.trim() + "$$</div>\n\n";
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq, true) + "</div>\n\n";
   });
   body = body.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (match, eq) => {
-    return "\n\n<div class=\"tex-equation\">$$\\begin{aligned}" + eq.trim() + "\\end{aligned}$$</div>\n\n";
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX("\\begin{aligned}" + eq.trim() + "\\end{aligned}", true) + "</div>\n\n";
+  });
+  body = body.replace(/\$\$([\s\S]*?)\$\$/g, (match, eq) => {
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq, true) + "</div>\n\n";
+  });
+  body = body.replace(/\\\[([\s\S]*?)\\\]/g, (match, eq) => {
+    return "\n\n<div class=\"tex-equation\">" + renderKaTeX(eq, true) + "</div>\n\n";
   });
 
-  // Theorem/Lemma/Definition/Remark blocks
-  body = body.replace(/\\begin\{theorem\}([\s\S]*?)\\end\{theorem\}/g, "\n\n<div class=\"tex-theorem\"><strong>Theorem:</strong> $1</div>\n\n");
-  body = body.replace(/\\begin\{definition\}([\s\S]*?)\\end\{definition\}/g, "\n\n<div class=\"tex-definition\"><strong>Definition:</strong> $1</div>\n\n");
-  body = body.replace(/\\begin\{lemma\}([\s\S]*?)\\end\{lemma\}/g, "\n\n<div class=\"tex-lemma\"><strong>Lemma:</strong> $1</div>\n\n");
-  body = body.replace(/\\begin\{remark\}([\s\S]*?)\\end\{remark\}/g, "\n\n<div class=\"tex-remark\"><strong>Remark:</strong> $1</div>\n\n");
+  body = body.replace(/\\begin\{theorem\}(?:\[([^\]]*)\])?([\s\S]*?)\\end\{theorem\}/g, (m, opt, content) => {
+    const title = opt ? ` (${opt})` : "";
+    return `\n\n<div class="tex-theorem"><strong>Theorem${title}:</strong> ${content.trim()}</div>\n\n`;
+  });
+  body = body.replace(/\\begin\{definition\}(?:\[([^\]]*)\])?([\s\S]*?)\\end\{definition\}/g, (m, opt, content) => {
+    const title = opt ? ` (${opt})` : "";
+    return `\n\n<div class="tex-definition"><strong>Definition${title}:</strong> ${content.trim()}</div>\n\n`;
+  });
+  body = body.replace(/\\begin\{lemma\}(?:\[([^\]]*)\])?([\s\S]*?)\\end\{lemma\}/g, (m, opt, content) => {
+    const title = opt ? ` (${opt})` : "";
+    return `\n\n<div class="tex-lemma"><strong>Lemma${title}:</strong> ${content.trim()}</div>\n\n`;
+  });
+  body = body.replace(/\\begin\{remark\}(?:\[([^\]]*)\])?([\s\S]*?)\\end\{remark\}/g, (m, opt, content) => {
+    const title = opt ? ` (${opt})` : "";
+    return `\n\n<div class="tex-remark"><strong>Remark${title}:</strong> ${content.trim()}</div>\n\n`;
+  });
+  body = body.replace(/\\begin\{proof\}([\s\S]*?)\\end\{proof\}/g, (m, content) => {
+    return `\n\n<div class="tex-proof"><strong>Proof:</strong> ${content.trim()} <span class="proof-qed">∎</span></div>\n\n`;
+  });
 
-  // Algorithm / Pseudocode Blocks
   body = body.replace(/\\begin\{algorithm\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{algorithm\}/g, (match, block) => {
     const capMatch = block.match(/\\caption\{([^}]+)\}/);
     const caption = capMatch ? capMatch[1] : "Algorithm";
@@ -1146,11 +1185,13 @@ function parseTexToHtml(src) {
 
       if (l.startsWith("\\Require")) {
         let req = l.slice(8).trim();
+        req = req.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
         html += `    <div class="algo-req"><span class="algo-kw">Require:</span> ${req}</div>\n`;
         continue;
       }
       if (l.startsWith("\\Ensure")) {
         let ens = l.slice(7).trim();
+        ens = ens.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
         html += `    <div class="algo-ens"><span class="algo-kw">Ensure:</span> ${ens}</div>\n`;
         continue;
       }
@@ -1172,6 +1213,7 @@ function parseTexToHtml(src) {
       if (l.startsWith("\\ElsIf")) {
         let cond = l.slice(6).trim();
         if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        cond = cond.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
         let curIndent = Math.max(0, indent - 1);
         html += `    <div class="algo-line" style="padding-left:${curIndent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">else if</strong> ${cond} <strong class="algo-kw">then</strong></span></div>\n`;
         ln++;
@@ -1181,6 +1223,7 @@ function parseTexToHtml(src) {
       if (l.startsWith("\\For")) {
         let cond = l.slice(4).trim();
         if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        cond = cond.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
         html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">for</strong> ${cond} <strong class="algo-kw">do</strong></span></div>\n`;
         ln++;
         indent++;
@@ -1190,6 +1233,7 @@ function parseTexToHtml(src) {
       if (l.startsWith("\\If")) {
         let cond = l.slice(3).trim();
         if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        cond = cond.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
         html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">if</strong> ${cond} <strong class="algo-kw">then</strong></span></div>\n`;
         ln++;
         indent++;
@@ -1199,21 +1243,16 @@ function parseTexToHtml(src) {
       if (l.startsWith("\\While")) {
         let cond = l.slice(6).trim();
         if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        cond = cond.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
         html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">while</strong> ${cond} <strong class="algo-kw">do</strong></span></div>\n`;
         ln++;
         indent++;
         continue;
       }
 
-      if (l.startsWith("\\State")) {
-        let stmt = l.slice(6).trim();
-        stmt = stmt.replace(/\\Return\b/g, '<strong class="algo-kw">return</strong>');
-        html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code">${stmt}</span></div>\n`;
-        ln++;
-        continue;
-      }
-
-      let stmt = l.replace(/\\Return\b/g, '<strong class="algo-kw">return</strong>');
+      let stmt = l.startsWith("\\State") ? l.slice(6).trim() : l;
+      stmt = stmt.replace(/\\Return\b/g, '<strong class="algo-kw">return</strong>');
+      stmt = stmt.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
       html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code">${stmt}</span></div>\n`;
       ln++;
     }
@@ -1222,7 +1261,47 @@ function parseTexToHtml(src) {
     return html;
   });
 
-  // Itemize / Enumerate Lists
+  function parseCell(c) {
+    let cell = c.trim();
+    cell = cell.replace(/\\textbf\{([^}]+)\}/g, "<strong>$1</strong>");
+    cell = cell.replace(/\\textit\{([^}]+)\}/g, "<em>$1</em>");
+    cell = cell.replace(/\\texttt\{([^}]+)\}/g, "<code>$1</code>");
+    cell = cell.replace(/\$([^$]+)\$/g, (m, eq) => renderKaTeX(eq, false));
+    return cell;
+  }
+
+  body = body.replace(/\\begin\{table\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{table\}/g, (m, content) => {
+    let caption = "";
+    const capMatch = content.match(/\\caption\{([\s\S]*?)\}(?=\s*\\begin\{tabular\}|\s*$)/);
+    if (capMatch) {
+      caption = capMatch[1].replace(/\\textbf\{([^}]+)\}/g, "$1").trim();
+    }
+    const tabMatch = content.match(/\\begin\{tabular\}\{[^}]*\}([\s\S]*?)\\end\{tabular\}/);
+    if (!tabMatch) return "";
+    const rawRows = tabMatch[1]
+      .replace(/\\(top|mid|bottom)rule/g, "")
+      .replace(/\\hline/g, "")
+      .trim()
+      .split("\\\\")
+      .map(r => r.trim())
+      .filter(Boolean);
+    
+    let tableHtml = `<div class="tex-table-wrap">` + (caption ? `<div class="tex-table-caption">${caption}</div>` : "") + `<table class="tex-table"><tbody>`;
+    rawRows.forEach((row, idx) => {
+      const cols = row.split("&").map(c => parseCell(c));
+      const tag = idx === 0 ? "th" : "td";
+      tableHtml += `<tr>` + cols.map(c => `<${tag}>${c}</${tag}>`).join("") + `</tr>`;
+    });
+    tableHtml += `</tbody></table></div>`;
+    return "\n\n" + tableHtml + "\n\n";
+  });
+
+  body = body.replace(/\\begin\{center\}([\s\S]*?)\\end\{center\}/g, (m, c) => {
+    return `\n\n<div class="tex-center">${c.trim()}</div>\n\n`;
+  });
+  body = body.replace(/\\centering\b/g, "");
+
+
   body = body.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (match, content) => {
     const items = content.split(/\\item\s+/).filter(i => i.trim());
     const listHtml = items.map(it => "<li>" + it.trim() + "</li>").join("\n");
@@ -1234,31 +1313,41 @@ function parseTexToHtml(src) {
     return "\n\n<ol class=\"tex-list\">\n" + listHtml + "\n</ol>\n\n";
   });
 
-  // Section Headers
+  body = body.replace(/\\section\{\\textbf\{([^}]+)\}\}/g, "<h3 class=\"tex-h3\">$1</h3>");
+  body = body.replace(/\\subsection\{\\textbf\{([^}]+)\}\}/g, "<h4 class=\"tex-h4\">$1</h4>");
+  body = body.replace(/\\subsubsection\{\\textbf\{([^}]+)\}\}/g, "<h5 class=\"tex-h5\">$1</h5>");
   body = body.replace(/\\section\{([^}]+)\}/g, "<h3 class=\"tex-h3\">$1</h3>");
   body = body.replace(/\\subsection\{([^}]+)\}/g, "<h4 class=\"tex-h4\">$1</h4>");
   body = body.replace(/\\subsubsection\{([^}]+)\}/g, "<h5 class=\"tex-h5\">$1</h5>");
 
-  // Text formatting
   body = body.replace(/\\textbf\{([^}]+)\}/g, "<strong>$1</strong>");
   body = body.replace(/\\textit\{([^}]+)\}/g, "<em>$1</em>");
+  body = body.replace(/\\emph\{([^}]+)\}/g, "<em>$1</em>");
   body = body.replace(/\\texttt\{([^}]+)\}/g, "<code>$1</code>");
+  body = body.replace(/\\url\{([^}]+)\}/g, "<a href=\"$1\" target=\"_blank\" class=\"tex-url\">$1</a>");
 
-  // Clean remaining unparsed stray braces from {\boldmath ... }
+  body = body.replace(/\$([^$\n]+)\$/g, (m, eq) => {
+    return renderKaTeX(eq, false);
+  });
+  body = body.replace(/\\\(([\s\S]*?)\\\)/g, (m, eq) => {
+    return renderKaTeX(eq, false);
+  });
+
   body = body.replace(/^\s*\{\s*$/gm, "");
   body = body.replace(/^\s*\}\s*$/gm, "");
 
-  // Paragraph splitting
   const paras = body.split(/\n\s*\n/).filter(p => p.trim());
   return paras.map(p => {
     p = p.trim();
     if (p.startsWith("<h3") || p.startsWith("<h4") || p.startsWith("<h5") || 
-        p.startsWith("<div") || p.startsWith("<ul") || p.startsWith("<ol")) {
+        p.startsWith("<div") || p.startsWith("<ul") || p.startsWith("<ol") ||
+        p.startsWith("<table")) {
       return p;
     }
     return "<p class=\"tex-p\">" + p + "</p>";
   }).join("\n\n");
 }
+
 
 function copyCurrentTex() {
   if (currentModalProof && currentModalProof.rawTex) {
