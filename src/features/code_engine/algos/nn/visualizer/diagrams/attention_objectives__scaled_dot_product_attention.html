@@ -68,6 +68,9 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="diagram.css">
   <script src="_layout.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="cleanAndRenderMath()"></script>
 </head>
 <body>
   <div class="topbar">
@@ -91,172 +94,163 @@
     <!-- High-Fidelity Distill Computational Graph Art -->
     <div class="diagram-panel-box">
       
-    <svg viewBox="0 0 1020 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <!-- Marker Arrows -->
-        <marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-        </marker>
-        <marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
-        </marker>
-        <marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
-        </marker>
-
-        <!-- Premium Glass Gradients -->
-        <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#090d16" />
-          <stop offset="100%" stop-color="#05070d" />
-        </linearGradient>
-        <linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e293b" />
-          <stop offset="100%" stop-color="#0f172a" />
-        </linearGradient>
-        <linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#064e3b" />
-          <stop offset="100%" stop-color="#047857" />
-        </linearGradient>
-        <linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e3a8a" />
-          <stop offset="100%" stop-color="#2563eb" />
-        </linearGradient>
-        <linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#311042" />
-          <stop offset="100%" stop-color="#4c1d95" />
-        </linearGradient>
-
-        <!-- Drop Shadows for 3D Layer Elevation -->
-        <filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
-        </filter>
-      </defs>
-
-      <!-- Background Canvas with Subtle Sub-grid -->
-      <rect width="1020" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/>
-      <line x1="40" y1="55" x2="980" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/>
-
-      <!-- Header Information -->
-      <text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text>
-      <text x="970" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Attention Objectives</text>
-
-      <!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) -->
-      <g filter="url(#shadow-elev)">
-        <!-- Input 1 Node -->
-        <rect x="50" y="80" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="112" r="14" fill="#0284c7"/>
-        <text x="75" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text>
-        <text x="100" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Query Q ∈ ℝ^N_q × d_</text>
-        <text x="100" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text>
-
-        <!-- Input 2 Node -->
-        <rect x="50" y="165" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="197" r="14" fill="#0284c7"/>
-        <text x="75" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text>
-        <text x="100" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Key K ∈ ℝ^N_k × d_k</text>
-        <text x="100" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text>
-
-        <!-- Input 3 Node -->
-        <rect x="50" y="250" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/>
-        <circle cx="75" cy="282" r="14" fill="#d97706"/>
-        <text x="75" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text>
-        <text x="100" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Value V ∈ ℝ^N_k × d_</text>
-        <text x="100" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text>
-      </g>
-
-      <!-- Connecting Synaptic Lines to Stage 2 -->
-      <path d="M 210 112 C 260 112, 270 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 197 C 260 197, 270 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 282 C 260 282, 270 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/>
-
-      <!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL -->
-      <g filter="url(#shadow-elev)">
-        <rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/>
-        <text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
-        <text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">N_q ≥ts rows(Q), N_k ≥ts</text>
-        <rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/>
-        <text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text>
-      </g>
-
-      <!-- Forward Line to Stage 3 -->
-      <line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/>
-
-      <!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER -->
-      <g filter="url(#shadow-elev)">
-        <rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/>
-        <circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
-        <text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text>
-        <text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">τ is None or τ ≤ 0</text>
-        <rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/>
-        <text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text>
-      </g>
-
-      <!-- Forward Line to Output Stage -->
-      <line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/>
-
-      <!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE -->
-      <g filter="url(#shadow-elev)">
-        <rect x="840" y="125" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="865" cy="157" r="14" fill="#047857"/>
-        <text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
-        <text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Output matrix O ∈ ℝ^N_</text>
-        <text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text>
-
-        <rect x="840" y="210" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/>
-        <circle cx="865" cy="242" r="14" fill="#7e22ce"/>
-        <text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text>
-        <text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">attention weights A ∈ </text>
-        <text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text>
-      </g>
-
-      <!-- Feedback Gradient Arrow from Output back to Operator Kernel -->
-      <path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/>
-      <rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/>
-      <text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text>
-
-      <!-- Footer Formula Banner -->
-      <rect x="180" y="352" width="660" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/>
-      <text x="510" y="374" fill="#38bdf8" font-size="13" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: \operatornameAttn: \boldsymbolD_q × \boldsymbolD_k × \boldsymbolD_v × \boldsymbolM \l</text>
-    </svg>
+    <svg viewBox="0 0 1160 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg"><defs><!-- Marker Arrows --><marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" /></marker><marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" /></marker><marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" /></marker><!-- Premium Glass Gradients --><linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#090d16" /><stop offset="100%" stop-color="#05070d" /></linearGradient><linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b" /><stop offset="100%" stop-color="#0f172a" /></linearGradient><linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#064e3b" /><stop offset="100%" stop-color="#047857" /></linearGradient><linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a8a" /><stop offset="100%" stop-color="#2563eb" /></linearGradient><linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#311042" /><stop offset="100%" stop-color="#4c1d95" /></linearGradient><!-- Drop Shadows for 3D Layer Elevation --><filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/></filter></defs><!-- Background Canvas with Subtle Sub-grid --><rect width="1160" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/><line x1="40" y1="55" x2="1120" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/><!-- Header Information --><text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text><text x="1110" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Attention Objectives</text><!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) --><g filter="url(#shadow-elev)"><!-- Input 1 Node --><rect x="40" y="80" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="112" r="14" fill="#0284c7"/><text x="65" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text><text x="90" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Query Q ∈ ℝ^{N_q × d_k}</text><text x="90" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text><!-- Input 2 Node --><rect x="40" y="165" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="197" r="14" fill="#0284c7"/><text x="65" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text><text x="90" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Key K ∈ ℝ^{N_k × d_k}</text><text x="90" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text><!-- Input 3 Node --><rect x="40" y="250" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/><circle cx="65" cy="282" r="14" fill="#d97706"/><text x="65" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text><text x="90" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Value V ∈ ℝ^{N_k × d_v}</text><text x="90" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text></g><!-- Connecting Synaptic Lines to Stage 2 --><path d="M 240 112 C 275 112, 285 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 197 C 275 197, 285 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 282 C 275 282, 285 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/><!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL --><g filter="url(#shadow-elev)"><rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/><circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/><text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text><text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">N_q ← rows(Q), N_k ← r</text><rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/><text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text></g><!-- Forward Line to Stage 3 --><line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/><!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER --><g filter="url(#shadow-elev)"><rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/><circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/><text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text><text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">← 1.0 / √(d_k)</text><rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/><text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text></g><!-- Forward Line to Output Stage --><line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/><!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE --><g filter="url(#shadow-elev)"><rect x="840" y="125" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/><circle cx="865" cy="157" r="14" fill="#047857"/><text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text><text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Output matrix O ∈ ℝ^{N_q × d</text><text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text><rect x="840" y="210" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/><circle cx="865" cy="242" r="14" fill="#7e22ce"/><text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text><text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">attention weights A ∈ ℝ^{N_q</text><text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text></g><!-- Feedback Gradient Arrow from Output back to Operator Kernel --><path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/><rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/><text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text><!-- Footer Formula Banner --><rect x="140" y="352" width="880" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/><text x="580" y="374" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: {Attn}: {D}_q × {D}_k × {D}_v × {M} ℝ^{N_q × d_v}</text></svg>
     
     </div>
 
     <!-- Multi-Column Technical Breakdown Grid -->
-    <div class="distill-grid">
+    <div class="distill-grid-breakdown">
       <!-- Inputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Input Tensors &amp; Parameter Signatures</div>
-        <div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Query Q ∈ ℝ^N_q × d_k</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Key K ∈ ℝ^N_k × d_k</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Value V ∈ ℝ^N_k × d_v</span></div>
+        <div class="distill-card-title"><span>◈</span> Input Contract (JSON Payload)</div>
+        <pre class="json-card-box">{
+  <span class="key">"query":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"key":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"value":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"mask":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"scale":</span> <span class="num">0.05</span>
+}</pre>
       </div>
 
       <!-- Execution Lifecycle Steps Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Internal Execution Lifecycle (9 Passes)</div>
-        <div class="spec-item"><span class="spec-step-num">PASS [01]</span> <span>N_q ≥ts rows(Q), N_k ≥ts rows(K), d_k ≥ts cols(Q), d_v ≥ts cols(V)</span></div><div class="spec-item"><span class="spec-step-num">PASS [02]</span> <span>τ is None or τ ≤ 0</span></div><div class="spec-item"><span class="spec-step-num">PASS [03]</span> <span>τ ≥ts 1.0 / \sqrtd_k</span></div><div class="spec-item"><span class="spec-step-num">PASS [04]</span> <span>A ≥ts empty matrix of shape (N_q, N_k)</span></div><div class="spec-item"><span class="spec-step-num">PASS [05]</span> <span>i ≥ts 1 bf to N_q</span></div><div class="spec-item"><span class="spec-step-num">PASS [06]</span> <span>s_i ≥ts array of size N_k</span></div><div class="spec-item"><span class="spec-step-num">PASS [07]</span> <span>j ≥ts 1 bf to N_k</span></div><div class="spec-item"><span class="spec-step-num">PASS [08]</span> <span>dot ≥ts ∑_d=1^d_k Q_i, d \cdot K_j, d</span></div><div class="spec-item"><span class="spec-step-num">PASS [09]</span> <span>score ≥ts dot \cdot τ</span></div>
+        <div class="distill-card-title"><span>◈</span> Algorithmic Execution Pipeline</div>
+        <div class="tex-algorithm">
+  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">Scaled Dot-Product Attention Forward Execution</strong></div>
+  <div class="algo-body">
+    <div class="algo-req"><span class="algo-kw">Require:</span> Query $\mathbf{Q} \in \mathbb{R}^{N_q \times d_k}$, Key $\mathbf{K} \in \mathbb{R}^{N_k \times d_k}$, Value $\mathbf{V} \in \mathbb{R}^{N_k \times d_v}$</div>
+    <div class="algo-req"><span class="algo-kw">Require:</span> Optional additive mask $\mathbf{M} \in \mathbb{R}^{N_q \times N_k}$, optional scale factor $\tau \in \mathbb{R}_{> 0}$</div>
+    <div class="algo-ens"><span class="algo-kw">Ensure:</span> Output matrix $\mathbf{O} \in \mathbb{R}^{N_q \times d_v}$, attention weights $\mathbf{A} \in \mathbb{R}^{N_q \times N_k}$, scale factor $\tau$</div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">1</span> <span class="algo-code">$N_q \gets \text{rows}(\mathbf{Q}), \quad N_k \gets \text{rows}(\mathbf{K}), \quad d_k \gets \text{cols}(\mathbf{Q}), \quad d_v \gets \text{cols}(\mathbf{V})$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">2</span> <span class="algo-code"><strong class="algo-kw">if</strong> $\tau \text{ is None or } \tau \le 0$ <strong class="algo-kw">then</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">3</span> <span class="algo-code">$\tau \gets 1.0 / \sqrt{d_k}$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">4</span> <span class="algo-code">$\mathbf{A} \gets \text{empty matrix of shape } (N_q, N_k)$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">5</span> <span class="algo-code"><strong class="algo-kw">for</strong> $i \gets 1 \textbf{ to } N_q$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">6</span> <span class="algo-code">$\mathbf{s}_i \gets \text{array of size } N_k$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">7</span> <span class="algo-code"><strong class="algo-kw">for</strong> $j \gets 1 \textbf{ to } N_k$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">8</span> <span class="algo-code">$\text{dot} \gets \sum_{d=1}^{d_k} Q_{i, d} \cdot K_{j, d}$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">9</span> <span class="algo-code">$\text{score} \gets \text{dot} \cdot \tau$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">10</span> <span class="algo-code"><strong class="algo-kw">if</strong> $\mathbf{M} \text{ is present}$ <strong class="algo-kw">then</strong></span></div>
+    <div class="algo-line" style="padding-left:54px"><span class="algo-ln">11</span> <span class="algo-code">$\text{score} \gets \text{score} + M_{i, j}$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">12</span> <span class="algo-code">$s_{i}[j] \gets \text{score}$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">13</span> <span class="algo-code">$m_i \gets \max_{1 \le j \le N_k} s_i[j]$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">14</span> <span class="algo-code">$\text{exp\_sum} \gets \sum_{j=1}^{N_k} \exp(s_i[j] - m_i)$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">15</span> <span class="algo-code"><strong class="algo-kw">for</strong> $j \gets 1 \textbf{ to } N_k$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">16</span> <span class="algo-code"><strong class="algo-kw">if</strong> $\text{exp\_sum} > 0$ <strong class="algo-kw">then</strong></span></div>
+    <div class="algo-line" style="padding-left:54px"><span class="algo-ln">17</span> <span class="algo-code">$A_{i, j} \gets \exp(s_i[j] - m_i) / \text{exp\_sum}$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">18</span> <span class="algo-code"><strong class="algo-kw">else</strong></span></div>
+    <div class="algo-line" style="padding-left:54px"><span class="algo-ln">19</span> <span class="algo-code">$A_{i, j} \gets 1.0 / N_k$ \Comment{Uniform fallback for degenerate rows}</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">20</span> <span class="algo-code">$\mathbf{O} \gets \text{zeros of shape } (N_q, d_v)$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">21</span> <span class="algo-code"><strong class="algo-kw">for</strong> $i \gets 1 \textbf{ to } N_q$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">22</span> <span class="algo-code"><strong class="algo-kw">for</strong> $j \gets 1 \textbf{ to } N_k$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">23</span> <span class="algo-code"><strong class="algo-kw">for</strong> $d \gets 1 \textbf{ to } d_v$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:54px"><span class="algo-ln">24</span> <span class="algo-code">$O_{i, d} \gets O_{i, d} + A_{i, j} \cdot V_{j, d}$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">25</span> <span class="algo-code"><strong class="algo-kw">return</strong> $\{\text{output}: \mathbf{O}, \text{attention\_weights}: \mathbf{A}, \text{scale\_factor}: \tau\}$</span></div>
+  </div>
+</div>
       </div>
 
       <!-- Outputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Verified Target Outputs</div>
-        <div class="spec-item"><span class="spec-dot-emerald">■</span> <span>Output matrix O ∈ ℝ^N_q × d_v</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>attention weights A ∈ ℝ^N_q × N_k</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>scale factor τ</span></div>
+        <div class="distill-card-title"><span>◈</span> Output Contract (JSON Response)</div>
+        <pre class="json-card-box">{
+  <span class="key">"output":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"attention_weights":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"scale_factor":</span> <span class="num">0.0014</span>
+}</pre>
       </div>
     </div>
 
     <!-- Theoretical Guarantees and Complexity Grid -->
     <div class="distill-grid">
-      
-        <div class="distill-card">
-          <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
-          <div class="theorem-box"><div class="theorem-title">\textbf{Unit Variance Preservation under Gaussian Components}</div><div class="theorem-desc">Let coordinates Q_i, d \sim N(0, 1) and K_j, d \sim N(0, 1) be mutually independent identically distributed standard normal random variables with zero mean and unit variance.</div></div><div class="theorem-box"><div class="theorem-title">\textbf{Convex Hull Containment}</div><div class="theorem-desc">For any row-stochastic attention weight vector a_i ∈ \boldsymbolΔ^N_k - 1 and value vectors \v_j\_j=1^N_k \subset ℝ^d_v, the output vector o_i = ∑_j=1^N_k A_i, j v_j strictly resides within the convex hull: \boldmath \beginequation o_i ∈ \operatornameconv(v_1, ..., v_N_k) \endequation Consequently, under any vector norm \|\cdot\|, \|o_i\| ≤ max_1 ≤ j ≤ N_k \|v_j\|.</div></div>
-        </div>
-        
-      
-    <div class="distill-card">
-      <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
-      <div class="comp-item"><span class="comp-bullet">▸</span> <span>bfTime Complexity:</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>Computing inner products QK^→p: N_q N_k d_k multiplications and additions (\Theta(N_q N_k d_k) FLOPs).</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>Softmax evaluation: N_q N_k scaling, max-finding, exp, and division operations (\Theta(N_q N_k) FLOPs).</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>Value weighting AV: N_q N_k d_v multiplications and additions (\Theta(N_q N_k d_v) FLOPs).</span></div>
-    </div>
-    
+      <div class="distill-card">
+        <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
+          <div class="theorem-box">
+            <div class="theorem-title">Unit Variance Preservation under Gaussian Components</div>
+            <div class="theorem-desc">Let coordinates $Q_{i, d} \sim \mathcal{N}(0, 1)$ and $K_{j, d} \sim \mathcal{N}(0, 1)$ be mutually independent identically distributed standard normal random variables with zero mean and unit variance.
+Then the unscaled dot product $Z = \sum_{d=1}^{d_k} Q_{i, d} K_{j, d}$ has mean $\mathbb{E}[Z] = 0$ and variance $\operatorname{Var}(Z) = d_k$.
+Scaling by $\tau = 1/\sqrt{d_k}$ guarantees:
+$$
+\mathbb{E}\left[\frac{Z}{\sqrt{d_k}}\right] = 0 \quad \text{\textbf{and}} \quad \operatorname{Var}\left(\frac{Z}{\sqrt{d_k}}\right) = 1.0
+$$</div>
+          </div>
+          <div class="theorem-box">
+            <div class="theorem-title">Convex Hull Containment</div>
+            <div class="theorem-desc">For any row-stochastic attention weight vector $\mathbf{a}_i \in \boldsymbol{\Delta}^{N_k - 1}$ and value vectors $\{\mathbf{v}_j\}_{j=1}^{N_k} \subset \mathbb{R}^{d_v}$, the output vector $\mathbf{o}_i = \sum_{j=1}^{N_k} A_{i, j} \mathbf{v}_j$ strictly resides within the convex hull:
+$$
+\mathbf{o}_i \in \operatorname{conv}(\mathbf{v}_1, \dots, \mathbf{v}_{N_k})
+$$
+Consequently, under any vector norm $\|\cdot\|$, $\|\mathbf{o}_i\| \le \max_{1 \le j \le N_k} \|\mathbf{v}_j\|$.</div>
+          </div>
+          <div class="theorem-box">
+            <div class="theorem-title">Shift Invariance of the Softmax Normalization</div>
+            <div class="theorem-desc">For any logit vector $\mathbf{s} \in \mathbb{R}^N$ and any scalar shift constant $c \in \mathbb{R}$:
+$$
+\operatorname{softmax}(\mathbf{s} - c \mathbf{1}) \equiv \operatorname{softmax}(\mathbf{s})
+$$</div>
+          </div>
+      </div>
+      <div class="distill-card">
+        <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Computing inner products $\mathbf{Q}\mathbf{K}^\top$: $N_q N_k d_k$ multiplications and additions ($\Theta(N_q N_k d_k)$ FLOPs).</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Softmax evaluation: $N_q N_k$ scaling, max-finding, exp, and division operations ($\Theta(N_q N_k)$ FLOPs).</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Value weighting $\mathbf{A}\mathbf{V}$: $N_q N_k d_v$ multiplications and additions ($\Theta(N_q N_k d_v)$ FLOPs).</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Total Time: $\Theta(N_q N_k(d_k + d_v))$ FLOPs.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> Attention weights buffer $\mathbf{A}$: $\Theta(N_q N_k)$ floats.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> Output matrix $\mathbf{O}$: $\Theta(N_q d_v)$ floats.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> Total Auxiliary Space: $\Theta(N_q N_k + N_q d_v)$.</span>
+      </div>
+      </div>
     </div>
 
     <!-- Navigation Footer -->

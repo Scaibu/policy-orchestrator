@@ -1816,17 +1816,6 @@ function setupKaTeXRendering() {
 }
 
 function cleanAndRenderMath() {
-  const textNodes = document.querySelectorAll(".spec-item span, .theorem-desc, .comp-item span");
-  textNodes.forEach((node) => {
-    let text = node.innerHTML;
-    text = text.replace(/≥ts/g, "&larr;");
-    text = text.replace(/\bbf([A-Z][a-zA-Z0-9_]*)/g, "<b>$1</b>");
-    text = text.replace(/bfto/g, "to");
-    text = text.replace(/\\boldsymbolμ/g, "&mu;");
-    text = text.replace(/\\boldsymbol([a-zA-Z])/g, "<b>$1</b>");
-    node.innerHTML = text;
-  });
-
   if (typeof renderMathInElement === "function") {
     renderMathInElement(document.body, {
       delimiters: [
@@ -1835,6 +1824,7 @@ function cleanAndRenderMath() {
         { left: "\\(", right: "\\)", display: false },
         { left: "\\[", right: "\\]", display: true }
       ],
+      ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
       throwOnError: false
     });
   }

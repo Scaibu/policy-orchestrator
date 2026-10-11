@@ -1757,7 +1757,18 @@ function setTexViewMode(mode) {
   if (diagramView) {
     diagramView.style.display = mode === "diagram" ? "block" : "none";
     if (mode === "diagram" && currentModalProof) {
-      diagramView.innerHTML = generateHtmlDiagram(currentModalProof);
+      const domain = currentModalProof.domain || "";
+      const algo = currentModalProof.algo || "";
+      const diagUrl = `diagrams/${domain}__${algo}.html`;
+      diagramView.innerHTML = `
+        <div style="width:100%; height:100%; min-height:620px; display:flex; flex-direction:column;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--rule);">
+            <span style="font-family:var(--font-dspl); font-size:11px; color:var(--accent); font-weight:700;">◈ DISTILL ARCHITECTURAL GRAPH &amp; HARDWARE DATA-FLOW</span>
+            <a href="${diagUrl}" target="_blank" style="font-family:var(--font-dspl); font-size:11px; color:var(--teal); text-decoration:none;">Open in Full View ↗</a>
+          </div>
+          <iframe src="${diagUrl}" style="width:100%; height:620px; border:1px solid var(--rule); border-radius:8px; background:#060810;" frameborder="0"></iframe>
+        </div>
+      `;
     }
   }
 }

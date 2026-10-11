@@ -68,6 +68,9 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="diagram.css">
   <script src="_layout.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="cleanAndRenderMath()"></script>
 </head>
 <body>
   <div class="topbar">
@@ -91,172 +94,160 @@
     <!-- High-Fidelity Distill Computational Graph Art -->
     <div class="diagram-panel-box">
       
-    <svg viewBox="0 0 1020 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <!-- Marker Arrows -->
-        <marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-        </marker>
-        <marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
-        </marker>
-        <marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
-        </marker>
-
-        <!-- Premium Glass Gradients -->
-        <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#090d16" />
-          <stop offset="100%" stop-color="#05070d" />
-        </linearGradient>
-        <linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e293b" />
-          <stop offset="100%" stop-color="#0f172a" />
-        </linearGradient>
-        <linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#064e3b" />
-          <stop offset="100%" stop-color="#047857" />
-        </linearGradient>
-        <linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e3a8a" />
-          <stop offset="100%" stop-color="#2563eb" />
-        </linearGradient>
-        <linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#311042" />
-          <stop offset="100%" stop-color="#4c1d95" />
-        </linearGradient>
-
-        <!-- Drop Shadows for 3D Layer Elevation -->
-        <filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
-        </filter>
-      </defs>
-
-      <!-- Background Canvas with Subtle Sub-grid -->
-      <rect width="1020" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/>
-      <line x1="40" y1="55" x2="980" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/>
-
-      <!-- Header Information -->
-      <text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text>
-      <text x="970" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Advanced Reinforcement Learning</text>
-
-      <!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) -->
-      <g filter="url(#shadow-elev)">
-        <!-- Input 1 Node -->
-        <rect x="50" y="80" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="112" r="14" fill="#0284c7"/>
-        <text x="75" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text>
-        <text x="100" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Transitions batch (q</text>
-        <text x="100" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text>
-
-        <!-- Input 2 Node -->
-        <rect x="50" y="165" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="197" r="14" fill="#0284c7"/>
-        <text x="75" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text>
-        <text x="100" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">q_2</text>
-        <text x="100" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text>
-
-        <!-- Input 3 Node -->
-        <rect x="50" y="250" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/>
-        <circle cx="75" cy="282" r="14" fill="#d97706"/>
-        <text x="75" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text>
-        <text x="100" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">q_1</text>
-        <text x="100" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text>
-      </g>
-
-      <!-- Connecting Synaptic Lines to Stage 2 -->
-      <path d="M 210 112 C 260 112, 270 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 197 C 260 197, 270 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 282 C 260 282, 270 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/>
-
-      <!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL -->
-      <g filter="url(#shadow-elev)">
-        <rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/>
-        <text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
-        <text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Initialize y ∈ ℝ^N, err_</text>
-        <rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/>
-        <text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text>
-      </g>
-
-      <!-- Forward Line to Stage 3 -->
-      <line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/>
-
-      <!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER -->
-      <g filter="url(#shadow-elev)">
-        <rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/>
-        <circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
-        <text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text>
-        <text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">i = 0 bfto N-1</text>
-        <rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/>
-        <text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text>
-      </g>
-
-      <!-- Forward Line to Output Stage -->
-      <line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/>
-
-      <!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE -->
-      <g filter="url(#shadow-elev)">
-        <rect x="840" y="125" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="865" cy="157" r="14" fill="#047857"/>
-        <text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
-        <text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Targets y</text>
-        <text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text>
-
-        <rect x="840" y="210" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/>
-        <circle cx="865" cy="242" r="14" fill="#7e22ce"/>
-        <text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text>
-        <text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">critic loss L_Q</text>
-        <text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text>
-      </g>
-
-      <!-- Feedback Gradient Arrow from Output back to Operator Kernel -->
-      <path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/>
-      <rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/>
-      <text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text>
-
-      <!-- Footer Formula Banner -->
-      <rect x="180" y="352" width="660" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/>
-      <text x="510" y="374" fill="#38bdf8" font-size="13" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: J_MaxEnt(π) = ∑_t=0^∈fty \mathbbE_(s_t, a_t) \sim \rho_π ≤ft[ γ^t ≤ft( r(s_t, a_t) + </text>
-    </svg>
+    <svg viewBox="0 0 1160 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg"><defs><!-- Marker Arrows --><marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" /></marker><marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" /></marker><marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" /></marker><!-- Premium Glass Gradients --><linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#090d16" /><stop offset="100%" stop-color="#05070d" /></linearGradient><linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b" /><stop offset="100%" stop-color="#0f172a" /></linearGradient><linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#064e3b" /><stop offset="100%" stop-color="#047857" /></linearGradient><linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a8a" /><stop offset="100%" stop-color="#2563eb" /></linearGradient><linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#311042" /><stop offset="100%" stop-color="#4c1d95" /></linearGradient><!-- Drop Shadows for 3D Layer Elevation --><filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/></filter></defs><!-- Background Canvas with Subtle Sub-grid --><rect width="1160" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/><line x1="40" y1="55" x2="1120" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/><!-- Header Information --><text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text><text x="1110" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Advanced Reinforcement Learning</text><!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) --><g filter="url(#shadow-elev)"><!-- Input 1 Node --><rect x="40" y="80" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="112" r="14" fill="#0284c7"/><text x="65" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text><text x="90" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Transitions batch (q_1</text><text x="90" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text><!-- Input 2 Node --><rect x="40" y="165" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="197" r="14" fill="#0284c7"/><text x="65" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text><text x="90" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">q_2</text><text x="90" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text><!-- Input 3 Node --><rect x="40" y="250" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/><circle cx="65" cy="282" r="14" fill="#d97706"/><text x="65" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text><text x="90" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">q_{1</text><text x="90" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text></g><!-- Connecting Synaptic Lines to Stage 2 --><path d="M 240 112 C 275 112, 285 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 197 C 275 197, 285 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 282 C 275 282, 285 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/><!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL --><g filter="url(#shadow-elev)"><rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/><circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/><text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text><text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Initialize y ∈ ℝ^N, er</text><rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/><text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text></g><!-- Forward Line to Stage 3 --><line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/><!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER --><g filter="url(#shadow-elev)"><rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/><circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/><text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text><text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">y[i] ← r[i]</text><rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/><text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text></g><!-- Forward Line to Output Stage --><line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/><!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE --><g filter="url(#shadow-elev)"><rect x="840" y="125" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/><circle cx="865" cy="157" r="14" fill="#047857"/><text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text><text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Targets y</text><text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text><rect x="840" y="210" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/><circle cx="865" cy="242" r="14" fill="#7e22ce"/><text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text><text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">critic loss L_Q</text><text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text></g><!-- Feedback Gradient Arrow from Output back to Operator Kernel --><path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/><rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/><text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text><!-- Footer Formula Banner --><rect x="140" y="352" width="880" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/><text x="580" y="374" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: J_{MaxEnt}() = ∑_{t=0}^{∈fty} {E}_{(s_t, a_t) ~ _} [ γ^t ( r(s_t, a_t) + α {H}((· …</text></svg>
     
     </div>
 
     <!-- Multi-Column Technical Breakdown Grid -->
-    <div class="distill-grid">
+    <div class="distill-grid-breakdown">
       <!-- Inputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Input Tensors &amp; Parameter Signatures</div>
-        <div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Transitions batch (q_1</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>q_2</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>q_1</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>targ</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>q_2</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>targ</span></div>
+        <div class="distill-card-title"><span>◈</span> Input Contract (JSON Payload)</div>
+        <pre class="json-card-box">{
+  <span class="key">"current_q1_values":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"current_q2_values":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"next_q1_target_values":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"next_q2_target_values":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"rewards":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"next_log_probs":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"dones":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"policy_log_probs":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"policy_q1_values":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"policy_q2_values":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"alpha":</span> <span class="num">0.2</span>,
+  <span class="key">"gamma":</span> <span class="num">0.99</span>,
+  <span class="key">"target_entropy":</span> <span class="num">-1</span>,
+  <span class="key">"alpha_lr":</span> <span class="num">0.001</span>
+}</pre>
       </div>
 
       <!-- Execution Lifecycle Steps Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Internal Execution Lifecycle (9 Passes)</div>
-        <div class="spec-item"><span class="spec-step-num">PASS [01]</span> <span>Initialize y ∈ ℝ^N, err_1 ≥ts 0.0, err_2 ≥ts 0.0</span></div><div class="spec-item"><span class="spec-step-num">PASS [02]</span> <span>i = 0 bfto N-1</span></div><div class="spec-item"><span class="spec-step-num">PASS [03]</span> <span>d[i] is True</span></div><div class="spec-item"><span class="spec-step-num">PASS [04]</span> <span>y[i] ≥ts r[i]</span></div><div class="spec-item"><span class="spec-step-num">PASS [05]</span> <span>min\_next ≥ts min(q_1,targ[i], q_2,targ[i])</span></div><div class="spec-item"><span class="spec-step-num">PASS [06]</span> <span>y[i] ≥ts r[i] + γ \cdot (min\_next - α \cdot lp_next[i])</span></div><div class="spec-item"><span class="spec-step-num">PASS [07]</span> <span>err_1 ≥ts err_1 + (q_1[i] - y[i])^2</span></div><div class="spec-item"><span class="spec-step-num">PASS [08]</span> <span>err_2 ≥ts err_2 + (q_2[i] - y[i])^2</span></div><div class="spec-item"><span class="spec-step-num">PASS [09]</span> <span>L_Q ≥ts (err_1 + err_2) / N</span></div>
+        <div class="distill-card-title"><span>◈</span> Algorithmic Execution Pipeline</div>
+        <div class="tex-algorithm">
+  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">Soft Actor-Critic Evaluation and Dual Temperature Update</strong></div>
+  <div class="algo-body">
+    <div class="algo-req"><span class="algo-kw">Require:</span> Transitions batch $(\mathbf{q}_1, \mathbf{q}_2, \mathbf{q}_{1,\text{targ}}, \mathbf{q}_{2,\text{targ}}, \mathbf{r}, \mathbf{lp}_{\text{next}}, \mathbf{d}, \mathbf{lp}_{\pi}, \mathbf{q}_{1,\pi}, \mathbf{q}_{2,\pi})$, $\alpha, \gamma, \bar{\mathcal{H}}, \eta_\alpha$</div>
+    <div class="algo-ens"><span class="algo-kw">Ensure:</span> Targets $\mathbf{y}$, critic loss $\mathcal{L}_Q$, actor loss $\mathcal{L}_\pi$, dual loss $\mathcal{L}_\alpha$, updated $\alpha'$</div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">1</span> <span class="algo-code">Initialize $\mathbf{y} \in \mathbb{R}^N, \quad err_1 \gets 0.0, \quad err_2 \gets 0.0$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">2</span> <span class="algo-code"><strong class="algo-kw">for</strong> $i = 0$ \textbf{to} $N-1$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">3</span> <span class="algo-code"><strong class="algo-kw">if</strong> $\mathbf{d}[i]$ is True <strong class="algo-kw">then</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">4</span> <span class="algo-code">$\mathbf{y}[i] \gets \mathbf{r}[i]$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">5</span> <span class="algo-code"><strong class="algo-kw">else</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">6</span> <span class="algo-code">$min\_next \gets \min(\mathbf{q}_{1,\text{targ}}[i], \mathbf{q}_{2,\text{targ}}[i])$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">7</span> <span class="algo-code">$\mathbf{y}[i] \gets \mathbf{r}[i] + \gamma \cdot (min\_next - \alpha \cdot \mathbf{lp}_{\text{next}}[i])$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">8</span> <span class="algo-code">$err_1 \gets err_1 + (\mathbf{q}_1[i] - \mathbf{y}[i])^2$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">9</span> <span class="algo-code">$err_2 \gets err_2 + (\mathbf{q}_2[i] - \mathbf{y}[i])^2$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">10</span> <span class="algo-code">$\mathcal{L}_Q \gets (err_1 + err_2) / N$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">11</span> <span class="algo-code">$\mathcal{L}_\pi \gets \frac{1}{N}\sum_{i=0}^{N-1} (\alpha \cdot \mathbf{lp}_\pi[i] - \min(\mathbf{q}_{1,\pi}[i], \mathbf{q}_{2,\pi}[i]))$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">12</span> <span class="algo-code">$\bar{H} \gets - \frac{1}{N}\sum_{i=0}^{N-1} \mathbf{lp}_\pi[i]$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">13</span> <span class="algo-code">$\mathcal{L}_\alpha \gets - \frac{1}{N}\sum_{i=0}^{N-1} \alpha (\mathbf{lp}_\pi[i] + \bar{\mathcal{H}})$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">14</span> <span class="algo-code">$g_\alpha \gets - (-\bar{H} + \bar{\mathcal{H}})$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">15</span> <span class="algo-code">$\alpha' \gets \max(10^{-6}, \alpha - \eta_\alpha \cdot g_\alpha)$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">16</span> <span class="algo-code"><strong class="algo-kw">return</strong> $(\mathbf{y}, \mathcal{L}_Q, \mathcal{L}_\pi, \mathcal{L}_\alpha, \alpha', \bar{H})$</span></div>
+  </div>
+</div>
       </div>
 
       <!-- Outputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Verified Target Outputs</div>
-        <div class="spec-item"><span class="spec-dot-emerald">■</span> <span>Targets y</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>critic loss L_Q</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>actor loss L_π</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>dual loss L_α</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>updated α&#x27;</span></div>
+        <div class="distill-card-title"><span>◈</span> Output Contract (JSON Response)</div>
+        <pre class="json-card-box">{
+  <span class="key">"critic_target":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"q1_loss":</span> <span class="num">0.0014</span>,
+  <span class="key">"q2_loss":</span> <span class="num">0.0014</span>,
+  <span class="key">"critic_loss":</span> <span class="num">0.0014</span>,
+  <span class="key">"actor_loss":</span> <span class="num">0.0014</span>,
+  <span class="key">"alpha_loss":</span> <span class="num">0.0014</span>,
+  <span class="key">"updated_alpha":</span> <span class="num">0.0014</span>,
+  <span class="key">"mean_entropy":</span> <span class="num">0.0014</span>
+}</pre>
       </div>
     </div>
 
     <!-- Theoretical Guarantees and Complexity Grid -->
     <div class="distill-grid">
-      
-        <div class="distill-card">
-          <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
-          <div class="theorem-box"><div class="theorem-title">Soft Policy Improvement Theorem</div><div class="theorem-desc">Let π_new be defined as the Boltzmann distribution proportional to exp≤ft(\frac1α Q^π_old(s, \cdot)\right).</div></div><div class="theorem-box"><div class="theorem-title">Contraction Mapping of the Soft Bellman Operator</div><div class="theorem-desc">The soft Bellman operator T^π defined on the Banach space (B(S × A), \|\cdot\|_∈fty) is a γ-contraction mapping.</div></div>
-        </div>
-        
-      
-    <div class="distill-card">
-      <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
-      <div class="comp-item"><span class="comp-bullet">▸</span> <span>bfSoft Target Construction Time: \Theta(N) scalar operations across the batch.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfClipped Critic Error Time: \Theta(N) scalar multiplications and additions.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfPolicy and Dual Gradient Time: \Theta(N) evaluations of log probabilities.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfSpace Complexity: \Theta(N) memory buffer for temporal difference targets.</span></div>
-    </div>
-    
+      <div class="distill-card">
+        <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
+          <div class="theorem-box">
+            <div class="theorem-title">Soft Policy Improvement Theorem</div>
+            <div class="theorem-desc">Let $\pi_{\text{new}}$ be defined as the Boltzmann distribution proportional to $\exp\left(\frac{1}{\alpha} Q^{\pi_{\text{old}}}(s, \cdot)\right)$. Then for all $(s, a) \in \mathcal{S} \times \mathcal{A}$:
+$$
+Q^{\pi_{\text{new}}}(s, a) \ge Q^{\pi_{\text{old}}}(s, a)
+$$
+and the policy improvement inequality holds strictly unless $\pi_{\text{old}}$ is already optimal.</div>
+          </div>
+          <div class="theorem-box">
+            <div class="theorem-title">Contraction Mapping of the Soft Bellman Operator</div>
+            <div class="theorem-desc">The soft Bellman operator $\mathcal{T}^\pi$ defined on the Banach space $(\mathcal{B}(\mathcal{S} \times \mathcal{A}), \|\cdot\|_\infty)$ is a $\gamma$-contraction mapping.</div>
+          </div>
+      </div>
+      <div class="distill-card">
+        <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> $\mathcal{O}(N)$ FLOPs per layer forward execution.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> $\mathcal{O}(N)$ auxiliary memory buffers for intermediate activations.</span>
+      </div>
+      </div>
     </div>
 
     <!-- Navigation Footer -->

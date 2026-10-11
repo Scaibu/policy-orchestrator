@@ -68,6 +68,9 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="diagram.css">
   <script src="_layout.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="cleanAndRenderMath()"></script>
 </head>
 <body>
   <div class="topbar">
@@ -91,172 +94,126 @@
     <!-- High-Fidelity Distill Computational Graph Art -->
     <div class="diagram-panel-box">
       
-    <svg viewBox="0 0 1020 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <!-- Marker Arrows -->
-        <marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-        </marker>
-        <marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
-        </marker>
-        <marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
-        </marker>
-
-        <!-- Premium Glass Gradients -->
-        <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#090d16" />
-          <stop offset="100%" stop-color="#05070d" />
-        </linearGradient>
-        <linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e293b" />
-          <stop offset="100%" stop-color="#0f172a" />
-        </linearGradient>
-        <linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#064e3b" />
-          <stop offset="100%" stop-color="#047857" />
-        </linearGradient>
-        <linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e3a8a" />
-          <stop offset="100%" stop-color="#2563eb" />
-        </linearGradient>
-        <linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#311042" />
-          <stop offset="100%" stop-color="#4c1d95" />
-        </linearGradient>
-
-        <!-- Drop Shadows for 3D Layer Elevation -->
-        <filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
-        </filter>
-      </defs>
-
-      <!-- Background Canvas with Subtle Sub-grid -->
-      <rect width="1020" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/>
-      <line x1="40" y1="55" x2="980" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/>
-
-      <!-- Header Information -->
-      <text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text>
-      <text x="970" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Specialized Scientific Meta</text>
-
-      <!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) -->
-      <g filter="url(#shadow-elev)">
-        <!-- Input 1 Node -->
-        <rect x="50" y="80" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="112" r="14" fill="#0284c7"/>
-        <text x="75" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text>
-        <text x="100" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Spatial signal x ∈ ℝ</text>
-        <text x="100" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text>
-
-        <!-- Input 2 Node -->
-        <rect x="50" y="165" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="197" r="14" fill="#0284c7"/>
-        <text x="75" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text>
-        <text x="100" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">complex weights R_re</text>
-        <text x="100" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text>
-
-        <!-- Input 3 Node -->
-        <rect x="50" y="250" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/>
-        <circle cx="75" cy="282" r="14" fill="#d97706"/>
-        <text x="75" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text>
-        <text x="100" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">R_im ∈ ℝ^k_max</text>
-        <text x="100" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text>
-      </g>
-
-      <!-- Connecting Synaptic Lines to Stage 2 -->
-      <path d="M 210 112 C 260 112, 270 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 197 C 260 197, 270 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 282 C 260 282, 270 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/>
-
-      <!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL -->
-      <g filter="url(#shadow-elev)">
-        <rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/>
-        <text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
-        <text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">E_ret ≥ts 0.0, θ_step ≥t</text>
-        <rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/>
-        <text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text>
-      </g>
-
-      <!-- Forward Line to Stage 3 -->
-      <line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/>
-
-      <!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER -->
-      <g filter="url(#shadow-elev)">
-        <rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/>
-        <circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
-        <text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text>
-        <text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Initialize arrays X_re, </text>
-        <rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/>
-        <text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text>
-      </g>
-
-      <!-- Forward Line to Output Stage -->
-      <line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/>
-
-      <!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE -->
-      <g filter="url(#shadow-elev)">
-        <rect x="840" y="125" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="865" cy="157" r="14" fill="#047857"/>
-        <text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
-        <text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Transformed signal v_n</text>
-        <text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text>
-
-        <rect x="840" y="210" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/>
-        <circle cx="865" cy="242" r="14" fill="#7e22ce"/>
-        <text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text>
-        <text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">retained energy E_ret</text>
-        <text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text>
-      </g>
-
-      <!-- Feedback Gradient Arrow from Output back to Operator Kernel -->
-      <path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/>
-      <rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/>
-      <text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text>
-
-      <!-- Footer Formula Banner -->
-      <rect x="180" y="352" width="660" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/>
-      <text x="510" y="374" fill="#38bdf8" font-size="13" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: G_θ = Q \circ (K_L-1 \circ ... \circ K_1 \circ K_0) \circ P</text>
-    </svg>
+    <svg viewBox="0 0 1160 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg"><defs><!-- Marker Arrows --><marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" /></marker><marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" /></marker><marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" /></marker><!-- Premium Glass Gradients --><linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#090d16" /><stop offset="100%" stop-color="#05070d" /></linearGradient><linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b" /><stop offset="100%" stop-color="#0f172a" /></linearGradient><linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#064e3b" /><stop offset="100%" stop-color="#047857" /></linearGradient><linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a8a" /><stop offset="100%" stop-color="#2563eb" /></linearGradient><linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#311042" /><stop offset="100%" stop-color="#4c1d95" /></linearGradient><!-- Drop Shadows for 3D Layer Elevation --><filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/></filter></defs><!-- Background Canvas with Subtle Sub-grid --><rect width="1160" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/><line x1="40" y1="55" x2="1120" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/><!-- Header Information --><text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text><text x="1110" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Specialized Scientific Meta</text><!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) --><g filter="url(#shadow-elev)"><!-- Input 1 Node --><rect x="40" y="80" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="112" r="14" fill="#0284c7"/><text x="65" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text><text x="90" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Spatial signal x ∈ ℝ^N</text><text x="90" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text><!-- Input 2 Node --><rect x="40" y="165" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="197" r="14" fill="#0284c7"/><text x="65" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text><text x="90" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">complex weights R_{re}</text><text x="90" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text><!-- Input 3 Node --><rect x="40" y="250" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/><circle cx="65" cy="282" r="14" fill="#d97706"/><text x="65" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text><text x="90" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">R_{im} ∈ ℝ^{k_{}}</text><text x="90" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text></g><!-- Connecting Synaptic Lines to Stage 2 --><path d="M 240 112 C 275 112, 285 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 197 C 275 197, 285 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 282 C 275 282, 285 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/><!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL --><g filter="url(#shadow-elev)"><rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/><circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/><text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text><text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">E_{ret} ← 0.0, θ_{step</text><rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/><text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text></g><!-- Forward Line to Stage 3 --><line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/><!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER --><g filter="url(#shadow-elev)"><rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/><circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/><text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text><text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Initialize arrays X_{r</text><rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/><text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text></g><!-- Forward Line to Output Stage --><line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/><!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE --><g filter="url(#shadow-elev)"><rect x="840" y="125" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/><circle cx="865" cy="157" r="14" fill="#047857"/><text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text><text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Transformed signal v_{next}</text><text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text><rect x="840" y="210" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/><circle cx="865" cy="242" r="14" fill="#7e22ce"/><text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text><text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">retained energy E_{ret}</text><text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text></g><!-- Feedback Gradient Arrow from Output back to Operator Kernel --><path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/><rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/><text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text><!-- Footer Formula Banner --><rect x="140" y="352" width="880" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/><text x="580" y="374" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: {G}_θ = {Q} ∘ ({K}_{L-1} ∘ ·s ∘ {K}_1 ∘ {K}_0) ∘ {P}</text></svg>
     
     </div>
 
     <!-- Multi-Column Technical Breakdown Grid -->
-    <div class="distill-grid">
+    <div class="distill-grid-breakdown">
       <!-- Inputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Input Tensors &amp; Parameter Signatures</div>
-        <div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Spatial signal x ∈ ℝ^N</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>complex weights R_re</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>R_im ∈ ℝ^k_max</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>local weight W ∈ ℝ</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>mode count k_max</span></div>
+        <div class="distill-card-title"><span>◈</span> Input Contract (JSON Payload)</div>
+        <pre class="json-card-box">{
+  <span class="key">"spatial_signal":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"weights_real":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"weights_imag":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"local_weight":</span> <span class="num">0.05</span>,
+  <span class="key">"num_modes":</span> <span class="num">42</span>
+}</pre>
       </div>
 
       <!-- Execution Lifecycle Steps Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Internal Execution Lifecycle (9 Passes)</div>
-        <div class="spec-item"><span class="spec-step-num">PASS [01]</span> <span>E_ret ≥ts 0.0, θ_step ≥ts 2π / N</span></div><div class="spec-item"><span class="spec-step-num">PASS [02]</span> <span>Initialize arrays X_re, X_im ∈ ℝ^k_max</span></div><div class="spec-item"><span class="spec-step-num">PASS [03]</span> <span>k = 0 bfto k_max-1</span></div><div class="spec-item"><span class="spec-step-num">PASS [04]</span> <span>re ≥ts 0.0, im ≥ts 0.0</span></div><div class="spec-item"><span class="spec-step-num">PASS [05]</span> <span>n = 0 bfto N-1</span></div><div class="spec-item"><span class="spec-step-num">PASS [06]</span> <span>θ ≥ts θ_step \cdot (k \cdot n)</span></div><div class="spec-item"><span class="spec-step-num">PASS [07]</span> <span>re ≥ts re + x[n] \cdot \cos(θ)</span></div><div class="spec-item"><span class="spec-step-num">PASS [08]</span> <span>im ≥ts im - x[n] \cdot \sin(θ)</span></div><div class="spec-item"><span class="spec-step-num">PASS [09]</span> <span>X_re[k] ≥ts re, X_im[k] ≥ts im</span></div>
+        <div class="distill-card-title"><span>◈</span> Algorithmic Execution Pipeline</div>
+        <div class="tex-algorithm">
+  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">Fourier Neural Operator Layer Forward Pass</strong></div>
+  <div class="algo-body">
+    <div class="algo-req"><span class="algo-kw">Require:</span> Spatial signal $\mathbf{x} \in \mathbb{R}^N$, complex weights $R_{\text{re}}, R_{\text{im}} \in \mathbb{R}^{k_{\max}}$, local weight $W \in \mathbb{R}$, mode count $k_{\max}$</div>
+    <div class="algo-ens"><span class="algo-kw">Ensure:</span> Transformed signal $\mathbf{v}_{\text{next}} \in \mathbb{R}^N$, retained energy $E_{\text{ret}}$, total power $E_{\text{tot}}$, truncated power $E_{\text{trunc}}$</div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">1</span> <span class="algo-code">$E_{\text{ret}} \gets 0.0, \quad \theta_{\text{step}} \gets 2\pi / N$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">2</span> <span class="algo-code">Initialize arrays $\mathbf{X}_{\text{re}}, \mathbf{X}_{\text{im}} \in \mathbb{R}^{k_{\max}}$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">3</span> <span class="algo-code"><strong class="algo-kw">for</strong> $k = 0$ \textbf{to} $k_{\max}-1$} \Comment{Truncated Forward DFT <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">4</span> <span class="algo-code">$re \gets 0.0, \quad im \gets 0.0$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">5</span> <span class="algo-code"><strong class="algo-kw">for</strong> $n = 0$ \textbf{to} $N-1$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">6</span> <span class="algo-code">$\theta \gets \theta_{\text{step}} \cdot (k \cdot n)$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">7</span> <span class="algo-code">$re \gets re + \mathbf{x}[n] \cdot \cos(\theta)$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">8</span> <span class="algo-code">$im \gets im - \mathbf{x}[n] \cdot \sin(\theta)$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">9</span> <span class="algo-code">$\mathbf{X}_{\text{re}}[k] \gets re, \quad \mathbf{X}_{\text{im}}[k] \gets im$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">10</span> <span class="algo-code">$E_{\text{ret}} \gets E_{\text{ret}} + (re^2 + im^2) / N$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">11</span> <span class="algo-code">Initialize arrays $\mathbf{Y}_{\text{re}}, \mathbf{Y}_{\text{im}} \in \mathbb{R}^{k_{\max}}$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">12</span> <span class="algo-code"><strong class="algo-kw">for</strong> $k = 0$ \textbf{to} $k_{\max}-1$} \Comment{Spectral Multiplication <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">13</span> <span class="algo-code">$\mathbf{Y}_{\text{re}}[k] \gets R_{\text{re}}[k] \cdot \mathbf{X}_{\text{re}}[k] - R_{\text{im}}[k] \cdot \mathbf{X}_{\text{im}}[k]$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">14</span> <span class="algo-code">$\mathbf{Y}_{\text{im}}[k] \gets R_{\text{re}}[k] \cdot \mathbf{X}_{\text{im}}[k] + R_{\text{im}}[k] \cdot \mathbf{X}_{\text{re}}[k]$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">15</span> <span class="algo-code">Initialize $\mathbf{v}_{\text{idft}} \in \mathbb{R}^N$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">16</span> <span class="algo-code"><strong class="algo-kw">for</strong> $n = 0$ \textbf{to} $N-1$} \Comment{Truncated Inverse DFT <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">17</span> <span class="algo-code">$val \gets \mathbf{Y}_{\text{re}}[0]$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">18</span> <span class="algo-code"><strong class="algo-kw">for</strong> $k = 1$ \textbf{to} $k_{\max}-1$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">19</span> <span class="algo-code">$\theta \gets \theta_{\text{step}} \cdot (k \cdot n)$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">20</span> <span class="algo-code">$val \gets val + 2.0 \cdot (\mathbf{Y}_{\text{re}}[k] \cdot \cos(\theta) - \mathbf{Y}_{\text{im}}[k] \cdot \sin(\theta))$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">21</span> <span class="algo-code">$\mathbf{v}_{\text{idft}}[n] \gets val / N$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">22</span> <span class="algo-code">Initialize $\mathbf{v}_{\text{next}} \in \mathbb{R}^N, \quad E_{\text{tot}} \gets 0.0$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">23</span> <span class="algo-code"><strong class="algo-kw">for</strong> $n = 0$ \textbf{to} $N-1$} \Comment{Skip Connection + Activation <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">24</span> <span class="algo-code">$E_{\text{tot}} \gets E_{\text{tot}} + \mathbf{x}[n]^2$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">25</span> <span class="algo-code">$\mathbf{v}_{\text{next}}[n] \gets \max(0.0, W \cdot \mathbf{x}[n] + \mathbf{v}_{\text{idft}}[n])$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">26</span> <span class="algo-code">$E_{\text{trunc}} \gets \max(0.0, E_{\text{tot}} - E_{\text{ret}})$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">27</span> <span class="algo-code"><strong class="algo-kw">return</strong> $(\mathbf{v}_{\text{next}}, E_{\text{ret}}, E_{\text{tot}}, E_{\text{trunc}})$</span></div>
+  </div>
+</div>
       </div>
 
       <!-- Outputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Verified Target Outputs</div>
-        <div class="spec-item"><span class="spec-dot-emerald">■</span> <span>Transformed signal v_next ∈ ℝ^N</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>retained energy E_ret</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>total power E_tot</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>truncated power E_trunc</span></div>
+        <div class="distill-card-title"><span>◈</span> Output Contract (JSON Response)</div>
+        <pre class="json-card-box">{
+  <span class="key">"transformed_signal":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"spectral_energy_retained":</span> <span class="num">0.0014</span>,
+  <span class="key">"total_input_power":</span> <span class="num">0.0014</span>,
+  <span class="key">"high_frequency_truncated_power":</span> <span class="num">0.0014</span>
+}</pre>
       </div>
     </div>
 
     <!-- Theoretical Guarantees and Complexity Grid -->
     <div class="distill-grid">
-      
-        <div class="distill-card">
-          <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
-          <div class="theorem-box"><div class="theorem-title">Mesh Invariance of the Fourier Neural Operator</div><div class="theorem-desc">Let v ∈ L^2(D) be a continuous square-integrable field over torus \mathbbT^d, and let P_N(v) denote its discrete sampling on a uniform grid of resolution N.</div></div><div class="theorem-box"><div class="theorem-title">Spectral Energy Preservation and Truncation Bound</div><div class="theorem-desc">Let E_total = \frac1N ∑_n=0^N-1 |v[n]|^2 be the total signal energy.</div></div>
-        </div>
-        
-      
-    <div class="distill-card">
-      <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
-      <div class="comp-item"><span class="comp-bullet">▸</span> <span>bfTruncated DFT Time Complexity: \Theta(N \cdot k_max) scalar operations using truncated discrete Fourier evaluation (or \Theta(N \log N) when using standard FFT algorithms).</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfSpectral Convolution Complexity: \Theta(k_max) complex scalar operations.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfInverse Synthesis Complexity: \Theta(N \cdot k_max) scalar operations to synthesize real-space fields.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfSpace Complexity: \Theta(N + k_max) for intermediate spectral buffers.</span></div>
-    </div>
-    
+      <div class="distill-card">
+        <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
+          <div class="theorem-box">
+            <div class="theorem-title">Mesh Invariance of the Fourier Neural Operator</div>
+            <div class="theorem-desc">Let $v \in L^2(D)$ be a continuous square-integrable field over torus $\mathbb{T}^d$, and let $P_N(v)$ denote its discrete sampling on a uniform grid of resolution $N$. Let $\mathcal{K}$ be an FNO layer with fixed frequency cutoff $k_{\max}$. If $N &gt; 2 k_{\max}$, the operator output evaluated at any continuous coordinate $x \in D$ is invariant to grid resolution $N$:
+$$
+\lim_{N \to \infty} \mathcal{K}(P_N(v))(x) = \mathcal{K}(v)(x)
+$$</div>
+          </div>
+          <div class="theorem-box">
+            <div class="theorem-title">Spectral Energy Preservation and Truncation Bound</div>
+            <div class="theorem-desc">Let $E_{\text{total}} = \frac{1}{N} \sum_{n=0}^{N-1} |v[n]|^2$ be the total signal energy. Truncating to $k_{\max}$ Fourier modes guarantees that the retained spectral energy satisfies Parseval's identity:
+$$
+E_{\text{retained}} = \frac{1}{N^2} \left[ |X[0]|^2 + 2 \sum_{k=1}^{k_{\max}-1} |X[k]|^2 \right] \le E_{\text{total}}
+$$
+with truncation power error bounded by the Sobolev decay rate $\|v\|_{H^s}$.</div>
+          </div>
+      </div>
+      <div class="distill-card">
+        <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> $\mathcal{O}(N)$ FLOPs per layer forward execution.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> $\mathcal{O}(N)$ auxiliary memory buffers for intermediate activations.</span>
+      </div>
+      </div>
     </div>
 
     <!-- Navigation Footer -->

@@ -68,6 +68,9 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="diagram.css">
   <script src="_layout.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="cleanAndRenderMath()"></script>
 </head>
 <body>
   <div class="topbar">
@@ -91,172 +94,129 @@
     <!-- High-Fidelity Distill Computational Graph Art -->
     <div class="diagram-panel-box">
       
-    <svg viewBox="0 0 1020 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <!-- Marker Arrows -->
-        <marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-        </marker>
-        <marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
-        </marker>
-        <marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
-        </marker>
-
-        <!-- Premium Glass Gradients -->
-        <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#090d16" />
-          <stop offset="100%" stop-color="#05070d" />
-        </linearGradient>
-        <linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e293b" />
-          <stop offset="100%" stop-color="#0f172a" />
-        </linearGradient>
-        <linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#064e3b" />
-          <stop offset="100%" stop-color="#047857" />
-        </linearGradient>
-        <linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e3a8a" />
-          <stop offset="100%" stop-color="#2563eb" />
-        </linearGradient>
-        <linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#311042" />
-          <stop offset="100%" stop-color="#4c1d95" />
-        </linearGradient>
-
-        <!-- Drop Shadows for 3D Layer Elevation -->
-        <filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
-        </filter>
-      </defs>
-
-      <!-- Background Canvas with Subtle Sub-grid -->
-      <rect width="1020" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/>
-      <line x1="40" y1="55" x2="980" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/>
-
-      <!-- Header Information -->
-      <text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text>
-      <text x="970" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Timeseries Recommendation</text>
-
-      <!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) -->
-      <g filter="url(#shadow-elev)">
-        <!-- Input 1 Node -->
-        <rect x="50" y="80" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="112" r="14" fill="#0284c7"/>
-        <text x="75" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text>
-        <text x="100" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Lookback window x ∈ </text>
-        <text x="100" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text>
-
-        <!-- Input 2 Node -->
-        <rect x="50" y="165" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="197" r="14" fill="#0284c7"/>
-        <text x="75" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text>
-        <text x="100" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">weights W_b ∈ ℝ^P_b </text>
-        <text x="100" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text>
-
-        <!-- Input 3 Node -->
-        <rect x="50" y="250" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/>
-        <circle cx="75" cy="282" r="14" fill="#d97706"/>
-        <text x="75" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text>
-        <text x="100" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">W_f ∈ ℝ^P_f × L</text>
-        <text x="100" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text>
-      </g>
-
-      <!-- Connecting Synaptic Lines to Stage 2 -->
-      <path d="M 210 112 C 260 112, 270 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 197 C 260 197, 270 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 282 C 260 282, 270 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/>
-
-      <!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL -->
-      <g filter="url(#shadow-elev)">
-        <rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/>
-        <text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
-        <text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Initialize \boldsymbolθ_</text>
-        <rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/>
-        <text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text>
-      </g>
-
-      <!-- Forward Line to Stage 3 -->
-      <line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/>
-
-      <!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER -->
-      <g filter="url(#shadow-elev)">
-        <rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/>
-        <circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
-        <text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text>
-        <text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">p = 0 bfto P_b-1</text>
-        <rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/>
-        <text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text>
-      </g>
-
-      <!-- Forward Line to Output Stage -->
-      <line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/>
-
-      <!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE -->
-      <g filter="url(#shadow-elev)">
-        <rect x="840" y="125" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="865" cy="157" r="14" fill="#047857"/>
-        <text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
-        <text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Backcast \widehatx ∈ ℝ</text>
-        <text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text>
-
-        <rect x="840" y="210" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/>
-        <circle cx="865" cy="242" r="14" fill="#7e22ce"/>
-        <text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text>
-        <text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">forecast \widehaty ∈ ℝ</text>
-        <text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text>
-      </g>
-
-      <!-- Feedback Gradient Arrow from Output back to Operator Kernel -->
-      <path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/>
-      <rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/>
-      <text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text>
-
-      <!-- Footer Formula Banner -->
-      <rect x="180" y="352" width="660" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/>
-      <text x="510" y="374" fill="#38bdf8" font-size="13" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: \boldsymbolθ_l^b = W_l^b x_l, \boldsymbolθ_l^f = W_l^f x_l</text>
-    </svg>
+    <svg viewBox="0 0 1160 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg"><defs><!-- Marker Arrows --><marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" /></marker><marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" /></marker><marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" /></marker><!-- Premium Glass Gradients --><linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#090d16" /><stop offset="100%" stop-color="#05070d" /></linearGradient><linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b" /><stop offset="100%" stop-color="#0f172a" /></linearGradient><linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#064e3b" /><stop offset="100%" stop-color="#047857" /></linearGradient><linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a8a" /><stop offset="100%" stop-color="#2563eb" /></linearGradient><linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#311042" /><stop offset="100%" stop-color="#4c1d95" /></linearGradient><!-- Drop Shadows for 3D Layer Elevation --><filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/></filter></defs><!-- Background Canvas with Subtle Sub-grid --><rect width="1160" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/><line x1="40" y1="55" x2="1120" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/><!-- Header Information --><text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text><text x="1110" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Timeseries Recommendation</text><!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) --><g filter="url(#shadow-elev)"><!-- Input 1 Node --><rect x="40" y="80" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="112" r="14" fill="#0284c7"/><text x="65" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text><text x="90" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Lookback window x ∈ ℝ^L</text><text x="90" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text><!-- Input 2 Node --><rect x="40" y="165" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="197" r="14" fill="#0284c7"/><text x="65" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text><text x="90" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">weights W_b ∈ ℝ^{P_b × L}</text><text x="90" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text><!-- Input 3 Node --><rect x="40" y="250" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/><circle cx="65" cy="282" r="14" fill="#d97706"/><text x="65" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text><text x="90" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">W_f ∈ ℝ^{P_f × L}</text><text x="90" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text></g><!-- Connecting Synaptic Lines to Stage 2 --><path d="M 240 112 C 275 112, 285 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 197 C 275 197, 285 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 282 C 275 282, 285 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/><!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL --><g filter="url(#shadow-elev)"><rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/><circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/><text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text><text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Initialize θ_b ∈ ℝ^{P_</text><rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/><text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text></g><!-- Forward Line to Stage 3 --><line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/><!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER --><g filter="url(#shadow-elev)"><rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/><circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/><text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text><text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">θ_b[p] ← ∑_{i=0}^{L-1}</text><rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/><text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text></g><!-- Forward Line to Output Stage --><line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/><!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE --><g filter="url(#shadow-elev)"><rect x="840" y="125" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/><circle cx="865" cy="157" r="14" fill="#047857"/><text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text><text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Backcast {x} ∈ ℝ^L</text><text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text><rect x="840" y="210" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/><circle cx="865" cy="242" r="14" fill="#7e22ce"/><text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text><text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">forecast {y} ∈ ℝ^H</text><text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text></g><!-- Feedback Gradient Arrow from Output back to Operator Kernel --><path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/><rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/><text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text><!-- Footer Formula Banner --><rect x="140" y="352" width="880" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/><text x="580" y="374" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: θ_l^b = W_l^b x_l, θ_l^f = W_l^f x_l</text></svg>
     
     </div>
 
     <!-- Multi-Column Technical Breakdown Grid -->
-    <div class="distill-grid">
+    <div class="distill-grid-breakdown">
       <!-- Inputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Input Tensors &amp; Parameter Signatures</div>
-        <div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Lookback window x ∈ ℝ^L</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>weights W_b ∈ ℝ^P_b × L</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>W_f ∈ ℝ^P_f × L</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>horizon H</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>basis type ∈ \poly</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>gen\</span></div>
+        <div class="distill-card-title"><span>◈</span> Input Contract (JSON Payload)</div>
+        <pre class="json-card-box">{
+  <span class="key">"lookback_window":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"weights_theta_backcast":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"weights_theta_forecast":</span> [
+    <span class="num">0.12</span>,
+    <span class="num">0.45</span>,
+    <span class="num">-0.28</span>,
+    <span class="num">0.91</span>
+  ],
+  <span class="key">"forecast_horizon":</span> <span class="num">42</span>,
+  <span class="key">"basis_type":</span> <span class="str">"sample_value"</span>
+}</pre>
       </div>
 
       <!-- Execution Lifecycle Steps Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Internal Execution Lifecycle (9 Passes)</div>
-        <div class="spec-item"><span class="spec-step-num">PASS [01]</span> <span>Initialize \boldsymbolθ_b ∈ ℝ^P_b, \boldsymbolθ_f ∈ ℝ^P_f</span></div><div class="spec-item"><span class="spec-step-num">PASS [02]</span> <span>p = 0 bfto P_b-1</span></div><div class="spec-item"><span class="spec-step-num">PASS [03]</span> <span>\boldsymbolθ_b[p] ≥ts ∑_i=0^L-1 W_b[p][i] \cdot x[i]</span></div><div class="spec-item"><span class="spec-step-num">PASS [04]</span> <span>p = 0 bfto P_f-1</span></div><div class="spec-item"><span class="spec-step-num">PASS [05]</span> <span>\boldsymbolθ_f[p] ≥ts ∑_i=0^L-1 W_f[p][i] \cdot x[i]</span></div><div class="spec-item"><span class="spec-step-num">PASS [06]</span> <span>Initialize \widehatx ∈ ℝ^L, \widehaty ∈ ℝ^H, r ∈ ℝ^L</span></div><div class="spec-item"><span class="spec-step-num">PASS [07]</span> <span>t = 0 bfto L-1</span></div><div class="spec-item"><span class="spec-step-num">PASS [08]</span> <span>v ≥ts 0.0, τ_norm ≥ts t / (L - 1)</span></div><div class="spec-item"><span class="spec-step-num">PASS [09]</span> <span>p = 0 bfto P_b-1</span></div>
+        <div class="distill-card-title"><span>◈</span> Algorithmic Execution Pipeline</div>
+        <div class="tex-algorithm">
+  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">N-BEATS Basis Expansion Block Forward Pass</strong></div>
+  <div class="algo-body">
+    <div class="algo-req"><span class="algo-kw">Require:</span> Lookback window $\mathbf{x} \in \mathbb{R}^L$, weights $W_b \in \mathbb{R}^{P_b \times L}$, $W_f \in \mathbb{R}^{P_f \times L}$, horizon $H$, basis type $\in \{\text{poly}, \text{gen}\}$</div>
+    <div class="algo-ens"><span class="algo-kw">Ensure:</span> Backcast $\widehat{\mathbf{x}} \in \mathbb{R}^L$, forecast $\widehat{\mathbf{y}} \in \mathbb{R}^H$, residual $\mathbf{r} \in \mathbb{R}^L$, energy $E_f$, backcast MSE $\mathcal{L}_{\text{b}}$</div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">1</span> <span class="algo-code">Initialize $\boldsymbol{\theta}_b \in \mathbb{R}^{P_b}, \quad \boldsymbol{\theta}_f \in \mathbb{R}^{P_f}$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">2</span> <span class="algo-code"><strong class="algo-kw">for</strong> $p = 0$ \textbf{to} $P_b-1$} \Comment{Project to Backcast Coefficients <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">3</span> <span class="algo-code">$\boldsymbol{\theta}_b[p] \gets \sum_{i=0}^{L-1} W_b[p][i] \cdot \mathbf{x}[i]$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">4</span> <span class="algo-code"><strong class="algo-kw">for</strong> $p = 0$ \textbf{to} $P_f-1$} \Comment{Project to Forecast Coefficients <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">5</span> <span class="algo-code">$\boldsymbol{\theta}_f[p] \gets \sum_{i=0}^{L-1} W_f[p][i] \cdot \mathbf{x}[i]$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">6</span> <span class="algo-code">Initialize $\widehat{\mathbf{x}} \in \mathbb{R}^L, \quad \widehat{\mathbf{y}} \in \mathbb{R}^H, \quad \mathbf{r} \in \mathbb{R}^L$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">7</span> <span class="algo-code"><strong class="algo-kw">for</strong> $t = 0$ \textbf{to} $L-1$} \Comment{Synthesize Backcast <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">8</span> <span class="algo-code">$v \gets 0.0, \quad \tau_{\text{norm}} \gets t / (L - 1)$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">9</span> <span class="algo-code"><strong class="algo-kw">for</strong> $p = 0$ \textbf{to} $P_b-1$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">10</span> <span class="algo-code">$basis \gets (\text{basis} = \text{poly}) \;?\; (\tau_{\text{norm}})^p : \cos(\pi \cdot p \cdot \tau_{\text{norm}})$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">11</span> <span class="algo-code">$v \gets v + \boldsymbol{\theta}_b[p] \cdot basis$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">12</span> <span class="algo-code">$\widehat{\mathbf{x}}[t] \gets v, \quad \mathbf{r}[t] \gets \mathbf{x}[t] - v$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">13</span> <span class="algo-code"><strong class="algo-kw">for</strong> $\tau = 0$ \textbf{to} $H-1$} \Comment{Synthesize Forecast <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">14</span> <span class="algo-code">$v \gets 0.0, \quad \tau_{\text{norm}} \gets \tau / \max(1, H - 1)$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">15</span> <span class="algo-code"><strong class="algo-kw">for</strong> $p = 0$ \textbf{to} $P_f-1$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">16</span> <span class="algo-code">$basis \gets (\text{basis} = \text{poly}) \;?\; (1.0 + \tau_{\text{norm}})^p : \cos(\pi \cdot p \cdot (1.0 + \tau_{\text{norm}}))$</span></div>
+    <div class="algo-line" style="padding-left:36px"><span class="algo-ln">17</span> <span class="algo-code">$v \gets v + \boldsymbol{\theta}_f[p] \cdot basis$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">18</span> <span class="algo-code">$\widehat{\mathbf{y}}[\tau] \gets v$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">19</span> <span class="algo-code">$E_f \gets \sqrt{\sum_{\tau=0}^{H-1} \widehat{\mathbf{y}}[\tau]^2}, \quad \mathcal{L}_b \gets \frac{1}{L}\sum_{t=0}^{L-1} \mathbf{r}[t]^2$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">20</span> <span class="algo-code"><strong class="algo-kw">return</strong> $(\widehat{\mathbf{x}}, \widehat{\mathbf{y}}, \mathbf{r}, E_f, \mathcal{L}_b)$</span></div>
+  </div>
+</div>
       </div>
 
       <!-- Outputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Verified Target Outputs</div>
-        <div class="spec-item"><span class="spec-dot-emerald">■</span> <span>Backcast \widehatx ∈ ℝ^L</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>forecast \widehaty ∈ ℝ^H</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>residual r ∈ ℝ^L</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>energy E_f</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>backcast MSE L_b</span></div>
+        <div class="distill-card-title"><span>◈</span> Output Contract (JSON Response)</div>
+        <pre class="json-card-box">{
+  <span class="key">"backcast":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"forecast":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"residual_lookback":</span> [
+    <span class="num">0.08</span>,
+    <span class="num">0.39</span>,
+    <span class="num">-0.21</span>,
+    <span class="num">0.84</span>
+  ],
+  <span class="key">"forecast_energy":</span> <span class="num">0.0014</span>,
+  <span class="key">"backcast_reconstruction_loss":</span> <span class="num">0.0014</span>
+}</pre>
       </div>
     </div>
 
     <!-- Theoretical Guarantees and Complexity Grid -->
     <div class="distill-grid">
-      
-        <div class="distill-card">
-          <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
-          <div class="theorem-box"><div class="theorem-title">Exact Conservation of Signal Decomposition</div><div class="theorem-desc">Let an M-block doubly residual network be evaluated on input series x ∈ ℝ^L.</div></div><div class="theorem-box"><div class="theorem-title">Monotonic Energy Dissipation under Optimal Orthogonal Projections</div><div class="theorem-desc">If each basis V_l^b projects x_l onto a linear subspace with orthogonal projection \widehatx_l = P_l x_l, then the residual energy decreases monotonically at every block: \boldmath \beginequation \|x_l+1\|_2^2 = \|x_l\|_2^2 - \|\widehatx_l\|_2^2 ≤ \|x_l\|_2^2 \endequation .</div></div>
-        </div>
-        
-      
-    <div class="distill-card">
-      <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
-      <div class="comp-item"><span class="comp-bullet">▸</span> <span>bfCoefficient Projection Time Complexity: \Theta(L \cdot P_b + L \cdot P_f) scalar operations.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfBasis Synthesis Complexity: \Theta(L \cdot P_b + H \cdot P_f) operations to evaluate functional basis products.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfResidual and Metric Assembly: \Theta(L + H) operations.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfSpace Complexity: \Theta(L + H + P_b + P_f) for intermediate coefficient and signal buffers.</span></div>
-    </div>
-    
+      <div class="distill-card">
+        <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
+          <div class="theorem-box">
+            <div class="theorem-title">Exact Conservation of Signal Decomposition</div>
+            <div class="theorem-desc">Let an $M$-block doubly residual network be evaluated on input series $\mathbf{x} \in \mathbb{R}^L$. The sum of all backcasts plus the final residual $\mathbf{x}_{M+1}$ exactly reconstructs the input signal:
+$$
+\mathbf{x} = \sum_{l=1}^M \widehat{\mathbf{x}}_l + \mathbf{x}_{M+1}
+$$</div>
+          </div>
+          <div class="theorem-box">
+            <div class="theorem-title">Monotonic Energy Dissipation under Optimal Orthogonal Projections</div>
+            <div class="theorem-desc">If each basis $\mathbf{V}_l^b$ projects $\mathbf{x}_l$ onto a linear subspace with orthogonal projection $\widehat{\mathbf{x}}_l = \mathbf{P}_l \mathbf{x}_l$, then the residual energy decreases monotonically at every block:
+$$
+\|\mathbf{x}_{l+1}\|_2^2 = \|\mathbf{x}_l\|_2^2 - \|\widehat{\mathbf{x}}_l\|_2^2 \le \|\mathbf{x}_l\|_2^2
+$$</div>
+          </div>
+      </div>
+      <div class="distill-card">
+        <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> $\mathcal{O}(N)$ FLOPs per layer forward execution.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> $\mathcal{O}(N)$ auxiliary memory buffers for intermediate activations.</span>
+      </div>
+      </div>
     </div>
 
     <!-- Navigation Footer -->

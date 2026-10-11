@@ -68,6 +68,9 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="diagram.css">
   <script src="_layout.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="cleanAndRenderMath()"></script>
 </head>
 <body>
   <div class="topbar">
@@ -91,172 +94,89 @@
     <!-- High-Fidelity Distill Computational Graph Art -->
     <div class="diagram-panel-box">
       
-    <svg viewBox="0 0 1020 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <!-- Marker Arrows -->
-        <marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-        </marker>
-        <marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
-        </marker>
-        <marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
-        </marker>
-
-        <!-- Premium Glass Gradients -->
-        <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#090d16" />
-          <stop offset="100%" stop-color="#05070d" />
-        </linearGradient>
-        <linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e293b" />
-          <stop offset="100%" stop-color="#0f172a" />
-        </linearGradient>
-        <linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#064e3b" />
-          <stop offset="100%" stop-color="#047857" />
-        </linearGradient>
-        <linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#1e3a8a" />
-          <stop offset="100%" stop-color="#2563eb" />
-        </linearGradient>
-        <linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#311042" />
-          <stop offset="100%" stop-color="#4c1d95" />
-        </linearGradient>
-
-        <!-- Drop Shadows for 3D Layer Elevation -->
-        <filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
-        </filter>
-      </defs>
-
-      <!-- Background Canvas with Subtle Sub-grid -->
-      <rect width="1020" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/>
-      <line x1="40" y1="55" x2="980" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/>
-
-      <!-- Header Information -->
-      <text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text>
-      <text x="970" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Convolutional</text>
-
-      <!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) -->
-      <g filter="url(#shadow-elev)">
-        <!-- Input 1 Node -->
-        <rect x="50" y="80" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="112" r="14" fill="#0284c7"/>
-        <text x="75" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text>
-        <text x="100" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Backbone stage activ</text>
-        <text x="100" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text>
-
-        <!-- Input 2 Node -->
-        <rect x="50" y="165" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
-        <circle cx="75" cy="197" r="14" fill="#0284c7"/>
-        <text x="75" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text>
-        <text x="100" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">lateral weights \W_l</text>
-        <text x="100" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text>
-
-        <!-- Input 3 Node -->
-        <rect x="50" y="250" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/>
-        <circle cx="75" cy="282" r="14" fill="#d97706"/>
-        <text x="75" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text>
-        <text x="100" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">b_lat^(l)\_l=2^L</text>
-        <text x="100" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text>
-      </g>
-
-      <!-- Connecting Synaptic Lines to Stage 2 -->
-      <path d="M 210 112 C 260 112, 270 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 197 C 260 197, 270 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
-      <path d="M 210 282 C 260 282, 270 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/>
-
-      <!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL -->
-      <g filter="url(#shadow-elev)">
-        <rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/>
-        <text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
-        <text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">M_L ≥ts Conv1x1(C_L, W_l</text>
-        <rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/>
-        <text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text>
-      </g>
-
-      <!-- Forward Line to Stage 3 -->
-      <line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/>
-
-      <!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER -->
-      <g filter="url(#shadow-elev)">
-        <rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/>
-        <circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
-        <text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text>
-        <text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">l = L-1 bfdownto 2</text>
-        <rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/>
-        <text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text>
-      </g>
-
-      <!-- Forward Line to Output Stage -->
-      <line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/>
-
-      <!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE -->
-      <g filter="url(#shadow-elev)">
-        <rect x="840" y="125" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/>
-        <circle cx="865" cy="157" r="14" fill="#047857"/>
-        <text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
-        <text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Multi-scale pyramid re</text>
-        <text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text>
-
-        <rect x="840" y="210" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/>
-        <circle cx="865" cy="242" r="14" fill="#7e22ce"/>
-        <text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text>
-        <text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Loss / Status</text>
-        <text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text>
-      </g>
-
-      <!-- Feedback Gradient Arrow from Output back to Operator Kernel -->
-      <path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/>
-      <rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/>
-      <text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text>
-
-      <!-- Footer Formula Banner -->
-      <rect x="180" y="352" width="660" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/>
-      <text x="510" y="374" fill="#38bdf8" font-size="13" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: R(M_l) = R(C_L) ∀ l ∈ \2, ..., L\</text>
-    </svg>
+    <svg viewBox="0 0 1160 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg"><defs><!-- Marker Arrows --><marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" /></marker><marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" /></marker><marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" /></marker><!-- Premium Glass Gradients --><linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#090d16" /><stop offset="100%" stop-color="#05070d" /></linearGradient><linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b" /><stop offset="100%" stop-color="#0f172a" /></linearGradient><linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#064e3b" /><stop offset="100%" stop-color="#047857" /></linearGradient><linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e3a8a" /><stop offset="100%" stop-color="#2563eb" /></linearGradient><linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#311042" /><stop offset="100%" stop-color="#4c1d95" /></linearGradient><!-- Drop Shadows for 3D Layer Elevation --><filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/></filter></defs><!-- Background Canvas with Subtle Sub-grid --><rect width="1160" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/><line x1="40" y1="55" x2="1120" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/><!-- Header Information --><text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text><text x="1110" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Convolutional</text><!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) --><g filter="url(#shadow-elev)"><!-- Input 1 Node --><rect x="40" y="80" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="112" r="14" fill="#0284c7"/><text x="65" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text><text x="90" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">Backbone stage activation</text><text x="90" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text><!-- Input 2 Node --><rect x="40" y="165" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/><circle cx="65" cy="197" r="14" fill="#0284c7"/><text x="65" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text><text x="90" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">lateral weights {W_{lat}^</text><text x="90" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text><!-- Input 3 Node --><rect x="40" y="250" width="200" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/><circle cx="65" cy="282" r="14" fill="#d97706"/><text x="65" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text><text x="90" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">b_{lat}^{(l)}}_{l=2}^L</text><text x="90" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text></g><!-- Connecting Synaptic Lines to Stage 2 --><path d="M 240 112 C 275 112, 285 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 197 C 275 197, 285 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/><path d="M 240 282 C 275 282, 285 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/><!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL --><g filter="url(#shadow-elev)"><rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/><circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/><text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text><text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">M_L ← Conv1x1(C_L, W_{</text><rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/><text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text></g><!-- Forward Line to Stage 3 --><line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/><!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER --><g filter="url(#shadow-elev)"><rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/><circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/><text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text><text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">C_{proj} ← Conv1x1(C_l</text><rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/><text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text></g><!-- Forward Line to Output Stage --><line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/><!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE --><g filter="url(#shadow-elev)"><rect x="840" y="125" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/><circle cx="865" cy="157" r="14" fill="#047857"/><text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text><text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Multi-scale pyramid represen</text><text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text><rect x="840" y="210" width="270" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/><circle cx="865" cy="242" r="14" fill="#7e22ce"/><text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text><text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Loss / Invariant Bound ℒ</text><text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text></g><!-- Feedback Gradient Arrow from Output back to Operator Kernel --><path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/><rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/><text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text><!-- Footer Formula Banner --><rect x="140" y="352" width="880" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/><text x="580" y="374" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: R(M_l) = R(C_L) ∀ l ∈ {2, ..., L}</text></svg>
     
     </div>
 
     <!-- Multi-Column Technical Breakdown Grid -->
-    <div class="distill-grid">
+    <div class="distill-grid-breakdown">
       <!-- Inputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Input Tensors &amp; Parameter Signatures</div>
-        <div class="spec-item"><span class="spec-dot-cyan">●</span> <span>Backbone stage activations \C_l\_l=2^L</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>lateral weights \W_lat^(l)</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>b_lat^(l)\_l=2^L</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>smoothing weights \W_smooth^(l)</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>b_smooth^(l)\_l=2^L</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>uniform channel dimension d.</span></div>
+        <div class="distill-card-title"><span>◈</span> Input Contract (JSON Payload)</div>
+        <pre class="json-card-box">{
+  <span class="key">"bottom_up_features":</span> <span class="str">"sample_value"</span>,
+  <span class="key">"d_pyramid":</span> <span class="num">42</span>,
+  <span class="key">"lateral_weights":</span> <span class="str">"sample_value"</span>,
+  <span class="key">"smooth_weights":</span> <span class="str">"sample_value"</span>
+}</pre>
       </div>
 
       <!-- Execution Lifecycle Steps Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Internal Execution Lifecycle (8 Passes)</div>
-        <div class="spec-item"><span class="spec-step-num">PASS [01]</span> <span>M_L ≥ts Conv1x1(C_L, W_lat^(L), b_lat^(L))</span></div><div class="spec-item"><span class="spec-step-num">PASS [02]</span> <span>l = L-1 bfdownto 2</span></div><div class="spec-item"><span class="spec-step-num">PASS [03]</span> <span>C_proj ≥ts Conv1x1(C_l, W_lat^(l), b_lat^(l))</span></div><div class="spec-item"><span class="spec-step-num">PASS [04]</span> <span>M_up ≥ts Upsample2x(M_l+1)</span></div><div class="spec-item"><span class="spec-step-num">PASS [05]</span> <span>M_l ≥ts C_proj + M_up</span></div><div class="spec-item"><span class="spec-step-num">PASS [06]</span> <span>l = 2 bfto L</span></div><div class="spec-item"><span class="spec-step-num">PASS [07]</span> <span>P_l ≥ts Conv3x3Padding1(M_l, W_smooth^(l), b_smooth^(l))</span></div><div class="spec-item"><span class="spec-step-num">PASS [08]</span> <span>\Return \P_l\_l=2^L</span></div>
+        <div class="distill-card-title"><span>◈</span> Algorithmic Execution Pipeline</div>
+        <div class="tex-algorithm">
+  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">Feature Pyramid Network Multi-Scale Feature Construction</strong></div>
+  <div class="algo-body">
+    <div class="algo-req"><span class="algo-kw">Require:</span> Backbone stage activations $\{C_l\}_{l=2}^L$, lateral weights $\{W_{\text{lat}}^{(l)}, b_{\text{lat}}^{(l)}\}_{l=2}^L$, smoothing weights $\{W_{\text{smooth}}^{(l)}, b_{\text{smooth}}^{(l)}\}_{l=2}^L$, uniform channel dimension $d$.</div>
+    <div class="algo-ens"><span class="algo-kw">Ensure:</span> Multi-scale pyramid representations $\{P_l\}_{l=2}^L$ where $P_l \in \mathbb{R}^{d \times H_l \times W_l}$.</div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">1</span> <span class="algo-code">$M_L \gets \text{Conv1x1}(C_L, W_{\text{lat}}^{(L)}, b_{\text{lat}}^{(L)})$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">2</span> <span class="algo-code"><strong class="algo-kw">for</strong> $l = L-1$ \textbf{downto} $2$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">3</span> <span class="algo-code">$C_{\text{proj}} \gets \text{Conv1x1}(C_l, W_{\text{lat}}^{(l)}, b_{\text{lat}}^{(l)})$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">4</span> <span class="algo-code">$M_{\text{up}} \gets \text{Upsample2x}(M_{l+1})$</span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">5</span> <span class="algo-code">$M_l \gets C_{\text{proj}} + M_{\text{up}}$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">6</span> <span class="algo-code"><strong class="algo-kw">for</strong> $l = 2$ \textbf{to} $L$ <strong class="algo-kw">do</strong></span></div>
+    <div class="algo-line" style="padding-left:18px"><span class="algo-ln">7</span> <span class="algo-code">$P_l \gets \text{Conv3x3Padding1}(M_l, W_{\text{smooth}}^{(l)}, b_{\text{smooth}}^{(l)})$</span></div>
+    <div class="algo-line" style="padding-left:0px"><span class="algo-ln">8</span> <span class="algo-code"><strong class="algo-kw">return</strong> $\{P_l\}_{l=2}^L$</span></div>
+  </div>
+</div>
       </div>
 
       <!-- Outputs Column -->
       <div class="distill-card">
-        <div class="distill-card-title"><span>◈</span> Verified Target Outputs</div>
-        <div class="spec-item"><span class="spec-dot-emerald">■</span> <span>Multi-scale pyramid representations \P_l\_l=2^L where P_l ∈ ℝ^d × H_l × W_l.</span></div>
+        <div class="distill-card-title"><span>◈</span> Output Contract (JSON Response)</div>
+        <pre class="json-card-box">{
+  <span class="key">"pyramid_features":</span> <span class="str">"converged"</span>
+}</pre>
       </div>
     </div>
 
     <!-- Theoretical Guarantees and Complexity Grid -->
     <div class="distill-grid">
-      
-        <div class="distill-card">
-          <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
-          <div class="theorem-box"><div class="theorem-title">Multi-Scale Semantic Receptive Field Preservation</div><div class="theorem-desc">\labelthm:receptive_field Let R(C_l) denote the effective receptive field (ERF) of backbone stage C_l.</div></div>
-        </div>
-        
-      
-    <div class="distill-card">
-      <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
-      <div class="comp-item"><span class="comp-bullet">▸</span> <span>bfTime Complexity:</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>Lateral 1 × 1 projections: O≤ft( ∑_l=2^L d \cdot C_l \cdot H_l \cdot W_l \right).</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>Nearest-neighbor upsampling: O≤ft( ∑_l=2^L-1 d \cdot H_l \cdot W_l \right).</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>3 × 3 smoothing convolutions: O≤ft( ∑_l=2^L 9 \cdot d^2 \cdot H_l \cdot W_l \right).</span></div>
-    </div>
-    
+      <div class="distill-card">
+        <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
+          <div class="theorem-box">
+            <div class="theorem-title">Multi-Scale Semantic Receptive Field Preservation</div>
+            <div class="theorem-desc">\label{thm:receptive_field}
+Let $R(C_l)$ denote the effective receptive field (ERF) of backbone stage $C_l$. Under nearest-neighbor upsampling $\mathcal{U}_{2\times}$ and additive lateral fusion, every spatial unit $(i, j)$ in $M_l$ possesses an effective receptive field spanning:
+$$
+R(M_l) = R(C_L) \quad \forall l \in \{2, \dots, L\}
+$$
+thereby endowing fine-resolution spatial representations with global semantic contextual coverage.</div>
+          </div>
+      </div>
+      <div class="distill-card">
+        <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Lateral $1 \times 1$ projections: $\mathcal{O}\left( \sum_{l=2}^L d \cdot C_l \cdot H_l \cdot W_l \right)$.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Nearest-neighbor upsampling: $\mathcal{O}\left( \sum_{l=2}^{L-1} d \cdot H_l \cdot W_l \right)$.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> $3 \times 3$ smoothing convolutions: $\mathcal{O}\left( \sum_{l=2}^L 9 \cdot d^2 \cdot H_l \cdot W_l \right)$.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Time Complexity:</strong> Total Time: Linear in spatial pixels $\mathcal{O}\left( d \sum_{l=2}^L (C_l + 9d) H_l W_l \right)$.</span>
+      </div>
+      <div class="comp-item">
+        <span class="comp-bullet">▸</span>
+        <span><strong>Space Complexity:</strong> $\mathcal{O}\left( d \sum_{l=2}^L H_l W_l \right)$ auxiliary storage for $\{M_l, P_l\}$.</span>
+      </div>
+      </div>
     </div>
 
     <!-- Navigation Footer -->
