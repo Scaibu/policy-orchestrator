@@ -1231,7 +1231,7 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
     return `
     <div class="algo-svg-card">
       <div class="algo-svg-card-title">COMPUTATIONAL GRAPH ARCHITECTURE</div>
-      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 920 360" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
@@ -1253,7 +1253,7 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
           </linearGradient>
         </defs>
 
-        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+        <rect width="920" height="360" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
 
         <!-- Headers -->
         <text x="110" y="32" fill="#94a3b8" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">INPUT COHORT (X)</text>
@@ -1314,8 +1314,8 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
         <text x="760" y="167" fill="#7bf37b" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
 
         <!-- Bottom Mathematical Formula Badge -->
-        <rect x="250" y="288" width="350" height="30" rx="6" fill="#111827" stroke="#374151" />
-        <text x="425" y="308" fill="#38bdf8" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">${formula}</text>
+        <rect x="230" y="310" width="460" height="32" rx="6" fill="#111827" stroke="#374151" />
+        <text x="460" y="331" fill="#38bdf8" font-size="12.5" font-family="monospace" text-anchor="middle" font-weight="bold">${formula}</text>
       </svg>
     </div>
     `;
@@ -1331,13 +1331,13 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
     return `
     <div class="algo-svg-card">
       <div class="algo-svg-card-title">ATTENTION TRANSFORMER OPERATOR ARCHITECTURE</div>
-      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 920 360" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="attn-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1 L 10 5 L 0 9 z" fill="#818cf8" />
           </marker>
         </defs>
-        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+        <rect width="920" height="360" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
 
         <!-- Q, K, V Projections -->
         <rect x="60" y="60" width="110" height="50" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
@@ -1373,8 +1373,8 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
         <rect x="740" y="150" width="90" height="50" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
         <text x="785" y="180" fill="#38bdf8" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Output</text>
 
-        <rect x="230" y="285" width="390" height="30" rx="6" fill="#111827" stroke="#374151" />
-        <text x="425" y="305" fill="#a5b4fc" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Attention(Q,K,V) = Softmax(QKᵀ / √dₖ) V</text>
+        <rect x="230" y="310" width="460" height="32" rx="6" fill="#111827" stroke="#374151" />
+        <text x="460" y="331" fill="#a5b4fc" font-size="12.5" font-family="monospace" text-anchor="middle" font-weight="bold">Attention(Q,K,V) = Softmax(QKᵀ / √dₖ) V</text>
       </svg>
     </div>
     `;
@@ -1391,13 +1391,13 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
     return `
     <div class="algo-svg-card">
       <div class="algo-svg-card-title">GRADIENT DYNAMICS &amp; PARAMETER UPDATE PIPELINE</div>
-      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 920 360" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="opt-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
           </marker>
         </defs>
-        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+        <rect width="920" height="360" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
 
         <rect x="50" y="130" width="110" height="60" rx="6" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
         <text x="105" y="158" fill="#ffffff" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Loss ∇L(θ)</text>
@@ -1426,8 +1426,8 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
         <text x="740" y="158" fill="#e0e7ff" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Updated θₜ₊₁</text>
         <text x="740" y="176" fill="#a5b4fc" font-size="10" font-family="monospace" text-anchor="middle">θₜ - Δθₜ</text>
 
-        <rect x="250" y="285" width="350" height="30" rx="6" fill="#111827" stroke="#374151" />
-        <text x="425" y="305" fill="#f59e0b" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Parameter Update: θₜ₊₁ = θₜ - η · m̂ₜ / (√v̂ₜ + ε)</text>
+        <rect x="220" y="310" width="480" height="32" rx="6" fill="#111827" stroke="#374151" />
+        <text x="460" y="331" fill="#f59e0b" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Parameter Update: θₜ₊₁ = θₜ - η · m̂ₜ / (√v̂ₜ + ε)</text>
       </svg>
     </div>
     `;
@@ -1437,13 +1437,13 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
   return `
     <div class="algo-svg-card">
       <div class="algo-svg-card-title">CANONICAL PIPELINE EXECUTION ARCHITECTURE</div>
-      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 920 360" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="gen-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
           </marker>
         </defs>
-        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+        <rect width="920" height="360" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
 
         <!-- Ingestion -->
         <rect x="40" y="115" width="130" height="90" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
@@ -1479,8 +1479,8 @@ function renderArchitecturalSvg(p, inputs, outputs, steps) {
         <path d="M 545 205 L 545 250 L 315 250 L 315 205" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#gen-arrow)"/>
         <text x="430" y="268" fill="#f59e0b" font-size="11" font-family="monospace" text-anchor="middle">Convergence &amp; Dynamic Loss Feedback</text>
 
-        <rect x="250" y="285" width="350" height="30" rx="6" fill="#111827" stroke="#374151" />
-        <text x="425" y="305" fill="#38bdf8" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Pipeline: Ingestion ➔ Transform ➔ Invariant ➔ Return</text>
+        <rect x="220" y="310" width="480" height="32" rx="6" fill="#111827" stroke="#374151" />
+        <text x="460" y="331" fill="#38bdf8" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Pipeline: Ingestion ➔ Transform ➔ Invariant ➔ Return</text>
       </svg>
     </div>
   `;
