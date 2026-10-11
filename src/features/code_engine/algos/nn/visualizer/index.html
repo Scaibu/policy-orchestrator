@@ -81,7 +81,7 @@
   <link rel="apple-touch-icon" href="logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com/">
   <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=308.0">
+  <link rel="stylesheet" href="styles.css?v=309.0">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
@@ -272,7 +272,15 @@
             <span class="accent" id="inspector-tag">active node</span>
           </div>
 
+          <!-- Algorithm Selector Dropdown -->
           <div style="margin-bottom:14px;">
+            <label for="algo-dropdown-select" style="display:block; font-size:11px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; font-family:var(--font-dspl);">SELECT ALGORITHM CONTRACT</label>
+            <select id="algo-dropdown-select" class="algo-dropdown-selector" onchange="onAlgoDropdownChange(this.value)">
+              <!-- Populated dynamically via JS -->
+            </select>
+          </div>
+
+          <div style="margin-bottom:12px;">
             <div style="font-size:15px; font-weight:600; color:var(--ink);" id="inspector-title">
               [01] Synthetic Data Quality Filtering
             </div>
@@ -281,36 +289,20 @@
             </div>
           </div>
 
-          <p style="font-size:12.5px; color:var(--ink-dim); margin:0 0 16px; line-height:1.55;" id="inspector-math">
+          <p style="font-size:12px; color:var(--ink-dim); margin:0 0 14px; line-height:1.5;" id="inspector-math">
             Filters noisy or duplicate synthetic samples using length bounds and 64-bit MinHash Jaccard thresholding.
           </p>
 
           <div class="inspector-subtabs">
-            <button class="btn active" data-subtab="input" onclick="setInspectorTab('input')">[json input]</button>
-            <button class="btn" data-subtab="response" onclick="setInspectorTab('response')">[json response]</button>
+            <button class="btn active" data-subtab="yaml" onclick="setInspectorTab('yaml')">[yaml contract]</button>
+            <button class="btn" data-subtab="input" onclick="setInspectorTab('input')">[json input]</button>
+            <button class="btn" data-subtab="response" onclick="setInspectorTab('response')">[json output]</button>
             <button class="btn" data-subtab="invariant" onclick="setInspectorTab('invariant')">[invariant certificate]</button>
           </div>
 
           <div class="inspector-code-box">
-            <button class="inspector-copy-btn" onclick="copyActivePayload()">[copy json]</button>
-            <pre id="inspector-code-content">{
-  <span class="key">"candidate_samples":</span> [
-    {
-      <span class="key">"text":</span> <span class="str">"Proof of Fermat Last Theorem for n=3 using algebraic integers."</span>,
-      <span class="key">"quality_score":</span> <span class="num">0.88</span>,
-      <span class="key">"token_count":</span> <span class="num">12</span>
-    },
-    {
-      <span class="key">"text":</span> <span class="str">"Click here for discount tickets!"</span>,
-      <span class="key">"quality_score":</span> <span class="num">0.35</span>,
-      <span class="key">"token_count":</span> <span class="num">8</span>
-    }
-  ],
-  <span class="key">"min_quality_score":</span> <span class="num">0.7</span>,
-  <span class="key">"min_token_length":</span> <span class="num">10</span>,
-  <span class="key">"max_token_length":</span> <span class="num">1000</span>,
-  <span class="key">"jaccard_dedup_threshold":</span> <span class="num">0.8</span>
-}</pre>
+            <button class="inspector-copy-btn" id="btn-copy-payload" onclick="copyActivePayload()">[copy payload]</button>
+            <pre id="inspector-code-content">// Select an algorithm from the dropdown above to inspect contract...</pre>
           </div>
 
           <div style="margin-top:14px; font-size:11px; color:var(--ink-dim); border-top:1px dashed var(--rule); padding-top:10px;">
@@ -1245,8 +1237,9 @@ erDiagram
 
   </div>
 
-  <script src="proofs.js?v=308.0"></script>
-  <script src="app.js?v=308.0"></script>
+  <script src="proofs.js?v=309.0"></script>
+  <script src="contracts.js?v=309.0"></script>
+  <script src="app.js?v=309.0"></script>
   <script>
     async function showDiagramPanel(id, btn) {
       document.querySelectorAll('.diagram-panel').forEach(p => {

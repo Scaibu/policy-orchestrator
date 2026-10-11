@@ -1,3 +1,65 @@
+
+let currentInspectorTab = "yaml";
+let currentContractData = null;
+
+function initAlgoDropdown() {
+  const selectEl = document.getElementById("algo-dropdown-select");
+  if (!selectEl || typeof CONTRACTS_DATA === "undefined") return;
+
+  selectEl.innerHTML = "";
+  
+  // Group by domain
+  const domains = {};
+  for (const [key, c] of Object.entries(CONTRACTS_DATA)) {
+    const dLabel = c.domainLabel || c.domain;
+    if (!domains[dLabel]) domains[dLabel] = [];
+    domains[dLabel].push(c);
+  }
+
+  for (const [domainLabel, algos] of Object.entries(domains)) {
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = domainLabel;
+    
+    for (const a of algos) {
+      const option = document.createElement("option");
+      option.value = a.id;
+      option.textContent = a.name;
+      optgroup.appendChild(option);
+    }
+    selectEl.appendChild(optgroup);
+  }
+
+  // Set default selection
+  const firstKey = Object.keys(CONTRACTS_DATA)[0];
+  if (firstKey) {
+    selectEl.value = firstKey;
+    onAlgoDropdownChange(firstKey);
+  }
+}
+
+function onAlgoDropdownChange(key) {
+  if (typeof CONTRACTS_DATA === "undefined" || !CONTRACTS_DATA[key]) return;
+  const c = CONTRACTS_DATA[key];
+  currentContractData = c;
+
+  const titleEl = document.getElementById("inspector-title");
+  if (titleEl) titleEl.textContent = c.name;
+
+  const roleEl = document.getElementById("inspector-role");
+  if (roleEl) roleEl.textContent = c.domainLabel;
+
+  const tagEl = document.getElementById("inspector-tag");
+  if (tagEl) tagEl.textContent = c.algo_id || "VERIFIED CONTRACT";
+
+  const mathEl = document.getElementById("inspector-math");
+  if (mathEl) mathEl.textContent = c.title || c.excerpt;
+
+  const invEl = document.getElementById("inspector-invariant");
+  if (invEl) invEl.textContent = c.invariant;
+
+  renderInspectorCode();
+}
+
 /**
  * GORTEX IDENTICAL NEURAL ENGINE ARCHITECTURE & CONTRACT VISUALIZER
  * Zero dependencies, exact JSON contracts, interactive ASCII & SVG diagram bindings,
@@ -731,6 +793,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
   initProofsCatalog();
   selectAlgorithm("synth-filter");
+  initAlgoDropdown();
 });
 
 // Live Clock in Topbar (Gortex Style)
@@ -822,23 +885,52 @@ function setInspectorTab(tabKey) {
 // Render formatted JSON with syntax highlighting
 function renderInspectorCode() {
   const codeBox = document.getElementById("inspector-code-content");
-  if (!codeBox || !currentAlgorithm) return;
+  if (!codeBox) return;
 
-  let contentObj = null;
-  if (currentInspectorTab === "input") {
-    contentObj = currentAlgorithm.input;
-  } else if (currentInspectorTab === "response") {
-    contentObj = currentAlgorithm.response;
-  } else if (currentInspectorTab === "invariant") {
-    codeBox.innerHTML = `// MATHEMATICAL INVARIANT CERTIFICATE\n// Component: ${currentAlgorithm.name}\n// Stage: [${currentAlgorithm.stageNum}] ${currentAlgorithm.stageName}\n\n<span class="str">"${currentAlgorithm.invariant}"</span>\n\n// FORMAL PRINCIPLE:\n<span class="dim">// ${currentAlgorithm.math}</span>`;
+  const data = currentContractData || (typeof CONTRACTS_DATA !== "undefined" ? Object.values(CONTRACTS_DATA)[0] : currentAlgorithm);
+  if (!data) return;
+
+  if (currentInspectorTab === "yaml") {
+    const rawYaml = data.yaml || `contract:\n  name: ${data.name}\n  purity: pure\n  determinism: deterministic`;
+    codeBox.innerHTML = syntaxHighlightYaml(rawYaml);
     return;
   }
 
-  const jsonStr = JSON.stringify(contentObj, null, 2);
-  codeBox.innerHTML = syntaxHighlightJson(jsonStr);
+  if (currentInspectorTab === "input") {
+    const jsonStr = JSON.stringify(data.input || {}, null, 2);
+    codeBox.innerHTML = syntaxHighlightJson(jsonStr);
+    return;
+  }
+
+  if (currentInspectorTab === "response") {
+    const jsonStr = JSON.stringify(data.response || {}, null, 2);
+    codeBox.innerHTML = syntaxHighlightJson(jsonStr);
+    return;
+  }
+
+  if (currentInspectorTab === "invariant") {
+    codeBox.innerHTML = `// MATHEMATICAL INVARIANT & SAFETY GUARANTEE\n// Algorithm: ${data.name}\n// Domain: ${data.domainLabel || data.domain}\n\n<span class="str">"${data.invariant}"</span>\n\n// FORMAL EXECUTION PRINCIPLE:\n<span class="dim">// ${data.title || data.math || "Strict contract verified with deterministic gradients."}</span>`;
+    return;
+  }
 }
 
-// Syntax highlighter helper
+function syntaxHighlightYaml(yamlStr) {
+  return yamlStr
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/^([\s-]*[a-zA-Z0-9_]+:)/gm, '<span class="key">$1</span>')
+    .replace(/(:\s*)([^
+]+)/g, function(match, p1, p2) {
+      if (p2.startsWith('"') || p2.startsWith("'")) {
+        return p1 + '<span class="str">' + p2 + '</span>';
+      } else if (p2 === 'true' || p2 === 'false') {
+        return p1 + '<span class="bool">' + p2 + '</span>';
+      } else if (!isNaN(Number(p2.trim()))) {
+        return p1 + '<span class="num">' + p2 + '</span>';
+      }
+      return p1 + '<span class="str">' + p2 + '</span>';
+    });
+}
+
 function syntaxHighlightJson(json) {
   json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {

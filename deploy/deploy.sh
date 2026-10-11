@@ -19,6 +19,7 @@ sync_core_assets() {
   cp -f "$src_dir/app.js" "$dest_dir/app.js"
   cp -f "$src_dir/styles.css" "$dest_dir/styles.css"
   cp -f "$src_dir/proofs.js" "$dest_dir/proofs.js"
+  cp -f "$src_dir/contracts.js" "$dest_dir/contracts.js"
   if [ -f "$src_dir/logo.svg" ]; then
     cp -f "$src_dir/logo.svg" "$dest_dir/logo.svg"
   fi
