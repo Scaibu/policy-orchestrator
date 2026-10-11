@@ -1449,3 +1449,318 @@ h1.hero .ghost {
 
 
 
+
+/* ==========================================================================
+   MOBILE & TABLET RESPONSIVE OVERHAUL (All Viewports <= 768px and <= 480px)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  :root {
+    --pad: 16px;
+    --sf: 13px;
+  }
+
+  /* Frame margins */
+  .frame {
+    margin: 0;
+    border: none;
+    min-height: 100vh;
+  }
+
+  /* Topbar & Statusbar */
+  .topbar {
+    height: auto;
+    min-height: 38px;
+    padding: 0 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .topbar .seg {
+    padding: 0 10px;
+    font-size: 11px;
+    height: 38px;
+  }
+
+  .topbar .spacer, .topbar .seg.clock, .topbar .seg.lic {
+    display: none;
+  }
+
+  .statusbar {
+    height: auto;
+    min-height: 32px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .statusbar .seg {
+    padding: 0 8px;
+    font-size: 10px;
+    height: 32px;
+  }
+
+  /* Section rows */
+  section.row {
+    padding: 24px 14px;
+  }
+
+  .row-label {
+    margin-bottom: 16px;
+    font-size: 10px;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  h1.hero {
+    font-size: 28px !important;
+    line-height: 1.15;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-size: 22px !important;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+
+  .sub, .h2lead {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  /* CTAs & copy buttons */
+  .cta-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .cta-row .btn, .cta-row .copy-install {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .copy-install {
+    font-size: 11px;
+    padding: 8px 10px;
+    word-break: break-all;
+  }
+
+  /* Hero metrics */
+  .herometa {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 24px;
+  }
+
+  .herometa .kv {
+    padding: 12px 8px;
+  }
+
+  .herometa .v {
+    font-size: 20px;
+  }
+
+  .herometa .k {
+    font-size: 9px;
+  }
+
+  /* Proofs Toolbar & Search */
+  .proofs-toolbar {
+    gap: 10px;
+  }
+
+  .proofs-search-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .proofs-search-input {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .proofs-counter {
+    font-size: 10px;
+    text-align: right;
+  }
+
+  .proofs-domain-tabs {
+    max-height: 100px;
+    gap: 4px;
+  }
+
+  .proof-domain-btn {
+    font-size: 9.5px;
+    padding: 3px 8px;
+  }
+
+  /* Proofs Cards Grid */
+  .proofs-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .proof-card {
+    min-height: auto;
+    padding: 12px;
+  }
+
+  .proof-card-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .proof-btn {
+    flex: 1;
+    min-width: 110px;
+    padding: 6px 10px;
+    font-size: 10.5px;
+  }
+
+  /* Interactive Modals */
+  .tex-modal {
+    padding: 8px;
+  }
+
+  .tex-modal-dialog {
+    max-height: 96vh;
+    border-radius: 4px;
+  }
+
+  .tex-modal-header {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .tex-modal-actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tex-mode-btn {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+
+  .tex-modal-body {
+    padding: 16px 14px;
+  }
+
+  .tex-rendered-container .tex-h3 {
+    font-size: 16px;
+    margin: 20px 0 10px;
+  }
+
+  .tex-rendered-container .tex-h4 {
+    font-size: 14px;
+    margin: 16px 0 8px;
+  }
+
+  .tex-rendered-container p, .tex-p {
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  .tex-equation {
+    padding: 8px;
+    margin: 12px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Math rendering container on small screens */
+  .katex {
+    font-size: 0.95em;
+  }
+
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Algorithms in modal */
+  .tex-algorithm {
+    font-size: 11px;
+    margin: 14px 0;
+  }
+
+  .algo-header {
+    padding: 8px 10px;
+  }
+
+  .algo-body {
+    padding: 10px 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .algo-line {
+    gap: 8px;
+  }
+
+  .algo-ln {
+    min-width: 18px;
+    font-size: 9.5px;
+  }
+
+  /* Mermaid diagrams container */
+  .mermaid-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
+  .mermaid-wrap svg {
+    max-width: none !important;
+    min-width: 600px;
+  }
+
+  /* ASCII diagram box */
+  .asciibox {
+    padding: 12px;
+    font-size: 10.5px;
+    line-height: 1.35;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Inspector card */
+  .inspector-card {
+    padding: 14px;
+  }
+
+  .inspector-code-box {
+    font-size: 10.5px;
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .herometa {
+    grid-template-columns: 1fr;
+  }
+
+  .herometa .kv {
+    border-right: none;
+    border-bottom: 1px dashed var(--rule);
+    padding: 10px 0;
+  }
+
+  .herometa .kv:last-child {
+    border-bottom: none;
+  }
+
+  h1.hero {
+    font-size: 24px !important;
+  }
+
+  h2 {
+    font-size: 19px !important;
+  }
+}
