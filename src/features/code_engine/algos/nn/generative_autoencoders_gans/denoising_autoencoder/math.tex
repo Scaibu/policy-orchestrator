@@ -1,0 +1,345 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Denoising Autoencoder}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Denoising Autoencoder Operator):}
+Let $\mathcal{X} = \mathbb{R}^{d_x}$ denote the ambient data manifold and $\mathcal{H} = \mathbb{R}^{d_h}$ denote the latent feature space. Let $q_D(\tilde{\mathbf{x}} \mid \mathbf{x})$ denote a stochastic corrupting distribution parameterized by noise variance $\sigma_\epsilon^2$ or masking ratio $p_m$. The \textbf{Denoising Autoencoder} (DAE) is a composite operator parameterized by encoder parameters $\theta = \{\mathbf{W}_e, \mathbf{b}_e\}$ and decoder parameters $\phi = \{\mathbf{W}_d, \mathbf{b}_d\}$:
+{\boldmath
+\begin{equation}
+f_{\theta, \phi}: \mathcal{X} \times \mathcal{E} \longrightarrow \mathcal{X}, \qquad f_{\theta, \phi}(\tilde{\mathbf{x}}) = g_\phi(f_\theta(\tilde{\mathbf{x}}))
+\end{equation}
+}
+where the encoder mapping $f_\theta: \mathcal{X} \to \mathcal{H}$ and decoder mapping $g_\phi: \mathcal{H} \to \mathcal{X}$ satisfy:
+{\boldmath
+\begin{equation}
+\mathbf{h} = \sigma(\mathbf{W}_e \tilde{\mathbf{x}} + \mathbf{b}_e), \qquad \hat{\mathbf{x}} = \mathbf{W}_d \mathbf{h} + \mathbf{b}_d
+\end{equation}
+}
+The system minimizes the expected reconstruction divergence over the joint distribution $p_{\text{data}}(\mathbf{x}) q_D(\tilde{\mathbf{x}} \mid \mathbf{x})$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{DAE}}(\theta, \phi) = \mathbb{E}_{\mathbf{x} \sim p_{\text{data}}, \tilde{\mathbf{x}} \sim q_D(\cdot \mid \mathbf{x})} \left[ \frac{1}{d_x} \|\mathbf{x} - g_\phi(f_\theta(\tilde{\mathbf{x}}))\|_2^2 \right]
+\end{equation}
+}
+Under infinitesimal isotropic Gaussian corruption $\tilde{\mathbf{x}} = \mathbf{x} + \boldsymbol{\epsilon}$ with $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I})$, the vector field $r(\tilde{\mathbf{x}}) = g_\phi(f_\theta(\tilde{\mathbf{x}})) - \tilde{\mathbf{x}}$ converges asymptotically to the score of the data distribution $\sigma^2 \nabla_{\tilde{\mathbf{x}}} \log p(\tilde{\mathbf{x}})$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Imagine you are given a slightly smeared, torn, or coffee-stained photograph of a person's face. If you were a regular copy machine, you would mechanically copy the coffee stains, the tears, and the blurs directly onto the new sheet of paper, producing an exact replica of the damaged picture. 
+
+A Denoising Autoencoder refuses to copy the surface noise. Instead, it acts like an expert artist who understands the underlying geometry of real faces—where eyes belong, how skin reflects light, and how cheekbones curve. 
+\begin{enumerate}
+    \item \textbf{Controlled Destruction}: We deliberately degrade a clear input by adding static noise, blanking out random patches, or distorting values.
+    \item \textbf{Bottleneck Distillation}: The network forces this corrupted signal through a narrow mental bottleneck. Because the bottleneck cannot store random, erratic noise, it is forced to discard superficial artifacts and retain only durable structural laws.
+    \item \textbf{Reconstructive Restoration}: The decoder uses those core structural rules to repaint the original clean image.
+    \item \textbf{Anomaly Signal}: When an input is completely unnatural or fraudulent, the network cannot reconstruct it cleanly, producing a high error score that immediately flags anomalies.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Clay Castle in the Rainstorm}:
+Imagine you build a beautiful, sturdy sandcastle on the beach with towers, walls, and bridges. 
+\begin{itemize}
+    \item \textbf{The Clean Toy (Input $\mathbf{x}$)}:
+    Your sandcastle is crisp, sharp, and perfect.
+    
+    \item \textbf{The Rainstorm (Corruption $\tilde{\mathbf{x}}$)}:
+    A sudden splash of ocean water and raindrops hits the castle! Some sand drips away, towers get bumpy, and random seaweed sticks to the walls. It looks messy and rough.
+    
+    \item \textbf{The Magic Sculptor's Eyes (Encoder $\mathbf{h}$)}:
+    A master toy sculptor looks at the messy sandcastle. Instead of counting every random splash of water, she looks for the main shapes: \emph{``Aha! This had two tall round towers and a bridge in the middle!''} She writes down these essential secret blueprints into her small notebook.
+    
+    \item \textbf{The Magic Hands (Decoder $\hat{\mathbf{x}}$)}:
+    Using only the notes in her notebook, she smooths down the rough bumps, wipes away the seaweed, and rebuilds the crisp, sharp castle towers just as they looked before the rain.
+    
+    \item \textbf{The Mud Detector (Anomaly Score)}:
+    If someone places a weird, alien block of metal on the beach instead of a sandcastle, the sculptor has no idea how to rebuild it. Her attempt fails completely, the sand slides off, and a buzzer sounds: \emph{``Warning! This is not a sandcastle!''}
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Stochastic Corruption Projection}}
+{\boldmath
+\begin{equation}
+\tilde{\mathbf{x}} \sim q_D(\tilde{\mathbf{x}} \mid \mathbf{x}) = \mathbf{x} + \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma_\epsilon^2 \mathbf{I}_{d_x})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    A transition probability density mapping the empirical data manifold point $\mathbf{x} \in \mathbb{R}^{d_x}$ to an off-manifold perturbed vector $\tilde{\mathbf{x}} \in \mathbb{R}^{d_x}$ via an additive Gaussian diffusion step.
+    \item \textbf{What It Means}:
+    This operation moves sample points orthogonally away from the low-dimensional data manifold into the surrounding ambient Euclidean space.
+    \item \textbf{Why It Is Important}:
+    Without corruption, an unconstrained autoencoder trivially learns the identity function $f(\mathbf{x}) = \mathbf{x}$, storing zero topological or semantic knowledge about the data distribution.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Non-Linear Latent Encoding}}
+{\boldmath
+\begin{equation}
+\mathbf{h} = \operatorname{ReLU}(\mathbf{W}_e \tilde{\mathbf{x}} + \mathbf{b}_e) = \max(\mathbf{0}, \mathbf{W}_e \tilde{\mathbf{x}} + \mathbf{b}_e)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The continuous piecewise affine projection mapping perturbed observation $\tilde{\mathbf{x}}$ through affine weight tensor $\mathbf{W}_e \in \mathbb{R}^{d_h \times d_x}$ and bias $\mathbf{b}_e \in \mathbb{R}^{d_h}$ followed by pointwise rectification.
+    \item \textbf{What It Means}:
+    It projects the noisy observation onto a coordinate system of learned basis vectors, zeroing out non-contributing coordinates to enforce sparse, robust feature activations.
+    \item \textbf{Why It Is Important}:
+    The non-linear compression acts as an informational sieve, preventing high-frequency noise from traversing into the latent representation.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Affine Reconstruction Decoding}}
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}} = \mathbf{W}_d \mathbf{h} + \mathbf{b}_d
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The linear transformation mapping latent state $\mathbf{h} \in \mathbb{R}^{d_h}$ back into ambient input space $\mathbb{R}^{d_x}$ via decoder synthesis matrix $\mathbf{W}_d \in \mathbb{R}^{d_x \times d_h}$ and offset $\mathbf{b}_d \in \mathbb{R}^{d_x}$.
+    \item \textbf{What It Means}:
+    The decoder combines the active latent basis factors to construct a clean estimate $\hat{\mathbf{x}}$ lying on the estimated data manifold.
+    \item \textbf{Why It Is Important}:
+    Provides the differentiable reconstruction hypothesis required to evaluate empirical risk against the uncorrupted target $\mathbf{x}$.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Mean Squared Reconstruction Objective}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{MSE}}(\mathbf{x}, \hat{\mathbf{x}}) = \frac{1}{d_x} \sum_{i=1}^{d_x} (x_i - \hat{x}_i)^2 = \frac{1}{d_x} \|\mathbf{x} - \hat{\mathbf{x}}\|_2^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The normalized $L_2$ squared Euclidean norm evaluating the discrepancy between the uncorrupted target vector $\mathbf{x}$ and the denoised reconstruction $\hat{\mathbf{x}}$.
+    \item \textbf{What It Means}:
+    Measures the quadratic energy penalty of the reconstruction failure, penalizing large component errors quadratically.
+    \item \textbf{Why It Is Important}:
+    Under Gaussian assumption of observational noise, minimizing MSE is strictly equivalent to maximizing conditional log-likelihood $\log p(\mathbf{x} \mid \mathbf{h})$.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Score Matching Vector Field}}
+{\boldmath
+\begin{equation}
+\mathbf{r}(\tilde{\mathbf{x}}) = g_\phi(f_\theta(\tilde{\mathbf{x}})) - \tilde{\mathbf{x}} \approx \sigma_\epsilon^2 \nabla_{\tilde{\mathbf{x}}} \log p(\tilde{\mathbf{x}})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The reconstruction vector field defined as the directional displacement between decoded output and noisy input, converging to the score of the convolved data density.
+    \item \textbf{What It Means}:
+    The vector pointing from the corrupted sample $\tilde{\mathbf{x}}$ to the clean sample $\hat{\mathbf{x}}$ directly estimates the gradient of the log-density of the data distribution.
+    \item \textbf{Why It Is Important}:
+    Proves that training a denoising autoencoder is mathematically isomorphic to explicit score matching, forming the theoretical foundation for modern score-based and diffusion generative models.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{x} \in \mathbb{R}^{d_x}$: Clean ground-truth data vector.
+    \item $\tilde{\mathbf{x}} \in \mathbb{R}^{d_x}$: Stochastically corrupted observation.
+    \item $\mathbf{W}_e \in \mathbb{R}^{d_h \times d_x}, \mathbf{b}_e \in \mathbb{R}^{d_h}$: Encoder affine weight matrix and bias vector.
+    \item $\mathbf{h} \in \mathbb{R}^{d_h}$: Latent representation vector.
+    \item $\mathbf{W}_d \in \mathbb{R}^{d_x \times d_h}, \mathbf{b}_d \in \mathbb{R}^{d_x}$: Decoder affine weight matrix and bias vector.
+    \item $\hat{\mathbf{x}} \in \mathbb{R}^{d_x}$: Reconstructed estimate vector.
+    \item $\sigma_\epsilon^2 \in \mathbb{R}_{> 0}$: Variance of the corrupting Gaussian process.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Denoising Autoencoder Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$d_x, d_h$ & \textbf{Defined} (Architectural hyperparameter) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\sigma_\epsilon^2$ & \textbf{Defined} (Noise hyperparameter) & Strictly positive scalar $\mathbb{R}_{> 0}$ \\
+$\mathbf{W}_e, \mathbf{b}_e, \mathbf{W}_d, \mathbf{b}_d$ & \textbf{Learned} (Optimization parameters) & Real weight matrices and vectors \\
+$\mathbf{h}, \hat{\mathbf{x}}$ & \textbf{Calculated} (Feedforward states) & Real vectors in latent/ambient space \\
+$\mathcal{L}_{\text{MSE}}$ & \textbf{Calculated} (Loss metric) & Non-negative scalar $\mathbb{R}_{\ge 0}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+The directed acyclic computational graph proceeds as:
+{\boldmath
+\begin{equation}
+\mathbf{x} \xrightarrow{q_D} \tilde{\mathbf{x}} \xrightarrow{\mathbf{W}_e, \mathbf{b}_e} \mathbf{a}_e \xrightarrow{\operatorname{ReLU}} \mathbf{h} \xrightarrow{\mathbf{W}_d, \mathbf{b}_d} \hat{\mathbf{x}} \xrightarrow{\|\mathbf{x} - \hat{\mathbf{x}}\|^2} \mathcal{L}_{\text{MSE}}
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item Input tensor $\mathbf{x}$: Rank-1 tensor of shape $(d_x)$.
+    \item Latent tensor $\mathbf{h}$: Rank-1 tensor of shape $(d_h)$.
+    \item Parameter matrices $\mathbf{W}_e, \mathbf{W}_d$: Rank-2 tensors of shapes $(d_h, d_x)$ and $(d_x, d_h)$.
+    \item Loss: Rank-0 dimensionless scalar.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Zero Noise Regime ($\sigma_\epsilon \to 0$)}: DAE degenerates into a standard autoencoder, risking identity learning if $d_h \ge d_x$.
+    \item \textbf{Infinite Noise Regime ($\sigma_\epsilon \to \infty$)}: $\tilde{\mathbf{x}}$ carries zero mutual information with $\mathbf{x}$. The optimal estimator collapses to the empirical dataset mean $\hat{\mathbf{x}} = \mathbb{E}[\mathbf{x}]$.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Trivial Shortcut with Tied Weights}: If bottleneck dimension $d_h$ is oversized and noise is too small, $\mathbf{W}_d = \mathbf{W}_e^\top$ may learn identity mapping on noise artifacts.
+    \item \textbf{Dead Latent Neurons}: Large negative bias initializations combined with ReLU activations can lead to $\mathbf{h} = \mathbf{0}$, causing gradient death.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Manifold Attraction}: The displacement vector $\mathbf{r}(\tilde{\mathbf{x}}) = \hat{\mathbf{x}} - \tilde{\mathbf{x}}$ always points in the direction of increasing data probability density.
+    \item \textbf{Score Orthogonality}: For points exactly on the data manifold ridge where $\nabla_{\mathbf{x}} \log p(\mathbf{x}) = \mathbf{0}$, the reconstruction displacement vanishes $\|\hat{\mathbf{x}} - \mathbf{x}\| \to 0$.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Kalman Filtering / Wiener Deconvolution}: In linear systems with Gaussian noise, DAE optimal reconstruction matches the minimum mean squared error (MMSE) Wiener filter.
+    \item \textbf{Diffusion Models (DDPM)}: Reverse denoising step in diffusion is mathematically an iterated schedule of multi-scale denoising autoencoders.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Equivalence of DAE and Non-Parametric Score Matching}]
+Let $\mathbf{x} \in \mathbb{R}^{d_x}$ be drawn from density $p(\mathbf{x})$, and let corrupted samples be generated via $\tilde{\mathbf{x}} = \mathbf{x} + \boldsymbol{\epsilon}$ with $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \sigma^2 \mathbf{I})$. Let $g(\tilde{\mathbf{x}})$ denote the optimal MMSE reconstruction function minimizing $\mathbb{E}[\|\mathbf{x} - g(\tilde{\mathbf{x}})\|^2]$. Then, as $\sigma \to 0$, the vector field $g(\tilde{\mathbf{x}}) - \tilde{\mathbf{x}}$ satisfies:
+{\boldmath
+\begin{equation}
+g(\tilde{\mathbf{x}}) - \tilde{\mathbf{x}} = \sigma^2 \nabla_{\tilde{\mathbf{x}}} \log p(\tilde{\mathbf{x}}) + \mathcal{O}(\sigma^4)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition of conditional expectation, the optimal mean squared error reconstructor is:
+{\boldmath
+\begin{equation}
+g(\tilde{\mathbf{x}}) = \mathbb{E}[\mathbf{x} \mid \tilde{\mathbf{x}}] = \int \mathbf{x} \, p(\mathbf{x} \mid \tilde{\mathbf{x}}) \, d\mathbf{x} = \frac{\int \mathbf{x} \, p(\mathbf{x}) q(\tilde{\mathbf{x}} \mid \mathbf{x}) \, d\mathbf{x}}{p(\tilde{\mathbf{x}})}
+\end{equation}
+}
+Substituting the Gaussian conditional density $q(\tilde{\mathbf{x}} \mid \mathbf{x}) = \frac{1}{(2\pi \sigma^2)^{d_x/2}} \exp\left(-\frac{\|\tilde{\mathbf{x}} - \mathbf{x}\|^2}{2\sigma^2}\right)$:
+{\boldmath
+\begin{equation}
+\nabla_{\tilde{\mathbf{x}}} q(\tilde{\mathbf{x}} \mid \mathbf{x}) = -\frac{\tilde{\mathbf{x}} - \mathbf{x}}{\sigma^2} q(\tilde{\mathbf{x}} \mid \mathbf{x})
+\end{equation}
+}
+Differentiating the marginal density $p(\tilde{\mathbf{x}}) = \int p(\mathbf{x}) q(\tilde{\mathbf{x}} \mid \mathbf{x}) \, d\mathbf{x}$ with respect to $\tilde{\mathbf{x}}$:
+{\boldmath
+\begin{align}
+\nabla_{\tilde{\mathbf{x}}} p(\tilde{\mathbf{x}}) &= \int p(\mathbf{x}) \nabla_{\tilde{\mathbf{x}}} q(\tilde{\mathbf{x}} \mid \mathbf{x}) \, d\mathbf{x} \\
+&= -\frac{1}{\sigma^2} \int (\tilde{\mathbf{x}} - \mathbf{x}) p(\mathbf{x}) q(\tilde{\mathbf{x}} \mid \mathbf{x}) \, d\mathbf{x} \\
+&= -\frac{1}{\sigma^2} \tilde{\mathbf{x}} p(\tilde{\mathbf{x}}) + \frac{1}{\sigma^2} \int \mathbf{x} \, p(\mathbf{x}) q(\tilde{\mathbf{x}} \mid \mathbf{x}) \, d\mathbf{x}
+\end{align}
+}
+Multiplying both sides by $\frac{\sigma^2}{p(\tilde{\mathbf{x}})}$:
+{\boldmath
+\begin{equation}
+\sigma^2 \frac{\nabla_{\tilde{\mathbf{x}}} p(\tilde{\mathbf{x}})}{p(\tilde{\mathbf{x}})} = -\tilde{\mathbf{x}} + \frac{\int \mathbf{x} \, p(\mathbf{x}) q(\tilde{\mathbf{x}} \mid \mathbf{x}) \, d\mathbf{x}}{p(\tilde{\mathbf{x}})} = -\tilde{\mathbf{x}} + g(\tilde{\mathbf{x}})
+\end{equation}
+}
+Recognizing $\frac{\nabla_{\tilde{\mathbf{x}}} p(\tilde{\mathbf{x}})}{p(\tilde{\mathbf{x}})} = \nabla_{\tilde{\mathbf{x}}} \log p(\tilde{\mathbf{x}})$, we obtain:
+{\boldmath
+\begin{equation}
+g(\tilde{\mathbf{x}}) - \tilde{\mathbf{x}} = \sigma^2 \nabla_{\tilde{\mathbf{x}}} \log p(\tilde{\mathbf{x}})
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Why Does Denoising Prevent Representation Collapse?}
+\textbf{Question}: Standard autoencoders often collapse to copying identities when $d_h \ge d_x$. How does stochastic corruption mathematically guarantee non-trivial feature learning?
+
+\textbf{Meta-Question}: What epistemological principle separates memorization from geometric generalization?
+
+\textbf{Answer}: When an autoencoder is trained on clean data, it only encounters points lying on a measure-zero manifold. An unconstrained network can easily learn the identity operator $f(\mathbf{x}) = \mathbf{x}$. By corrupting points off the manifold into the orthogonal ambient space, the model cannot simply memorize coordinates; it is forced to learn a vector field that projects the entire volume of perturbed ambient space back onto the low-dimensional data manifold. Epistemically, memorization requires only point evaluation; generalization requires learning the differential topology of the surrounding energy landscape.
+
+\subsection{Architectural Question 2: How Does DAE Form Anomaly Detectors?}
+\textbf{Question}: Why does the reconstruction error serve as an effective anomaly score?
+
+\textbf{Meta-Question}: Is high reconstruction error an indicator of high energy or low data density?
+
+\textbf{Answer}: Because the network is trained solely on samples drawn from $p_{\text{data}}(\mathbf{x})$, its learned projection field $g(\tilde{\mathbf{x}})$ is optimized strictly over the support of $p_{\text{data}}$. When presented with an out-of-distribution (anomalous) sample, its features do not align with any learned manifold basis vectors. Consequently, the projection onto the manifold produces a significant orthogonal residual displacement $\|\mathbf{x} - \hat{\mathbf{x}}\|^2 \gg \epsilon$. High reconstruction error directly reflects high empirical free energy and near-zero probability density under the learned distribution.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{Denoising Autoencoder Forward Evaluation}
+\label{alg:dae}
+\begin{algorithmic}[1]
+\Require Clean target $\mathbf{x} \in \mathbb{R}^{d_x}$, corrupted input $\tilde{\mathbf{x}} \in \mathbb{R}^{d_x}$, encoder $\mathbf{W}_e \in \mathbb{R}^{d_h \times d_x}, \mathbf{b}_e \in \mathbb{R}^{d_h}$, decoder $\mathbf{W}_d \in \mathbb{R}^{d_x \times d_h}, \mathbf{b}_d \in \mathbb{R}^{d_x}$
+\Ensure Reconstructed $\hat{\mathbf{x}} \in \mathbb{R}^{d_x}$, MSE loss $\mathcal{L} \in \mathbb{R}_{\ge 0}$, latent $\mathbf{h} \in \mathbb{R}^{d_h}$
+\State $\mathbf{h} \gets \text{zeros}(d_h)$
+\For{$i \gets 1 \textbf{ to } d_h$}
+    \State $\text{act} \gets b_{e, i}$
+    \For{$j \gets 1 \textbf{ to } d_x$}
+        \State $\text{act} \gets \text{act} + W_{e, i, j} \cdot \tilde{x}_j$
+    \EndFor
+    \State $h_i \gets \max(0.0, \text{act})$ \Comment{Pointwise ReLU activation}
+\EndFor
+\State $\hat{\mathbf{x}} \gets \text{zeros}(d_x)$
+\For{$i \gets 1 \textbf{ to } d_x$}
+    \State $\text{val} \gets b_{d, i}$
+    \For{$j \gets 1 \textbf{ to } d_h$}
+        \State $\text{val} \gets \text{val} + W_{d, i, j} \cdot h_j$
+    \EndFor
+    \State $\hat{x}_i \gets \text{val}$
+\EndFor
+\State $\text{mse} \gets 0.0$
+\For{$i \gets 1 \textbf{ to } d_x$}
+    \State $\text{diff} \gets x_i - \hat{x}_i$
+    \State $\text{mse} \gets \text{mse} + \text{diff} \cdot \text{diff}$
+\EndFor
+\State $\mathcal{L} \gets \text{mse} / d_x$
+\State \Return $\{\text{reconstruction}: \hat{\mathbf{x}}, \text{loss}: \mathcal{L}, \text{latent}: \mathbf{h}, \text{anomaly\_score}: \mathcal{L}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Encoder projection: $d_h \times d_x$ multiplications and additions ($\Theta(d_h d_x)$ FLOPs).
+        \item Decoder reconstruction: $d_x \times d_h$ multiplications and additions ($\Theta(d_x d_h)$ FLOPs).
+        \item Loss evaluation: $d_x$ subtractions, squares, and accumulation ($\Theta(d_x)$ FLOPs).
+        \item Total Time: $\Theta(d_x d_h)$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Latent vector storage $\mathbf{h}$: $\Theta(d_h)$ floats.
+        \item Output vector $\hat{\mathbf{x}}$: $\Theta(d_x)$ floats.
+        \item Total Auxiliary Space: $\Theta(d_x + d_h)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

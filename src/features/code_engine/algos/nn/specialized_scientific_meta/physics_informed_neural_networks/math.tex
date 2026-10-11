@@ -1,0 +1,286 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Physics-Informed Neural Networks}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Physics-Informed Neural Operator and Collocation Residuals):}
+Let $\Omega \subset \mathbb{R}^d$ denote a spatial domain with boundary $\partial \Omega$, and let $[0, T]$ denote a temporal domain. Consider a general non-linear partial differential equation (PDE) governing the physical field $u(\mathbf{x}, t)$:
+{\boldmath
+\begin{align}
+\mathcal{N}[u](\mathbf{x}, t) = 0, \quad &(\mathbf{x}, t) \in \Omega \times [0, T] \\
+u(\mathbf{x}, 0) = u_0(\mathbf{x}), \quad &\mathbf{x} \in \Omega \quad \text{(Initial Condition)} \\
+\mathcal{B}[u](\mathbf{x}, t) = g(\mathbf{x}, t), \quad &(\mathbf{x}, t) \in \partial \Omega \times [0, T] \quad \text{(Boundary Condition)}
+\end{align}
+}
+where $\mathcal{N}$ is a differential operator (e.g. Burgers' equation $\mathcal{N}[u] = \frac{\partial u}{\partial t} + u \frac{\partial u}{\partial x} - \nu \frac{\partial^2 u}{\partial x^2}$).
+
+A \textbf{Physics-Informed Neural Network (PINN)} parameterizes the continuous field $u(\mathbf{x}, t)$ with a deep neural network $u_\theta(\mathbf{x}, t)$. The differential operators $\frac{\partial u}{\partial t}, \frac{\partial u}{\partial x}, \frac{\partial^2 u}{\partial x^2}$ are evaluated analytically without mesh discretization using reverse-mode automatic differentiation. The \textbf{PDE Residual Function} $f_\theta(\mathbf{x}, t)$ is defined as:
+{\boldmath
+\begin{equation}
+f_\theta(\mathbf{x}, t) \equiv \mathcal{N}[u_\theta](\mathbf{x}, t)
+\end{equation}
+}
+The network is trained by minimizing the composite loss across collocation points $\{\mathbf{x}_i^f, t_i^f\}_{i=1}^{N_f}$, initial points $\{\mathbf{x}_i^0\}_{i=1}^{N_0}$, and boundary points $\{\mathbf{x}_i^b, t_i^b\}_{i=1}^{N_b}$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{PINN}}(\theta) = w_f \mathcal{L}_{\text{pde}}(\theta) + w_{\text{ic}} \mathcal{L}_{\text{ic}}(\theta) + w_{\text{bc}} \mathcal{L}_{\text{bc}}(\theta)
+\end{equation}
+}
+where:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{pde}} = \frac{1}{N_f}\sum_{i=1}^{N_f} \left| f_\theta(\mathbf{x}_i^f, t_i^f) \right|^2, \quad \mathcal{L}_{\text{ic}} = \frac{1}{N_0}\sum_{i=1}^{N_0} \left| u_\theta(\mathbf{x}_i^0, 0) - u_0(\mathbf{x}_i^0) \right|^2, \quad \mathcal{L}_{\text{bc}} = \frac{1}{N_b}\sum_{i=1}^{N_b} \left| \mathcal{B}[u_\theta](\mathbf{x}_i^b, t_i^b) - g(\mathbf{x}_i^b, t_i^b) \right|^2
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Throwing Away the Finite Element Grid}: Traditional engineering software (like ANSYS or OpenFOAM) simulates fluids and heat by cutting a 3D airplane or engine into millions of tiny triangular mesh cells. Generating this mesh takes weeks of human effort, and the simulation crashes if cells stretch awkwardly.
+    \item \textbf{A Neural Network as a Mesh-Free Equation Solver}: PINNs replace the entire mesh with a smooth mathematical function inside a neural network. You give it coordinates $(x, y, z, t)$, and it outputs temperature, pressure, or velocity.
+    \item \textbf{Physics as the Strict Teacher}: Standard AI needs millions of labeled data points to learn. PINNs need zero sensor data! The training loss is the physical law itself (Newton's laws, Navier-Stokes fluid equations, or heat transfer).
+    \item \textbf{The Calculus Check}: At thousands of random test points inside the fluid, we use computer calculus (autodiff) to check: ``Does the conservation of mass and momentum hold here?'' If the equation does not equal zero, the AI receives a penalty. By squeezing the penalty to zero, the AI learns to obey the laws of physics perfectly!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine building a roller coaster on your computer screen:
+\begin{itemize}
+    \item \textbf{Guessing Track Heights}: The neural network draws a looping roller coaster track across the screen.
+    \item \textbf{The Physics Inspector}: An inspector checks every point on the track with a physics calculator: ``Is energy conserved here? Does gravity match? Are the centrifugal forces correct?''
+    \item \textbf{Self-Correcting Track}: Wherever the inspector finds an illegal physical jump, the track bends smoothly until the entire coaster obeys gravity and conservation of momentum from start to finish!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Automatic Differentiation PDE Residual}
+{\boldmath
+\begin{equation}
+f_\theta(\mathbf{x}, t) = \frac{\partial u_\theta}{\partial t} + u_\theta \frac{\partial u_\theta}{\partial x} - \nu \frac{\partial^2 u_\theta}{\partial x^2}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The exact differential residual operator evaluated via computational graph automatic differentiation.
+    \item \textbf{What It Means}: Measures the exact local violation of the governing differential equation at any arbitrary point in space-time.
+    \item \textbf{Why It Is Important}: Eliminates numerical grid discretization errors (such as finite difference truncation errors) from derivative evaluations.
+\end{itemize}
+
+\subsection{Collocation Physics Loss Metric}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{pde}}(\theta) = \frac{1}{N_f} \sum_{i=1}^{N_f} \left( f_\theta(\mathbf{x}_i, t_i) \right)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The mean squared residual across $N_f$ quasi-random Latin Hypercube or Sobol sampling coordinates.
+    \item \textbf{What It Means}: Penalizes deviation from physical laws across the continuous interior of the domain.
+    \item \textbf{Why It Is Important}: Acts as an unsupervized self-consistency prior enforcing physics across regions where no physical sensor measurements exist.
+\end{itemize}
+
+\subsection{Initial and Boundary Enforcement Losses}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{ic}} = \frac{1}{N_0}\sum_{i=1}^{N_0} (u_\theta(\mathbf{x}_i, 0) - u_0(\mathbf{x}_i))^2, \quad \mathcal{L}_{\text{bc}} = \frac{1}{N_b}\sum_{i=1}^{N_b} (u_\theta(\mathbf{x}_i^{\text{bc}}, t_i) - g(t_i))^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Dirichlet, Neumann, or Robin boundary loss terms anchoring the solution to physical constraints.
+    \item \textbf{What It Means}: Prevents the trivial zero-field solution by forcing the network to match prescribed boundary and initial states.
+    \item \textbf{Why It Is Important}: Guarantees uniqueness of solutions according to classical partial differential equation theory.
+\end{itemize}
+
+\subsection{Composite Multi-Objective Loss Formulation}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{PINN}} = w_f \mathcal{L}_{\text{pde}} + w_{\text{ic}} \mathcal{L}_{\text{ic}} + w_{\text{bc}} \mathcal{L}_{\text{bc}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The scalarized multi-task objective weighting boundary adherence against interior physics residuals.
+    \item \textbf{What It Means}: Balances the competing gradients of initial conditions versus interior differential constraints.
+    \item \textbf{Why It Is Important}: Proper weight balancing (e.g. via dynamic loss reweighting or self-adaptive multipliers) is essential to prevent boundary collapse during training.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $u_\theta(\mathbf{x}, t) \in \mathbb{R}$: Neural network approximation of the continuous scalar physical state.
+    \item $f_\theta(\mathbf{x}, t) \in \mathbb{R}$: Evaluated PDE residual at collocation point $(\mathbf{x}, t)$.
+    \item $N_f, N_0, N_b \in \mathbb{N}$: Number of collocation, initial, and boundary points.
+    \item $w_f, w_{\text{ic}}, w_{\text{bc}} \in \mathbb{R}^+$: Scalar loss balancing multipliers.
+    \item $\nu \in \mathbb{R}^+$: Kinematic viscosity or diffusion coefficient.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Continuous Solution & $u_\theta$ & Neural Functional Form & Parameterizes continuous field \\
+Physics Residual & $f_\theta$ & Exact Autodiff Derivative & Evaluates conservation law violation \\
+Boundary Targets & $u_0, g$ & Prescribed Physical Data & Anchors unique physical solution \\
+Collocation Loss & $\mathcal{L}_{\text{pde}}$ & Interior Unsupervised Loss & Enforces differential conservation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{(\mathbf{x}, t)\} \longrightarrow u_\theta(\mathbf{x}, t) \longrightarrow \text{Autodiff Derivatives } \{\nabla u, \nabla^2 u\} \longrightarrow f_\theta \longrightarrow \{\mathcal{L}_{\text{pde}}, \mathcal{L}_{\text{ic}}, \mathcal{L}_{\text{bc}}\} \longrightarrow \mathcal{L}_{\text{PINN}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Spatial coordinates $\mathbf{x} \in \mathbb{R}^d$; temporal coordinate $t \in \mathbb{R}$; state $u$ has physical units (e.g. $[m/s]$ for velocity); PDE residual $f$ has units $[u / \text{time}]$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{As $N_f \to \infty$}: Collocation sum converges to continuous $L_2$ norm $\int_\Omega |f|^2 \mathrm{d}\mathbf{x} \mathrm{d}t$ by Monte Carlo integration.
+    \item \textbf{At $\mathcal{L}_{\text{PINN}} \to 0$}: $u_\theta$ converges uniformly to the classical strong solution of the boundary value problem.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Boundary Satisfaction}: In the limit $w_{\text{bc}} \to \infty$, $u_\theta(\mathbf{x}_{\text{bc}}, t) \equiv g(t)$ strictly holds on $\partial \Omega$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+PINNs are structurally isomorphic to the classic Ritz-Galerkin variational method in applied mathematics and residual minimization in spectral methods.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Universal Approximation of Non-Linear Differential Operators by Deep Networks]
+Let $\mathcal{N}$ be a non-linear partial differential operator satisfying the Cauchy-Kowalevski theorem on compact domain $\Omega \times [0, T]$, and let $u^*$ be the unique classical solution. For any $\epsilon > 0$, there exists a feedforward neural network $u_\theta$ with smooth activations such that:
+{\boldmath
+\begin{equation}
+\|u_\theta - u^*\|_{L^2(\Omega \times [0, T])} < \epsilon, \quad \|\mathcal{N}[u_\theta]\|_{L^2(\Omega \times [0, T])} < \epsilon
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By the Hornik-Stinchcombe-White (1990) universal approximation theorem for derivatives, multilayer feedforward neural networks with $\mathcal{C}^\infty$ non-linear activation functions (such as $\tanh$ or $\operatorname{GELU}$) are dense in the Sobolev space $W^{k, p}(\Omega \times [0, T])$ for any positive integer $k \ge 1$ and $1 \le p < \infty$.
+Let $m$ denote the maximum order of derivatives in differential operator $\mathcal{N}$ (e.g. $m = 2$ for second-order parabolic equations).
+Since $u^*$ is a classical solution, $u^* \in W^{m, 2}(\Omega \times [0, T])$ and $\mathcal{N}[u^*] = 0$.
+By density of $\mathcal{C}^\infty$ networks in $W^{m, 2}$, there exists parameter configuration $\theta$ such that:
+{\boldmath
+\begin{equation}
+\|u_\theta - u^*\|_{W^{m, 2}} = \left( \sum_{|\alpha| \le m} \|D^\alpha u_\theta - D^\alpha u^*\|_{L^2}^2 \right)^{1/2} < \delta
+\end{equation}
+}
+Assuming $\mathcal{N}$ is locally Lipschitz continuous with Lipschitz constant $L_{\mathcal{N}}$:
+{\boldmath
+\begin{equation}
+\|\mathcal{N}[u_\theta] - \mathcal{N}[u^*]\|_{L^2} = \|\mathcal{N}[u_\theta]\|_{L^2} \le L_{\mathcal{N}} \|u_\theta - u^*\|_{W^{m, 2}} < L_{\mathcal{N}} \delta
+\end{equation}
+}
+Choosing $\delta = \min\left( \epsilon, \, \frac{\epsilon}{L_{\mathcal{N}}} \right)$ guarantees that both the solution error $\|u_\theta - u^*\|_{L^2} < \epsilon$ and the differential residual $\|\mathcal{N}[u_\theta]\|_{L^2} < \epsilon$ are strictly bounded below $\epsilon$.
+\end{proof}
+
+\begin{theorem}[Convergence of the Collocation Residual to Continuous Energy Norm]
+Let collocation points $\{(\mathbf{x}_i, t_i)\}_{i=1}^{N_f}$ be sampled independently and uniformly from domain $\Omega \times [0, T]$ with volume $V = |\Omega \times [0, T]|$. Then the discrete collocation loss is an unbiased Monte Carlo estimator of the continuous squared $L_2$ residual norm:
+{\boldmath
+\begin{equation}
+\lim_{N_f \to \infty} V \cdot \mathcal{L}_{\text{pde}}(\theta) = \int_0^T \int_\Omega |f_\theta(\mathbf{x}, t)|^2 \mathrm{d}\mathbf{x} \mathrm{d}t
+\end{equation}
+}
+with standard error decaying as $\mathcal{O}(1 / \sqrt{N_f})$.
+\end{theorem}
+
+\begin{proof}
+Let $(\mathbf{X}_i, T_i) \sim \mathcal{U}(\Omega \times [0, T])$ be i.i.d. random variables with uniform probability density function $p(\mathbf{x}, t) = \frac{1}{V}$.
+Consider the random variable $Y_i = |f_\theta(\mathbf{X}_i, T_i)|^2$.
+The expectation of the discrete collocation loss estimator $\hat{I}_{N_f} = \frac{V}{N_f} \sum_{i=1}^{N_f} Y_i$ is:
+{\boldmath
+\begin{equation}
+\mathbb{E}[\hat{I}_{N_f}] = \frac{V}{N_f} \sum_{i=1}^{N_f} \mathbb{E}[Y_i] = V \int_{\Omega \times [0, T]} |f_\theta(\mathbf{x}, t)|^2 p(\mathbf{x}, t) \mathrm{d}\mathbf{x} \mathrm{d}t = \int_0^T \int_\Omega |f_\theta(\mathbf{x}, t)|^2 \mathrm{d}\mathbf{x} \mathrm{d}t
+\end{equation}
+}
+Since $f_\theta$ is continuous on a compact domain, $\operatorname{Var}(Y_i) = \sigma_f^2 < \infty$.
+By the Central Limit Theorem:
+{\boldmath
+\begin{equation}
+\sqrt{N_f}\left( \hat{I}_{N_f} - \int_0^T \int_\Omega |f_\theta|^2 \mathrm{d}\mathbf{x} \mathrm{d}t \right) \xrightarrow{d} \mathcal{N}(0, V^2 \sigma_f^2)
+\end{equation}
+}
+Thus the discrete residual loss converges almost surely to the true continuous Sobolev functional norm at the canonical Monte Carlo rate $\mathcal{O}(1/\sqrt{N_f})$.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Failure Modes and Loss Imbalance}
+\textbf{Question:} Why do PINNs frequently fail to converge on convection-dominated or high Reynolds number flows?\\
+\textbf{Answer:} Gradient pathology and stiffness. The loss gradients from boundary terms $\nabla_\theta \mathcal{L}_{\text{bc}}$ often have magnitudes $100\times$ larger or smaller than interior residual gradients $\nabla_\theta \mathcal{L}_{\text{pde}}$, causing optimizer oscillations. In high Reynolds number flows, sharp boundary layers create extreme high-frequency gradients that standard MLPs fail to resolve due to spectral bias.
+
+\textbf{Meta-Question:} How can one cure gradient imbalance in PINNs?\\
+\textbf{Answer:} Using dynamic weight adaptation algorithms (such as Learning Rate Annealing or Neural Tangent Kernel eigenvalue balancing) which rescale $w_f, w_{\text{ic}}, w_{\text{bc}}$ adaptively at each step so their backpropagated gradient norms remain balanced.
+
+\subsection{Architectural Question 2: Inverse Problems and Parameter Discovery}
+\textbf{Question:} How does a PINN discover unknown physical coefficients (e.g. unknown viscosity $\nu$) from sparse sensor measurements?\\
+\textbf{Answer:} By declaring $\nu$ as a trainable scalar parameter alongside network weights $\theta$. The network fits observed sensor measurements via data loss $\mathcal{L}_{\text{data}} = \frac{1}{N_d}\sum (u_\theta - u_{\text{meas}})^2$ while simultaneously minimizing the PDE residual $f(\mathbf{x}, t; \nu)$. Gradients $\frac{\partial \mathcal{L}}{\partial \nu}$ update $\nu$ via gradient descent, automatically converging to the true physical parameter.
+
+\textbf{Meta-Question:} Can PINNs discover the analytical form of unknown equations from data?\\
+\textbf{Answer:} Standard PINNs discover scalar coefficients. To discover unknown functional operators, PINNs are combined with symbolic regression (such as Sparse Identification of Non-linear Dynamics, SINDy) or deep operator networks.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Physics-Informed Neural Network Residual Evaluation and Loss Assembly}
+\begin{algorithmic}[1]
+\Require PDE residuals $\mathbf{r}_{\text{pde}} \in \mathbb{R}^{N_f}$, IC predictions $\mathbf{u}_{\text{ic}} \in \mathbb{R}^{N_0}$, IC targets $\mathbf{u}_{\text{ic}}^* \in \mathbb{R}^{N_0}$, BC predictions $\mathbf{u}_{\text{bc}} \in \mathbb{R}^{N_b}$, BC targets $\mathbf{u}_{\text{bc}}^* \in \mathbb{R}^{N_b}$, weights $w_f, w_{\text{ic}}, w_{\text{bc}} \ge 0$
+\Ensure Composite loss $\mathcal{L}_{\text{PINN}}$, PDE loss $\mathcal{L}_{\text{pde}}$, IC loss $\mathcal{L}_{\text{ic}}$, BC loss $\mathcal{L}_{\text{bc}}$, max violation $f_{\max}$
+\State $pde\_sq \gets 0.0, \quad f_{\max} \gets 0.0$
+\For{$i = 0$ \textbf{to} $N_f - 1$}
+    \State $val \gets \mathbf{r}_{\text{pde}}[i]$
+    \State $abs\_val \gets |val|$
+    \If{$abs\_val > f_{\max}$} \State $f_{\max} \gets abs\_val$ \EndIf
+    \State $pde\_sq \gets pde\_sq + val \cdot val$
+\EndFor
+\State $\mathcal{L}_{\text{pde}} \gets pde\_sq / N_f$
+\State $ic\_sq \gets \sum_{i=0}^{N_0-1} (\mathbf{u}_{\text{ic}}[i] - \mathbf{u}_{\text{ic}}^*[i])^2$
+\State $\mathcal{L}_{\text{ic}} \gets ic\_sq / N_0$
+\State $bc\_sq \gets \sum_{i=0}^{N_b-1} (\mathbf{u}_{\text{bc}}[i] - \mathbf{u}_{\text{bc}}^*[i])^2$
+\State $\mathcal{L}_{\text{bc}} \gets bc\_sq / N_b$
+\State $\mathcal{L}_{\text{PINN}} \gets w_f \cdot \mathcal{L}_{\text{pde}} + w_{\text{ic}} \cdot \mathcal{L}_{\text{ic}} + w_{\text{bc}} \cdot \mathcal{L}_{\text{bc}}$
+\State \Return $(\mathcal{L}_{\text{PINN}}, \mathcal{L}_{\text{pde}}, \mathcal{L}_{\text{ic}}, \mathcal{L}_{\text{bc}}, f_{\max})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Residual Assembly Time Complexity}: $\Theta(N_f + N_0 + N_b)$ scalar operations to accumulate mean squared losses.
+    \item \textbf{Collocation Backpropagation Complexity}: $\Theta(N_f \cdot \mathcal{C}_{\text{Autodiff}})$, requiring second-order backward graphs through the computational tape.
+    \item \textbf{Space Complexity}: $\Theta(N_f + N_0 + N_b)$ working buffers for residual vectors.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(N_f + N_0 + N_b)$; parallel depth across collocation points is $\mathcal{D} = \Theta(\log N_f)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

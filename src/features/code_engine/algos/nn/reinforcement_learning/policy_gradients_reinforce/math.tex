@@ -1,0 +1,276 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Policy Gradients and the REINFORCE Algorithm with Baselines}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Stochastic Policy Optimization, Policy Gradient Theorem, and Baseline Invariance):}
+Let $\pi_{\boldsymbol{\theta}}(a | s)$ denote a stochastic policy parameterized by differentiable weights $\boldsymbol{\theta}$, defining a probability distribution over discrete or continuous actions $a \in \mathcal{A}$ given state $s \in \mathcal{S}$. Let $\tau = (s_0, a_0, r_0, \dots, s_{T-1}, a_{T-1}, r_{T-1})$ denote an episode trajectory sampled from policy $\pi_{\boldsymbol{\theta}}$ with probability distribution $p(\tau; \boldsymbol{\theta}) = p(s_0) \prod_{t=0}^{T-1} \pi_{\boldsymbol{\theta}}(a_t | s_t) \mathcal{P}(s_{t+1} | s_t, a_t)$.
+
+The goal of policy optimization is to maximize the expected cumulative discounted return:
+{\boldmath
+\begin{equation}
+J(\boldsymbol{\theta}) = \mathbb{E}_{\tau \sim \pi_{\boldsymbol{\theta}}} [R(\tau)] = \int p(\tau; \boldsymbol{\theta}) R(\tau) \mathrm{d}\tau
+\end{equation}
+}
+where $R(\tau) = \sum_{t=0}^{T-1} \gamma^t r_t$. By the \textbf{Policy Gradient Theorem} (Williams 1992, Sutton et al. 2000), using the log-derivative trick $\nabla_{\boldsymbol{\theta}} p(\tau) = p(\tau) \nabla_{\boldsymbol{\theta}} \ln p(\tau)$, the exact gradient is:
+{\boldmath
+\begin{equation}
+\nabla_{\boldsymbol{\theta}} J(\boldsymbol{\theta}) = \mathbb{E}_{\tau \sim \pi_{\boldsymbol{\theta}}} \left[ \sum_{t=0}^{T-1} \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \cdot G_t \right]
+\end{equation}
+}
+where $G_t = \sum_{k=t}^{T-1} \gamma^{k-t} r_k$ is the Monte Carlo future discounted return from step $t$.
+
+Because raw Monte Carlo returns $G_t$ suffer from severe variance across sampled trajectories, \textbf{REINFORCE with Baselines} subtracts an arbitrary state-dependent baseline $b(s_t)$ (such as a learned value function $V(s_t)$) without introducing any bias into the expected gradient:
+{\boldmath
+\begin{equation}
+\nabla_{\boldsymbol{\theta}} J(\boldsymbol{\theta}) = \mathbb{E}_{\tau \sim \pi_{\boldsymbol{\theta}}} \left[ \sum_{t=0}^{T-1} \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \cdot \left( G_t - b(s_t) \right) \right]
+\end{equation}
+}
+The quantity $A_t = G_t - b(s_t)$ represents the empirical advantage of action $a_t$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Rewarding Good Deeds Directly}: In Q-learning, the AI has to solve a complicated puzzle: ``How many points is this button worth in every situation?'' Policy Gradients cut straight to the point: the network directly controls an action dial (``60\% Jump, 40\% Duck''). If jumping won the game, standard calculus nudges the dial: ``Increase Jump probability to 70\%!''
+    \item \textbf{Why We Need Baselines (The Exam Analogy)}: If you score 85 on a math test, did you do well? If the test was easy and the class average was 95, your score was actually disappointing. If the test was brutal and the average was 50, your score was fantastic! The baseline $b(s_t)$ represents the class average. Comparing actions against the baseline tells the AI whether an action was genuinely clever or just benefited from an easy situation.
+    \item \textbf{Mathematically Zero Cost}: Subtracting the baseline does not warp or corrupt the gradient at all—the expected baseline term mathematically cancels out to zero!
+    \item \textbf{Foundational to Modern LLM Alignment}: REINFORCE and its variants form the algorithmic backbone of Reinforcement Learning from Human Feedback (RLHF) used to train models like ChatGPT, Claude, and Gemini.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a cheerleader cheering for basketball players:
+\begin{itemize}
+    \item \textbf{The Shot}: A player shoots the ball ($a_t$).
+    \item \textbf{The Basket or Miss}: The ball goes through the hoop for 3 points ($r_t$).
+    \item \textbf{The Baseline Comparison}: The average player makes that shot 20\% of the time. Because you nailed it, the cheerleader cheers with a giant megaphone ($\nabla \ln \pi \cdot (G - b)$)!
+    \item \textbf{Muscle Memory}: Hearing the loud cheer, your muscles remember the exact release angle and repeat it in the next game!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Monte Carlo Backward Discounted Return}
+{\boldmath
+\begin{equation}
+G_t = r_t + \gamma G_{t+1}, \quad G_{T-1} = r_{T-1}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The cumulative discounted future reward accumulated from time step $t$ until episode termination.
+    \item \textbf{What It Means}: Measures the true realization of total reward resulting from the trajectory path following state $s_t$.
+    \item \textbf{Why It Is Important}: Evaluated backward in $\Theta(T)$ operations, serving as the empirical sample return for policy optimization.
+\end{itemize}
+
+\subsection{Baseline-Subtracted Advantage Function}
+{\boldmath
+\begin{equation}
+A_t = G_t - b(s_t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The difference between observed trajectory return and baseline expectation.
+    \item \textbf{What It Means}: Indicates whether action $a_t$ performed better ($A_t > 0$) or worse ($A_t < 0$) than the average expectation in state $s_t$.
+    \item \textbf{Why It Is Important}: Dramatically cuts gradient estimator variance, accelerating policy convergence by orders of magnitude.
+\end{itemize}
+
+\subsection{Batch Advantage Normalization (Whitening)}
+{\boldmath
+\begin{equation}
+\widehat{A}_t = \frac{A_t - \mu_A}{\sigma_A + \epsilon}, \quad \mu_A = \frac{1}{T}\sum_{t=0}^{T-1} A_t, \quad \sigma_A = \sqrt{\frac{1}{T}\sum_{t=0}^{T-1} (A_t - \mu_A)^2}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The empirical standardization of advantage values across the batch of trajectories.
+    \item \textbf{What It Means}: Rescales advantages so exactly half the actions receive positive encouragement and half receive negative discouragement.
+    \item \textbf{Why It Is Important}: Prevents gradient scale drift across disparate reward regimes and stabilizes learning rates.
+\end{itemize}
+
+\subsection{Surrogate Policy Gradient Loss}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{PG}}(\boldsymbol{\theta}) = - \frac{1}{T} \sum_{t=0}^{T-1} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \cdot \widehat{A}_t
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The scalar objective whose gradient matches the policy gradient: $\nabla_{\boldsymbol{\theta}} \mathcal{L}_{\text{PG}} = - \nabla_{\boldsymbol{\theta}} J(\boldsymbol{\theta})$.
+    \item \textbf{What It Means}: Formulates policy gradient optimization as a weighted cross-entropy classification problem.
+    \item \textbf{Why It Is Important}: Enables direct implementation in standard automatic differentiation frameworks (PyTorch, TensorFlow, JAX).
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\pi_{\boldsymbol{\theta}}$ (stochastic policy), $G_t$ (discounted return), $b(s)$ (baseline value), $A_t$ (action advantage), $\mathcal{L}_{\text{PG}}$ (surrogate loss).
+    \item \textbf{Epistemic Status}: Classic foundational algorithm by Ronald Williams (1992); underpinning of modern actor-critic and RLHF architectures.
+    \item \textbf{Dependency Graph}: Trajectory $\tau \to G_t = r_t + \gamma G_{t+1} \to A_t = G_t - b_t \to \widehat{A}_t \to \mathcal{L}_{\text{PG}} = - \frac{1}{T}\sum \ln \pi \cdot \widehat{A}$.
+    \item \textbf{Dimensions}: Trajectory length $T$, policy action probabilities $\pi \in (0, 1)$, scalar returns $G_t \in \mathbb{R}$.
+    \item \textbf{Regimes}: Episodic RL tasks with finite horizons, LLM text generation with non-differentiable rewards (BLEU, human preference).
+    \item \textbf{Invariants}: At terminal step $T-1$, $G_{T-1} \equiv r_{T-1}$.
+    \item \textbf{Isomorphisms}: When actions are discrete tokens, REINFORCE is isomorphic to weighted cross-entropy language modeling weighted by advantage scalars.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Strict Unbiasedness of State-Dependent Baseline Subtraction]
+Let $b(s)$ be any arbitrary function of state $s$ that does not depend on action $a$. The expected gradient of the baseline term under policy $\pi_{\boldsymbol{\theta}}$ is strictly zero:
+{\boldmath
+\begin{equation}
+\mathbb{E}_{a \sim \pi_{\boldsymbol{\theta}}(\cdot | s)} \left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s) \cdot b(s) \right] = \mathbf{0}
+\end{equation}
+}
+Therefore, subtracting $b(s)$ from returns leaves the expected policy gradient completely unbiased:
+{\boldmath
+\begin{equation}
+\mathbb{E}\left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s) \left( G_t - b(s) \right) \right] = \mathbb{E}\left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s) G_t \right]
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Consider the expectation of the baseline term over action distribution $\pi_{\boldsymbol{\theta}}(a | s)$:
+{\boldmath
+\begin{equation}
+\mathbb{E}_{a \sim \pi_{\boldsymbol{\theta}}} \left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s) \cdot b(s) \right] = \sum_{a \in \mathcal{A}} \pi_{\boldsymbol{\theta}}(a | s) \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s) \cdot b(s)
+\end{equation}
+}
+Since $b(s)$ does not depend on $a$, factor it out of the summation:
+{\boldmath
+\begin{equation}
+= b(s) \sum_{a \in \mathcal{A}} \pi_{\boldsymbol{\theta}}(a | s) \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s)
+\end{equation}
+}
+Using the log-derivative identity $\nabla_{\boldsymbol{\theta}} \ln f(\boldsymbol{\theta}) = \frac{\nabla_{\boldsymbol{\theta}} f(\boldsymbol{\theta})}{f(\boldsymbol{\theta})}$:
+{\boldmath
+\begin{align}
+\pi_{\boldsymbol{\theta}}(a | s) \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a | s) &= \pi_{\boldsymbol{\theta}}(a | s) \frac{\nabla_{\boldsymbol{\theta}} \pi_{\boldsymbol{\theta}}(a | s)}{\pi_{\boldsymbol{\theta}}(a | s)} = \nabla_{\boldsymbol{\theta}} \pi_{\boldsymbol{\theta}}(a | s)
+\end{align}
+}
+Substituting this back into the summation:
+{\boldmath
+\begin{equation}
+b(s) \sum_{a \in \mathcal{A}} \nabla_{\boldsymbol{\theta}} \pi_{\boldsymbol{\theta}}(a | s) = b(s) \nabla_{\boldsymbol{\theta}} \left( \sum_{a \in \mathcal{A}} \pi_{\boldsymbol{\theta}}(a | s) \right)
+\end{equation}
+}
+Because $\pi_{\boldsymbol{\theta}}(\cdot | s)$ is a valid probability distribution, $\sum_{a \in \mathcal{A}} \pi_{\boldsymbol{\theta}}(a | s) = 1$ for all $\boldsymbol{\theta}$.
+The gradient of a constant scalar is zero: $\nabla_{\boldsymbol{\theta}} (1) = \mathbf{0}$.
+Therefore:
+{\boldmath
+\begin{equation}
+b(s) \nabla_{\boldsymbol{\theta}}(1) = b(s) \cdot \mathbf{0} = \mathbf{0}
+\end{equation}
+}
+Subtracting this zero expectation from the expected return gradient yields identical expectation, proving strict unbiasedness.
+\end{proof}
+
+\begin{theorem}[Causal Truncation of Policy Gradients (Reward-to-Go)]
+Let trajectory return be $R(\tau) = \sum_{t=0}^{T-1} \gamma^t r_t$. Past rewards $\{r_0, \dots, r_{t-1}\}$ are conditionally independent of action choice $a_t$. Therefore:
+{\boldmath
+\begin{equation}
+\mathbb{E}_{\tau} \left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \sum_{k=0}^{t-1} \gamma^k r_k \right] = \mathbf{0}
+\end{equation}
+}
+which justifies replacing whole-trajectory return $R(\tau)$ with future return-to-go $G_t = \sum_{k=t}^{T-1} \gamma^{k-t} r_k$.
+\end{theorem}
+
+\begin{proof}
+Let $k < t$. By iterated expectation conditioning on trajectory prefix history up to step $t$:
+{\boldmath
+\begin{align}
+\mathbb{E}_{\tau} \left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) r_k \right] &= \mathbb{E}_{s_{\le t}, a_{< t}} \left[ r_k \cdot \mathbb{E}_{a_t \sim \pi_{\boldsymbol{\theta}}(\cdot | s_t)} \left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \right] \right]
+\end{align}
+}
+From the previous theorem, the inner expectation is:
+{\boldmath
+\begin{equation}
+\mathbb{E}_{a_t \sim \pi_{\boldsymbol{\theta}}} \left[ \nabla_{\boldsymbol{\theta}} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \right] = \sum_{a_t} \nabla_{\boldsymbol{\theta}} \pi_{\boldsymbol{\theta}}(a_t | s_t) = \nabla_{\boldsymbol{\theta}}(1) = \mathbf{0}
+\end{equation}
+}
+Consequently, $\mathbb{E}[r_k \nabla_{\boldsymbol{\theta}} \ln \pi(a_t | s_t)] = \mathbf{0}$ for every historical step $k < t$.
+Discarding these zero-mean terms leaves only future rewards $k \ge t$, drastically reducing estimator variance.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Policy Gradients vs Value-Based Methods}
+\textbf{Question:} Why choose Policy Gradients over DQN in real-world engineering?\\
+\textbf{Answer:} DQN cannot naturally handle continuous action spaces (e.g. robotic joint torque $[-1.0, 1.0]$) because evaluating $\max_{a \in \mathcal{A}} Q(s, a)$ over continuous domains requires expensive non-convex optimization at every step. Policy gradient methods parameterize continuous distributions (e.g. Gaussian $\mathcal{N}(\mu(s), \sigma^2(s))$) directly, enabling seamless continuous control.
+
+\textbf{Meta-Question:} What is the primary weakness of pure REINFORCE?\\
+\textbf{Answer:} High sample variance. Because REINFORCE relies on full Monte Carlo rollouts to compute $G_t$, a single unlucky stochastic event in a 1,000-step episode corrupts the credit assignment for all earlier steps, requiring millions of environment interactions to converge.
+
+\subsection{Architectural Question 2: Optimal Variance-Minimizing Baseline}
+\textbf{Question:} What is the theoretical optimal baseline $b^*(s)$ that minimizes gradient variance?\\
+\textbf{Answer:} The optimal baseline that minimizes the expected $L_2$ variance of the gradient estimator is the weighted average return: $b^*(s) = \frac{\mathbb{E}[\|\nabla \ln \pi\|^2 G]}{\mathbb{E}[\|\nabla \ln \pi\|^2]}$. In practice, the state value function $V(s) = \mathbb{E}[G | s]$ is used because it approximates $b^*(s)$ closely while being trivial to train via mean squared error regression.
+
+\textbf{Meta-Question:} How is REINFORCE used in Large Language Model RLHF?\\
+\textbf{Answer:} In LLMs, a prompt is the state $s$, and the generated text sequence is the action trajectory $\tau$. A reward model scores the complete text. REINFORCE (with a KL-divergence baseline to the base model) updates the token generation probabilities directly without requiring the reward model to be differentiable.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{REINFORCE with Baselines and Advantage Whitening}
+\begin{algorithmic}[1]
+\Require Action probabilities $\mathbf{p} \in \mathbb{R}^T$, step rewards $\mathbf{r} \in \mathbb{R}^T$, baseline values $\mathbf{b} \in \mathbb{R}^T$, discount $\gamma \in [0, 1]$, normalization flag $norm\_flag$
+\Ensure Discounted returns $\mathbf{G} \in \mathbb{R}^T$, advantages $\mathbf{A} \in \mathbb{R}^T$, policy loss $\mathcal{L}_{\text{PG}}$, total return $R_{\text{tot}}$
+\State Initialize $\mathbf{G} \in \mathbb{R}^T, \quad running\_g \gets 0.0$
+\For{$t = T-1$ \textbf{downto} $0$} \Comment{Backward Monte Carlo Return Accumulation}
+    \State $running\_g \gets \mathbf{r}[t] + \gamma \cdot running\_g$
+    \State $\mathbf{G}[t] \gets running\_g$
+\EndFor
+\State Initialize $\mathbf{A} \in \mathbb{R}^T$
+\For{$t = 0$ \textbf{to} $T-1$} \Comment{Baseline Subtraction}
+    \State $\mathbf{A}[t] \gets \mathbf{G}[t] - \mathbf{b}[t]$
+\EndFor
+\If{$norm\_flag$ is true \textbf{and} $T > 1$} \Comment{Batch Advantage Whitening}
+    \State $\mu_A \gets \frac{1}{T}\sum_{t=0}^{T-1} \mathbf{A}[t]$
+    \State $\sigma_A \gets \sqrt{\frac{1}{T}\sum_{t=0}^{T-1} (\mathbf{A}[t] - \mu_A)^2} + 10^{-8}$
+    \For{$t = 0$ \textbf{to} $T-1$}
+        \State $\mathbf{A}[t] \gets (\mathbf{A}[t] - \mu_A) / \sigma_A$
+    \EndFor
+\EndIf
+\State $loss\_accum \gets 0.0$
+\For{$t = 0$ \textbf{to} $T-1$} \Comment{Evaluate Surrogate Policy Gradient Loss}
+    \State $loss\_accum \gets loss\_accum + \ln(\max(10^{-8}, \mathbf{p}[t])) \cdot \mathbf{A}[t]$
+\EndFor
+\State $\mathcal{L}_{\text{PG}} \gets - loss\_accum / T$
+\State $R_{\text{tot}} \gets \sum_{t=0}^{T-1} \mathbf{r}[t]$
+\State \Return $(\mathbf{G}, \mathbf{A}, \mathcal{L}_{\text{PG}}, R_{\text{tot}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Monte Carlo Return Time Complexity}: $\Theta(T)$ scalar operations via reverse cumulative accumulation.
+    \item \textbf{Advantage Whitening Complexity}: $\Theta(T)$ operations for mean and variance standardization.
+    \item \textbf{Policy Gradient Loss Complexity}: $\Theta(T)$ log and multiply operations.
+    \item \textbf{Space Complexity}: $\Theta(T)$ buffers for returns and advantage arrays.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(T)$ backward recurrence; $\Theta(\log T)$ for loss reductions.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

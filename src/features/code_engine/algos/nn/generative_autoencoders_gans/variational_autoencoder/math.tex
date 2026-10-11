@@ -1,0 +1,309 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Variational Autoencoder}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Variational Autoencoder Operator):}
+Let $\mathcal{X} = \mathbb{R}^{d_x}$ denote the observed data space and $\mathcal{Z} = \mathbb{R}^{d_z}$ denote the latent space endowed with a standard Gaussian prior distribution $p(\mathbf{z}) = \mathcal{N}(\mathbf{0}, \mathbf{I}_{d_z})$. The \textbf{Variational Autoencoder} (VAE) is a directed probabilistic graphical model defined by a recognition model (encoder) $q_\phi(\mathbf{z} \mid \mathbf{x}) = \mathcal{N}(\boldsymbol{\mu}_\phi(\mathbf{x}), \operatorname{diag}(\boldsymbol{\sigma}_\phi^2(\mathbf{x})))$ and a generative model (decoder) $p_\theta(\mathbf{x} \mid \mathbf{z}) = \mathcal{N}(\mathbf{g}_\theta(\mathbf{z}), \sigma_0^2 \mathbf{I})$.
+
+The objective is to maximize the marginal log-likelihood $\log p_\theta(\mathbf{x})$, optimized via its tractable variational lower bound, the \textbf{Evidence Lower Bound} (ELBO):
+{\boldmath
+\begin{equation}
+\operatorname{ELBO}(\theta, \phi; \mathbf{x}) = \mathbb{E}_{q_\phi(\mathbf{z} \mid \mathbf{x})}\left[ \log p_\theta(\mathbf{x} \mid \mathbf{z}) \right] - D_{\text{KL}}\left( q_\phi(\mathbf{z} \mid \mathbf{x}) \parallel p(\mathbf{z}) \right) \le \log p_\theta(\mathbf{x})
+\end{equation}
+}
+Differentiable stochastic backpropagation across the sampling operation is achieved via the \textbf{reparameterization trick}:
+{\boldmath
+\begin{equation}
+\mathbf{z} = g(\boldsymbol{\epsilon}, \mathbf{x}) = \boldsymbol{\mu}_\phi(\mathbf{x}) + \boldsymbol{\sigma}_\phi(\mathbf{x}) \odot \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_{d_z})
+\end{equation}
+}
+In $\beta$-VAE extensions, an explicit Lagrange multiplier $\beta \ge 1$ weights the Kullback-Leibler penalty to enforce statistical independence (disentanglement) among the coordinate axes of $\mathcal{Z}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+A regular autoencoder takes an image and converts it into a single, isolated dot in a high-dimensional space. The problem is that the space between these dots is completely empty, jagged, and chaotic: if you pick a point slightly to the left of an image of a cat, the decoder might output static noise or a grotesque monster because it was never taught what lies between training examples.
+
+A Variational Autoencoder solves this by encoding inputs not into rigid isolated points, but into \textbf{smooth, overlapping probability clouds}:
+\begin{enumerate}
+    \item \textbf{Probability Encoding}: Instead of outputting fixed coordinates, the encoder outputs a center location (mean $\boldsymbol{\mu}$) and a spread or fuzziness (variance $\boldsymbol{\sigma}^2$).
+    \item \textbf{Smooth Neighborliness}: Every image is represented as a fuzzy cloud of possibilities. Because clouds overlap, nearby points in the latent space represent similar concepts.
+    \item \textbf{The Anchor Prior}: A mathematical spring (the KL divergence) constantly pulls all clouds toward the center of the coordinate system, ensuring there are no vast empty gaps or runaway coordinates.
+    \item \textbf{Effortless Generation}: To create a brand new, realistic image that has never existed before, you simply throw a dart near the center according to a bell curve and decode that coordinate.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Perfume Laboratory}:
+Imagine you have a magical laboratory that can create every wonderful scent in the world: strawberry cupcakes, pine forests, ocean breeze, and warm chocolate.
+\begin{itemize}
+    \item \textbf{The Rigid Recipe Book (Regular Autoencoder)}:
+    In an ordinary book, strawberry is on page 10 and chocolate is on page 100. If you accidentally open page 55, it's just blank paper—you get no scent at all!
+    
+    \item \textbf{The Scent Cloud (Latent Distribution $q(\mathbf{z} \mid \mathbf{x})$)}:
+    In the magic laboratory, every scent is not a number, but a glowing, scented cloud. When you give the machine a fresh strawberry, it doesn't give you one number—it releases a pink misty cloud with a center spot and soft fuzzy edges.
+    
+    \item \textbf{The Magic Dice (Reparameterization $\boldsymbol{\epsilon}$)}:
+    To smell the perfume, the machine rolls a tiny golden die inside the pink cloud. Wherever the die lands, it scoops up that droplet of mist. Because it rolled a die inside the cloud, it learns to recognize strawberry even if the droplet is slightly to the left or right!
+    
+    \item \textbf{The Gentle Magnet (KL Divergence)}:
+    All the clouds want to drift far away into the corners of the room. But there is a friendly magnet in the center of the table that gently pulls all the clouds close together, making sure they touch and blend softly at the edges.
+    
+    \item \textbf{The Smooth Blend (Latent Interpolation)}:
+    Because the strawberry cloud and chocolate cloud gently overlap in the middle, if you scoop a droplet from the space between them, the machine brews delicious strawberry-chocolate fondue!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Variational Evidence Lower Bound (ELBO)}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{ELBO}}(\theta, \phi) = \mathbb{E}_{\mathbf{z} \sim q_\phi(\mathbf{z} \mid \mathbf{x})}[\log p_\theta(\mathbf{x} \mid \mathbf{z})] - \beta D_{\text{KL}}(q_\phi(\mathbf{z} \mid \mathbf{x}) \parallel p(\mathbf{z}))
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The variational surrogate functional lower-bounding the marginal log-evidence $\log p(\mathbf{x})$, comprising an expected log-likelihood reconstruction term and an informational divergence regularization term.
+    \item \textbf{What It Means}:
+    Balances reconstruction fidelity against latent distribution simplicity. The first term forces the decoder to reconstruct the input accurately; the second term forces the latent representations to resemble standard Gaussian noise.
+    \item \textbf{Why It Is Important}:
+    Direct marginalization $p(\mathbf{x}) = \int p(\mathbf{x} \mid \mathbf{z}) p(\mathbf{z}) d\mathbf{z}$ is computationally intractable in high dimensions. The ELBO enables gradient-based optimization of intractable marginal likelihoods.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: The Reparameterization Trick}}
+{\boldmath
+\begin{equation}
+\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\epsilon} = \boldsymbol{\mu}(\mathbf{x}) + \exp\left(\frac{1}{2}\log \boldsymbol{\sigma}^2(\mathbf{x})\right) \odot \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_{d_z})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    A deterministic, differentiable transformation that isolates stochasticity into an auxiliary distribution $\boldsymbol{\epsilon}$ independent of network parameters $\phi$.
+    \item \textbf{What It Means}:
+    Instead of drawing samples from a distribution whose parameters depend on the network (which blocks backpropagation), it samples fixed noise and shifts/scales it deterministically.
+    \item \textbf{Why It Is Important}:
+    Allows the backpropagation algorithm to differentiate through the expectations, computing low-variance pathwise gradients $\nabla_\phi \mathbb{E}_{q_\phi}[f(\mathbf{z})] = \mathbb{E}_{p(\boldsymbol{\epsilon})}[\nabla_\phi f(g(\boldsymbol{\epsilon}, \mathbf{x}))]$.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Analytical Gaussian KL Divergence}}
+{\boldmath
+\begin{equation}
+D_{\text{KL}}(q_\phi(\mathbf{z} \mid \mathbf{x}) \parallel \mathcal{N}(\mathbf{0}, \mathbf{I})) = -\frac{1}{2} \sum_{j=1}^{d_z} \left( 1 + \log \sigma_j^2 - \mu_j^2 - \sigma_j^2 \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The closed-form relative entropy between a factorized multivariate Gaussian $\mathcal{N}(\boldsymbol{\mu}, \operatorname{diag}(\boldsymbol{\sigma}^2))$ and the standard Gaussian prior $\mathcal{N}(\mathbf{0}, \mathbf{I})$.
+    \item \textbf{What It Means}:
+    Quantifies the exact information loss in nats when approximating the posterior with an uninformative standard normal distribution.
+    \item \textbf{Why It Is Important}:
+    Eliminates the need for noisy Monte Carlo estimation of the regularization term, providing an exact, zero-variance gradient signal.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Gaussian Likelihood Reconstruction Loss}}
+{\boldmath
+\begin{equation}
+-\log p_\theta(\mathbf{x} \mid \mathbf{z}) = \frac{1}{2\sigma_0^2} \|\mathbf{x} - \hat{\mathbf{x}}\|_2^2 + \frac{d_x}{2}\log(2\pi \sigma_0^2) \propto \frac{1}{d_x} \sum_{i=1}^{d_x} (x_i - \hat{x}_i)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The negative log-likelihood of a spherical Gaussian observation model centered at the decoder reconstruction $\hat{\mathbf{x}} = \mathbf{g}_\theta(\mathbf{z})$.
+    \item \textbf{What It Means}:
+    Translates mean squared Euclidean distance directly into statistical observation log-likelihood.
+    \item \textbf{Why It Is Important}:
+    Establishes the exact algebraic correspondence between statistical likelihood maximization and classical mean squared error minimization.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{x} \in \mathbb{R}^{d_x}$: Observed feature vector.
+    \item $\mathbf{z} \in \mathbb{R}^{d_z}$: Latent continuous bottleneck vector.
+    \item $\boldsymbol{\mu} \in \mathbb{R}^{d_z}, \log \boldsymbol{\sigma}^2 \in \mathbb{R}^{d_z}$: Posterior mean and log-variance vectors.
+    \item $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_{d_z})$: Independent standard Gaussian perturbation.
+    \item $\hat{\mathbf{x}} \in \mathbb{R}^{d_x}$: Decoder reconstruction output.
+    \item $\beta \in \mathbb{R}_{\ge 0}$: Disentanglement capacity scaling coefficient.
+    \item $\odot$: Pointwise Hadamard product.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Variational Autoencoder Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$d_x, d_z$ & \textbf{Defined} (Architectural hyperparameter) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\beta$ & \textbf{Defined} (Regularization scale) & Non-negative scalar $\mathbb{R}_{\ge 0}$ \\
+$\mathbf{W}_\mu, \mathbf{b}_\mu, \mathbf{W}_{\log \sigma^2}, \mathbf{b}_{\log \sigma^2}, \mathbf{W}_d, \mathbf{b}_d$ & \textbf{Learned} (Network parameters) & Continuous weight matrices and vectors \\
+$\boldsymbol{\mu}, \log \boldsymbol{\sigma}^2, \mathbf{z}, \hat{\mathbf{x}}$ & \textbf{Calculated} (Stochastic forward states) & Vectors in Euclidean space \\
+$D_{\text{KL}}, \mathcal{L}_{\text{total}}$ & \textbf{Calculated} (Optimization metrics) & Real-valued loss scalars \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+\mathbf{x} \xrightarrow{\text{Encoder}} (\boldsymbol{\mu}, \log \boldsymbol{\sigma}^2) \xrightarrow[\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})]{\text{Reparameterize}} \mathbf{z} \xrightarrow{\text{Decoder}} \hat{\mathbf{x}} \longrightarrow (\mathcal{L}_{\text{recon}}, D_{\text{KL}}) \xrightarrow{\beta} \mathcal{L}_{\text{total}}
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item $\mathbf{x}, \hat{\mathbf{x}}$: Rank-1 tensor of shape $(d_x)$.
+    \item $\boldsymbol{\mu}, \log \boldsymbol{\sigma}^2, \mathbf{z}$: Rank-1 tensor of shape $(d_z)$.
+    \item ELBO, KL divergence: Dimensionless scalar invariants.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Posterior Collapse ($\beta \to \infty$ or over-capacity decoder)}: $q(\mathbf{z} \mid \mathbf{x}) \to p(\mathbf{z})$, meaning $\boldsymbol{\mu} \to \mathbf{0}, \boldsymbol{\sigma}^2 \to \mathbf{1}$. Latent carries zero mutual information with input.
+    \item \textbf{Deterministic Collapse ($\beta \to 0$)}: $D_{\text{KL}}$ ignored; $\boldsymbol{\sigma} \to \mathbf{0}$. Model degenerates into an unregularized standard autoencoder.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Numerical Underflow in Variance}: Parameterizing variance directly as $\sigma^2$ can cause negative values during descent. Enforcing parameterization via log-variance $\log \sigma^2$ guarantees $\sigma^2 = \exp(\log \sigma^2) > 0$.
+    \item \textbf{Hole Formation in Latent Space}: Insufficient KL weighting allows clusters to isolate, breaking interpolation continuity.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Non-Negativity of Divergence}: $D_{\text{KL}}(q \parallel p) \ge 0$ with equality if and only if $\boldsymbol{\mu} = \mathbf{0}$ and $\boldsymbol{\sigma}^2 = \mathbf{1}$.
+    \item \textbf{Monotonic ELBO Bound}: $\operatorname{ELBO} \le \log p(\mathbf{x})$ holds universally for all distributions $q$.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Information Bottleneck Principle}: Minimizing $\beta D_{\text{KL}} - \log p(\mathbf{x} \mid \mathbf{z})$ is mathematically isomorphic to minimizing $I(\mathbf{X}; \mathbf{Z}) - \beta I(\mathbf{Z}; \mathbf{Y})$.
+    \item \textbf{Thermodynamic Helmholtz Free Energy}: ELBO corresponds directly to negative Helmholtz free energy $\mathcal{F} = \langle E \rangle - T S$ at temperature $T = \beta$.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Derivation of the Evidence Lower Bound}]
+For any arbitrary conditional probability density $q_\phi(\mathbf{z} \mid \mathbf{x})$, the marginal log-likelihood satisfies:
+{\boldmath
+\begin{equation}
+\log p_\theta(\mathbf{x}) = \operatorname{ELBO}(\theta, \phi; \mathbf{x}) + D_{\text{KL}}(q_\phi(\mathbf{z} \mid \mathbf{x}) \parallel p_\theta(\mathbf{z} \mid \mathbf{x}))
+\end{equation}
+}
+where $\operatorname{ELBO}(\theta, \phi; \mathbf{x}) = \mathbb{E}_{q_\phi(\mathbf{z} \mid \mathbf{x})}[\log p_\theta(\mathbf{x}, \mathbf{z}) - \log q_\phi(\mathbf{z} \mid \mathbf{x})]$.
+\end{theorem}
+
+\begin{proof}
+Starting with the definition of marginal probability:
+{\boldmath
+\begin{equation}
+\log p_\theta(\mathbf{x}) = \int q_\phi(\mathbf{z} \mid \mathbf{x}) \log p_\theta(\mathbf{x}) \, d\mathbf{z}
+\end{equation}
+}
+Applying Bayes' rule $p_\theta(\mathbf{x}) = \frac{p_\theta(\mathbf{x}, \mathbf{z})}{p_\theta(\mathbf{z} \mid \mathbf{x})}$:
+{\boldmath
+\begin{align}
+\log p_\theta(\mathbf{x}) &= \int q_\phi(\mathbf{z} \mid \mathbf{x}) \log \left( \frac{p_\theta(\mathbf{x}, \mathbf{z})}{p_\theta(\mathbf{z} \mid \mathbf{x})} \cdot \frac{q_\phi(\mathbf{z} \mid \mathbf{x})}{q_\phi(\mathbf{z} \mid \mathbf{x})} \right) d\mathbf{z} \\
+&= \int q_\phi(\mathbf{z} \mid \mathbf{x}) \log \left( \frac{p_\theta(\mathbf{x}, \mathbf{z})}{q_\phi(\mathbf{z} \mid \mathbf{x})} \right) d\mathbf{z} + \int q_\phi(\mathbf{z} \mid \mathbf{x}) \log \left( \frac{q_\phi(\mathbf{z} \mid \mathbf{x})}{p_\theta(\mathbf{z} \mid \mathbf{x})} \right) d\mathbf{z} \\
+&= \mathbb{E}_{q_\phi}\left[ \log \frac{p_\theta(\mathbf{x}, \mathbf{z})}{q_\phi(\mathbf{z} \mid \mathbf{x})} \right] + D_{\text{KL}}\left( q_\phi(\mathbf{z} \mid \mathbf{x}) \parallel p_\theta(\mathbf{z} \mid \mathbf{x}) \right)
+\end{align}
+}
+Decomposing the joint probability $p_\theta(\mathbf{x}, \mathbf{z}) = p_\theta(\mathbf{x} \mid \mathbf{z}) p(\mathbf{z})$:
+{\boldmath
+\begin{align}
+\mathbb{E}_{q_\phi}\left[ \log \frac{p_\theta(\mathbf{x}, \mathbf{z})}{q_\phi(\mathbf{z} \mid \mathbf{x})} \right] &= \mathbb{E}_{q_\phi}[\log p_\theta(\mathbf{x} \mid \mathbf{z})] + \mathbb{E}_{q_\phi}\left[ \log \frac{p(\mathbf{z})}{q_\phi(\mathbf{z} \mid \mathbf{x})} \right] \\
+&= \mathbb{E}_{q_\phi}[\log p_\theta(\mathbf{x} \mid \mathbf{z})] - D_{\text{KL}}(q_\phi(\mathbf{z} \mid \mathbf{x}) \parallel p(\mathbf{z}))
+\end{align}
+}
+Since Gibbs' inequality guarantees $D_{\text{KL}}(q_\phi \parallel p_\theta) \ge 0$, it follows that $\log p_\theta(\mathbf{x}) \ge \operatorname{ELBO}$.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: How Does the Reparameterization Trick Circumvent Score Function Variance?}
+\textbf{Question}: Why is pathwise derivative reparameterization preferred over REINFORCE / score function policy gradients for training VAEs?
+
+\textbf{Meta-Question}: Does isolating randomness into an external input transform stochastic optimization into deterministic optimization?
+
+\textbf{Answer}: The score function estimator $\nabla_\phi \mathbb{E}_{q_\phi}[f(\mathbf{z})] = \mathbb{E}_{q_\phi}[f(\mathbf{z}) \nabla_\phi \log q_\phi(\mathbf{z} \mid \mathbf{x})]$ treats $f(\mathbf{z})$ as a black box and suffers from severe variance that grows exponentially with latent dimension $d_z$. By decomposing $\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\epsilon}$, the derivative $\nabla_\phi f(g(\boldsymbol{\epsilon}, \mathbf{x})) = \nabla_{\mathbf{z}} f(\mathbf{z}) \nabla_\phi g(\boldsymbol{\epsilon}, \mathbf{x})$ directly exploits gradient information from the decoder $\nabla_{\mathbf{z}} f$. This yields smooth, low-variance updates with orders of magnitude faster training convergence.
+
+\subsection{Architectural Question 2: Why Does Posterior Collapse Occur and How Is It Countered?}
+\textbf{Question}: Why do powerful autoregressive decoders often cause the encoder to ignore the latent code $\mathbf{z}$ entirely?
+
+\textbf{Meta-Question}: Is information capacity competitive or cooperative across hierarchical model components?
+
+\textbf{Answer}: When the generative decoder $p_\theta(\mathbf{x} \mid \mathbf{z})$ has high autoregressive expressivity (e.g., PixelCNN or a large Transformer), it can predict data without relying on $\mathbf{z}$. In that scenario, setting $q_\phi(\mathbf{z} \mid \mathbf{x}) = p(\mathbf{z})$ immediately drives the KL divergence to zero without increasing reconstruction error, leading to a local minimum known as posterior collapse. Countermeasures include $\beta$-annealing (ramping $\beta$ from 0 to 1), introducing minimum KL thresholds ("free bits"), or weakening the decoder's receptive field.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{Variational Autoencoder Forward Pass and Loss Evaluation}
+\label{alg:vae}
+\begin{algorithmic}[1]
+\Require Input $\mathbf{x} \in \mathbb{R}^{d_x}$, encoder $\mathbf{W}_\mu, \mathbf{b}_\mu, \mathbf{W}_{\log \sigma^2}, \mathbf{b}_{\log \sigma^2}$, decoder $\mathbf{W}_d, \mathbf{b}_d$, noise $\boldsymbol{\epsilon} \in \mathbb{R}^{d_z}$, scale $\beta \ge 0$
+\Ensure Reconstruction $\hat{\mathbf{x}} \in \mathbb{R}^{d_x}$, latent $\mathbf{z} \in \mathbb{R}^{d_z}$, total loss $\mathcal{L}_{\text{total}}$
+\State $\boldsymbol{\mu} \gets \text{zeros}(d_z), \quad \log \boldsymbol{\sigma}^2 \gets \text{zeros}(d_z)$
+\For{$i \gets 1 \textbf{ to } d_z$}
+    \State $\mu_i \gets b_{\mu, i} + \sum_{j=1}^{d_x} W_{\mu, i, j} \cdot x_j$
+    \State $\log \sigma_i^2 \gets b_{\log \sigma^2, i} + \sum_{j=1}^{d_x} W_{\log \sigma^2, i, j} \cdot x_j$
+\EndFor
+\State $\mathbf{z} \gets \text{zeros}(d_z)$
+\For{$i \gets 1 \textbf{ to } d_z$}
+    \State $\sigma_i \gets \exp(0.5 \cdot \log \sigma_i^2)$
+    \State $z_i \gets \mu_i + \sigma_i \cdot \epsilon_i$ \Comment{Reparameterization trick}
+\EndFor
+\State $\hat{\mathbf{x}} \gets \text{zeros}(d_x)$
+\For{$i \gets 1 \textbf{ to } d_x$}
+    \State $\hat{x}_i \gets b_{d, i} + \sum_{j=1}^{d_z} W_{d, i, j} \cdot z_j$
+\EndFor
+\State $\mathcal{L}_{\text{recon}} \gets \frac{1}{d_x} \sum_{i=1}^{d_x} (x_i - \hat{x}_i)^2$
+\State $D_{\text{KL}} \gets -\frac{1}{2} \sum_{i=1}^{d_z} (1.0 + \log \sigma_i^2 - \mu_i^2 - \exp(\log \sigma_i^2))$
+\State $\mathcal{L}_{\text{total}} \gets \mathcal{L}_{\text{recon}} + \beta \cdot D_{\text{KL}}$
+\State \Return $\{\text{reconstruction}: \hat{\mathbf{x}}, \text{latent\_z}: \mathbf{z}, \text{kl}: D_{\text{KL}}, \text{total\_loss}: \mathcal{L}_{\text{total}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Encoder projection $(\boldsymbol{\mu}, \log \boldsymbol{\sigma}^2)$: $2 d_z d_x$ FLOPs ($\Theta(d_z d_x)$).
+        \item Reparameterization: $d_z$ exponentiations, multiplications, and additions ($\Theta(d_z)$).
+        \item Decoder reconstruction: $d_x d_z$ FLOPs ($\Theta(d_x d_z)$).
+        \item Total Time: $\Theta(d_x d_z)$ FLOPs.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Latent vectors $\boldsymbol{\mu}, \log \boldsymbol{\sigma}^2, \mathbf{z}$: $\Theta(d_z)$ floats.
+        \item Reconstruction buffer $\hat{\mathbf{x}}$: $\Theta(d_x)$ floats.
+        \item Total Auxiliary Space: $\Theta(d_x + d_z)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

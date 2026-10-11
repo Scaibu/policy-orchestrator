@@ -1,0 +1,303 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Classifier-Free Guidance in Diffusion Models}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Classifier-Free Guidance Operator):}
+Let $\mathbf{x}_t \in \mathbb{R}^D$ denote a noisy latent state at timestep $t$, and let $c$ denote conditioning context (e.g., text embedding or class label). By Bayes' rule, the conditional score of the data distribution factorizes as:
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t \mid c) = \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) + \nabla_{\mathbf{x}_t} \log p_t(c \mid \mathbf{x}_t)
+\end{equation}
+}
+In classifier guidance, an external classifier $p_t(c \mid \mathbf{x}_t)$ must be trained on noisy states. \textbf{Classifier-Free Guidance (CFG)} circumvents external classifiers by jointly training a single conditional diffusion model $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, c)$ with unconditional dropout: the conditioning token $c$ is randomly replaced by a null token $\emptyset$ with probability $p_{\text{uncond}} \in [0.1, 0.2]$ during training.
+
+At inference, the implicit classifier gradient is reconstructed algebraically:
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log p_t(c \mid \mathbf{x}_t) \propto -\frac{1}{\sqrt{1 - \bar{\alpha}_t}} \left[ \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, c) - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, \emptyset) \right]
+\end{equation}
+}
+Extrapolating the score along this gradient with scalar guidance weight $w \ge 1$ defines the guided noise predictor:
+{\boldmath
+\begin{equation}
+\tilde{\boldsymbol{\epsilon}}_\theta(\mathbf{x}_t, c) = \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, \emptyset) + w \left( \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, c) - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, \emptyset) \right) = (1 - w)\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, \emptyset) + w \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, c)
+\end{equation}
+}
+When generalized to negative prompting with negative context $c_{\text{neg}}$, the null embedding $\emptyset$ is replaced by $c_{\text{neg}}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Lazy Artist}: Imagine you hire an artist and ask them to paint ``a fierce golden dragon.'' The artist might paint a tiny dragon hidden far away behind a huge mountain. Technically, they followed your instructions, but it's not what you really wanted.
+    \item \textbf{Comparing with General Paintings}: Now imagine asking the same artist: ``What would you paint if I gave you NO instructions at all?'' (Unconditional). They show you a boring generic landscape with grass and sky.
+    \item \textbf{The Magic Difference Vector}: You subtract the generic landscape from the dragon painting. What remains is pure, concentrated, undiluted ``dragon-ness.''
+    \item \textbf{Turning Up the Megaphone (Guidance Scale $w$)}: You tell the artist: ``Take that dragon essence and multiply it by 7 times!'' By cranking up the guidance dial, the dragon becomes giant, intensely golden, hyper-detailed, and bursts into the absolute center of the painting.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine making hot chocolate:
+\begin{itemize}
+    \item \textbf{Unconditional ($\emptyset$)}: Plain warm milk.
+    \item \textbf{Conditional ($c$)}: Milk with a single spoonful of chocolate powder. It tastes sweet, but mild.
+    \item \textbf{CFG Extrapolation ($w = 7$)}: You extract the chocolate flavor from that spoon and pack 7 concentrated scoops into the cup! The chocolate flavor becomes super rich, intense, and delicious!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Bayesian Score Factorization}
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t \mid c) = \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) + \nabla_{\mathbf{x}_t} \log p_t(c \mid \mathbf{x}_t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The log-derivative decomposition of conditional probability density into prior score and likelihood gradient.
+    \item \textbf{What It Means}: Guiding a diffusion model consists of adding a steering vector that increases the probability of condition $c$ being recognized.
+    \item \textbf{Why It Is Important}: Forms the foundational justification that score modifications correspond to valid energy landscape reweighting.
+\end{itemize}
+
+\subsection{The Linear Extrapolation Formulation}
+{\boldmath
+\begin{equation}
+\tilde{\boldsymbol{\epsilon}} = \boldsymbol{\epsilon}_{\text{uncond}} + w \left( \boldsymbol{\epsilon}_{\text{cond}} - \boldsymbol{\epsilon}_{\text{uncond}} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The vector extrapolation along the ray connecting unconditional noise to conditional noise.
+    \item \textbf{What It Means}: When $w = 1$, generation is standard conditional diffusion. When $w > 1$, the trajectory moves further in the direction of the prompt than the model ever saw during training.
+    \item \textbf{Why It Is Important}: Drastically improves text-image alignment and aesthetic quality in modern models like Stable Diffusion, Midjourney, and DALL-E 3.
+\end{itemize}
+
+\subsection{Generalized Negative Prompt Formulation}
+{\boldmath
+\begin{equation}
+\tilde{\boldsymbol{\epsilon}} = \boldsymbol{\epsilon}(\mathbf{x}_t, c_{\text{neg}}) + w \left( \boldsymbol{\epsilon}(\mathbf{x}_t, c_{\text{pos}}) - \boldsymbol{\epsilon}(\mathbf{x}_t, c_{\text{neg}}) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Steering the vector away from an unwanted concept $c_{\text{neg}}$ rather than an empty baseline $\emptyset$.
+    \item \textbf{What It Means}: Actively subtracts unwanted features (e.g. ``blurry, extra limbs, low resolution'') from the generated output.
+    \item \textbf{Why It Is Important}: Provides fine-grained user control over quality and style without model fine-tuning.
+\end{itemize}
+
+\subsection{Vector Amplification Ratio Metric}
+{\boldmath
+\begin{equation}
+\mathcal{R}_{\text{amp}} = \frac{\|\tilde{\boldsymbol{\epsilon}}\|_2}{\|\boldsymbol{\epsilon}_{\text{cond}}\|_2}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The ratio of the magnitude of the guided noise vector to the original conditional noise vector.
+    \item \textbf{What It Means}: Measures the geometric stretching induced by the extrapolation factor $w$.
+    \item \textbf{Why It Is Important}: Explains why excessive guidance scales ($w > 15$) cause catastrophic over-exposure and contrast clipping artifacts.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{x}_t \in \mathbb{R}^D$: State vector at timestep $t$.
+    \item $c \in \mathcal{C}$: Conditioning prompt or class token.
+    \item $\emptyset$: Null or unconditional conditioning token.
+    \item $\boldsymbol{\epsilon}_{\text{uncond}}, \boldsymbol{\epsilon}_{\text{cond}} \in \mathbb{R}^D$: Unconditional and conditional noise predictions.
+    \item $w \in \mathbb{R}_{\ge 1}$: Guidance scale parameter (typically $w \in [5, 9]$).
+    \item $\tilde{\boldsymbol{\epsilon}} \in \mathbb{R}^D$: Extrapolated guided noise vector.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Unconditional Prediction & $\boldsymbol{\epsilon}_{\text{uncond}}$ & Inferred Baseline & Represents prior distribution drift \\
+Conditional Prediction & $\boldsymbol{\epsilon}_{\text{cond}}$ & Inferred Target & Informs prompt-specific direction \\
+Delta Direction & $\boldsymbol{\epsilon}_{\text{cond}} - \boldsymbol{\epsilon}_{\text{uncond}}$ & Deduced Gradient & Approximates implicit classifier log-odds \\
+Guidance Scale & $w$ & Tunable Hyperparameter & Trades off diversity for sample fidelity \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{x}_t, c, \emptyset\} \longrightarrow \{\boldsymbol{\epsilon}_{\text{cond}}, \boldsymbol{\epsilon}_{\text{uncond}}\} \longrightarrow \Delta \boldsymbol{\epsilon} \longrightarrow w \cdot \Delta \boldsymbol{\epsilon} \longrightarrow \tilde{\boldsymbol{\epsilon}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All vectors $\boldsymbol{\epsilon}_{\text{uncond}}, \boldsymbol{\epsilon}_{\text{cond}}, \tilde{\boldsymbol{\epsilon}} \in \mathbb{R}^D$. Guidance scale $w$ is dimensionless.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{At $w = 1$}: Standard conditional sampling; broad sample diversity, moderate prompt adherence.
+    \item \textbf{At $w \in [5, 9]$}: Optimal perceptual fidelity; sharp edges, high contrast, strong prompt following.
+    \item \textbf{As $w \to \infty$}: Pathological saturation; latent norms blow up beyond training distribution support.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Null-Condition Coincidence}: If $\boldsymbol{\epsilon}_{\text{cond}} = \boldsymbol{\epsilon}_{\text{uncond}}$, then $\tilde{\boldsymbol{\epsilon}} = \boldsymbol{\epsilon}_{\text{uncond}}$ regardless of guidance scale $w$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+Classifier-Free Guidance is isomorphic to sampling from an artificially sharpened conditional probability distribution $\tilde{p}(\mathbf{x} \mid c) \propto p(\mathbf{x}) p(c \mid \mathbf{x})^w$ at low temperature.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Equivalence of CFG to Density Rescaling]
+Let the guided score be defined as $\tilde{\mathbf{s}}(\mathbf{x}_t, c) = (1 - w)\mathbf{s}(\mathbf{x}_t, \emptyset) + w \mathbf{s}(\mathbf{x}_t, c)$. Then $\tilde{\mathbf{s}}$ is the exact score of the modified conditional distribution:
+{\boldmath
+\begin{equation}
+\tilde{p}_t(\mathbf{x}_t \mid c) = \frac{1}{Z_t(c)} p_t(\mathbf{x}_t) \left( p_t(c \mid \mathbf{x}_t) \right)^w
+\end{equation}
+}
+where $Z_t(c) = \int p_t(\mathbf{x}) p_t(c \mid \mathbf{x})^w \mathrm{d}\mathbf{x}$ is the normalizing partition function.
+\end{theorem}
+
+\begin{proof}
+Consider the target probability density $\tilde{p}_t(\mathbf{x}_t \mid c) = \frac{1}{Z_t(c)} p_t(\mathbf{x}_t) p_t(c \mid \mathbf{x}_t)^w$. Taking the natural logarithm:
+{\boldmath
+\begin{equation}
+\log \tilde{p}_t(\mathbf{x}_t \mid c) = \log p_t(\mathbf{x}_t) + w \log p_t(c \mid \mathbf{x}_t) - \log Z_t(c)
+\end{equation}
+}
+Taking the spatial gradient with respect to $\mathbf{x}_t$ (noting that $Z_t(c)$ is independent of $\mathbf{x}_t$):
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log \tilde{p}_t(\mathbf{x}_t \mid c) = \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) + w \nabla_{\mathbf{x}_t} \log p_t(c \mid \mathbf{x}_t)
+\end{equation}
+}
+From Bayes' theorem, $\log p_t(c \mid \mathbf{x}_t) = \log p_t(\mathbf{x}_t \mid c) - \log p_t(\mathbf{x}_t) + \log p_t(c)$. Taking the spatial gradient:
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log p_t(c \mid \mathbf{x}_t) = \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t \mid c) - \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t)
+\end{equation}
+}
+Substituting this back into the target score:
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log \tilde{p}_t(\mathbf{x}_t \mid c) = \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) + w \left[ \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t \mid c) - \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) \right]
+\end{equation}
+}
+Grouping terms:
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{x}_t} \log \tilde{p}_t(\mathbf{x}_t \mid c) = (1 - w)\nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t) + w \nabla_{\mathbf{x}_t} \log p_t(\mathbf{x}_t \mid c)
+\end{equation}
+}
+Using the score matching relationship $\mathbf{s}(\mathbf{x}_t, c) = -\frac{\boldsymbol{\epsilon}(\mathbf{x}_t, c)}{\sqrt{1 - \bar{\alpha}_t}}$, the linear combination of scores maps identically to the linear combination of noise predictions, proving exact equivalence.
+\end{proof}
+
+\begin{theorem}[Amplification of High-Frequency Variance under Guidance]
+If conditional and unconditional noise prediction errors have independent variance $\sigma_\epsilon^2 \mathbf{I}$, the variance of the guided noise estimator scales quadratically with guidance weight $w$:
+{\boldmath
+\begin{equation}
+\operatorname{Var}(\tilde{\boldsymbol{\epsilon}}) = \left( (1 - w)^2 + w^2 \right) \sigma_\epsilon^2 \mathbf{I} = \left( 2w^2 - 2w + 1 \right) \sigma_\epsilon^2 \mathbf{I}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\boldsymbol{\epsilon}_{\text{uncond}} = \boldsymbol{\epsilon}^*_{\text{uncond}} + \mathbf{e}_u$ and $\boldsymbol{\epsilon}_{\text{cond}} = \boldsymbol{\epsilon}^*_{\text{cond}} + \mathbf{e}_c$, where $\mathbf{e}_u, \mathbf{e}_c$ are zero-mean independent estimation errors with covariance $\sigma_\epsilon^2 \mathbf{I}$.
+The guided noise is:
+{\boldmath
+\begin{equation}
+\tilde{\boldsymbol{\epsilon}} = (1 - w)(\boldsymbol{\epsilon}^*_{\text{uncond}} + \mathbf{e}_u) + w(\boldsymbol{\epsilon}^*_{\text{cond}} + \mathbf{e}_c)
+\end{equation}
+}
+The total error term is $\mathbf{e}_{\text{guided}} = (1 - w)\mathbf{e}_u + w\mathbf{e}_c$.
+Computing its variance:
+{\boldmath
+\begin{equation}
+\operatorname{Var}(\mathbf{e}_{\text{guided}}) = (1 - w)^2 \operatorname{Var}(\mathbf{e}_u) + w^2 \operatorname{Var}(\mathbf{e}_c) = \left[ (1 - w)^2 + w^2 \right] \sigma_\epsilon^2 \mathbf{I}
+\end{equation}
+}
+Expanding the polynomial:
+{\boldmath
+\begin{equation}
+(1 - 2w + w^2) + w^2 = 2w^2 - 2w + 1
+\end{equation}
+}
+For typical guidance $w = 7.5$, the variance multiplier is $2(7.5)^2 - 2(7.5) + 1 = 112.5 - 15 + 1 = 98.5\times$, explaining why large guidance scales amplify network errors and require dynamic thresholding.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Compute Overhead of CFG}
+\textbf{Question:} Why does CFG double the inference computation cost, and can it be avoided?\\
+\textbf{Answer:} At every sampling timestep, CFG requires evaluating the neural network twice: once for $c$ and once for $\emptyset$. In batched inference, this effectively halves throughput. Techniques like Guidance Distillation or Rescaling allow distilling guided trajectories into a single-pass student network.
+
+\textbf{Meta-Question:} Why can't we just condition the network on a blended embedding $(1-w)\emptyset + w c$ in a single forward pass?\\
+\textbf{Answer:} Neural networks are highly non-linear with respect to text embeddings. Linearly interpolating in embedding space does not yield a linear combination of output score vector fields. The extrapolation must occur in the output score tangent space.
+
+\subsection{Architectural Question 2: Dynamic Thresholding and Saturation}
+\textbf{Question:} How does dynamic thresholding mitigate high-guidance oversaturation?\\
+\textbf{Answer:} High $w$ causes pixel values in predicted clean state $\hat{\mathbf{x}}_0$ to exceed the valid dynamic range $[-1, 1]$. Dynamic thresholding clips the absolute values at the $p$-th percentile (e.g., $99.5\%$) and rescales the tensor back to $[-1, 1]$, preventing unnatural contrast blowout.
+
+\textbf{Meta-Question:} Does thresholding destroy the mathematical fidelity of the probability distribution?\\
+\textbf{Answer:} Technically it alters the probability measure, but empirical data manifolds do not have infinite support. Thresholding projects stray out-of-distribution vectors back onto the physical image hypercube $[-1, 1]^D$.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Classifier-Free Guidance Vector Extrapolation}
+\begin{algorithmic}[1]
+\Require Unconditional noise $\boldsymbol{\epsilon}_u \in \mathbb{R}^D$, conditional noise $\boldsymbol{\epsilon}_c \in \mathbb{R}^D$, guidance scale $w \ge 1$, optional negative noise $\boldsymbol{\epsilon}_{\text{neg}} \in \mathbb{R}^D$
+\Ensure Guided noise $\tilde{\boldsymbol{\epsilon}} \in \mathbb{R}^D$, steering delta norm $\|\Delta \boldsymbol{\epsilon}\|_2$, amplification ratio $\mathcal{R}_{\text{amp}}$
+\State $\mathbf{u} \gets \boldsymbol{\epsilon}_{\text{neg}}$ \textbf{if} provided \textbf{else} $\boldsymbol{\epsilon}_u$
+\State Initialize empty array $\tilde{\boldsymbol{\epsilon}}$ of length $D$
+\State $\text{sum\_delta\_sq} \gets 0.0$, $\text{sum\_c\_sq} \gets 0.0$, $\text{sum\_guided\_sq} \gets 0.0$
+\For{$i = 0$ \textbf{to} $D - 1$}
+    \State $\delta \gets \boldsymbol{\epsilon}_c[i] - \mathbf{u}[i]$
+    \State $\text{sum\_delta\_sq} \gets \text{sum\_delta\_sq} + \delta \cdot \delta$
+    \State $\text{sum\_c\_sq} \gets \text{sum\_c\_sq} + \boldsymbol{\epsilon}_c[i] \cdot \boldsymbol{\epsilon}_c[i]$
+    \State $val \gets \mathbf{u}[i] + w \cdot \delta$
+    \State $\tilde{\boldsymbol{\epsilon}}[i] \gets val$
+    \State $\text{sum\_guided\_sq} \gets \text{sum\_guided\_sq} + val \cdot val$
+\EndFor
+\State $\|\Delta \boldsymbol{\epsilon}\| \gets \sqrt{\text{sum\_delta\_sq}}$
+\State $\|\boldsymbol{\epsilon}_c\| \gets \sqrt{\text{sum\_c\_sq}}$
+\State $\|\tilde{\boldsymbol{\epsilon}}\| \gets \sqrt{\text{sum\_guided\_sq}}$
+\State $\mathcal{R}_{\text{amp}} \gets (\|\tilde{\boldsymbol{\epsilon}}\| / \|\boldsymbol{\epsilon}_c\|)$ \textbf{if} $\|\boldsymbol{\epsilon}_c\| > 10^{-12}$ \textbf{else} $1.0$
+\State \Return $(\tilde{\boldsymbol{\epsilon}}, \|\Delta \boldsymbol{\epsilon}\|, \mathcal{R}_{\text{amp}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Vector Extrapolation Complexity}: $\Theta(D)$ vector differences, scalar multiplications, and accumulations.
+    \item \textbf{Total Sampling Trajectory Time Complexity}: For $S$ steps, total runtime is $\Theta(S \cdot (D + 2 \mathcal{C}_{\text{NN}}))$ due to paired conditional/unconditional evaluations.
+    \item \textbf{Space Complexity}: $\Theta(D)$ memory to store intermediate steering vectors.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(S \cdot D)$; parallel depth across spatial coordinates is $\mathcal{D} = \Theta(S \cdot \log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

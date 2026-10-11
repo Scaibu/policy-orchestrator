@@ -1,0 +1,284 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Denoising Diffusion Implicit Models}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Non-Markovian Forward Inference and Deterministic DDIM Trajectory):}
+Let $q(\mathbf{x}_{1:T} \mid \mathbf{x}_0)$ be a family of inference distributions indexed by variance vector $\boldsymbol{\sigma} \in \mathbb{R}^T_{\ge 0}$. Unlike DDPM, the forward process is non-Markovian conditioned on $\mathbf{x}_0$:
+{\boldmath
+\begin{equation}
+q_\sigma(\mathbf{x}_{1:T} \mid \mathbf{x}_0) = q_\sigma(\mathbf{x}_T \mid \mathbf{x}_0) \prod_{t=2}^T q_\sigma(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0)
+\end{equation}
+}
+where each conditional transition is Gaussian with identical marginals $q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\left(\mathbf{x}_t; \sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I}\right)$:
+{\boldmath
+\begin{equation}
+q_\sigma(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) = \mathcal{N}\left(\mathbf{x}_{t-1}; \sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1} - \sigma_t^2} \frac{\mathbf{x}_t - \sqrt{\bar{\alpha}_t}\mathbf{x}_0}{\sqrt{1 - \bar{\alpha}_t}}, \sigma_t^2 \mathbf{I}\right)
+\end{equation}
+}
+The stochasticity parameter $\sigma_t$ is parameterized via scalar $\eta \ge 0$:
+{\boldmath
+\begin{equation}
+\sigma_t(\eta) = \eta \sqrt{\frac{1 - \bar{\alpha}_{t-1}}{1 - \bar{\alpha}_t}} \sqrt{1 - \frac{\bar{\alpha}_t}{\bar{\alpha}_{t-1}}}
+\end{equation}
+}
+When $\eta = 0$, $\sigma_t = 0$ identically for all $t$. Given a trained noise predictor $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$, the deterministic sampling trajectory from $t$ to $s < t$ is given by:
+{\boldmath
+\begin{equation}
+\mathbf{x}_s = \sqrt{\bar{\alpha}_s} \left( \frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}} \right) + \sqrt{1 - \bar{\alpha}_s} \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Eliminating Unnecessary Dice Rolls}: In standard DDPM, at every single backward step you throw a pair of dice to add random fuzziness. This means you must take 1,000 tiny steps so the random rolls don't knock you off track.
+    \item \textbf{The Direct Trajectory Rail}: DDIM realizes that we don't need any dice rolls at all! The exact same neural network can simply trace a smooth, deterministic railway track straight from static noise to an image.
+    \item \textbf{Time-Leaping (Fast Sampling)}: Because the track is smooth and predictable, you do not have to stop at all 1,000 stations. You can jump directly from station 1000 to 800, to 600, to 400, to 200, to 0. You generate an equally beautiful photo in 20 or 50 steps instead of 1,000 steps.
+    \item \textbf{Reversibility (The Two-Way Street)}: Because no dice are rolled when $\eta = 0$, the process is 100\% reversible. You can feed your own photograph into DDIM backwards to find its exact ``noise fingerprint,'' change a single prompt word like ``add glasses,'' and run it forward to edit your face without altering the rest of the image.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine walking across a snowy field leaving footprints:
+\begin{itemize}
+    \item \textbf{DDPM (Random Stepping)}: You take 1,000 tiny steps backward while shaking your feet randomly. It takes a very long time, and if you try to take huge leaps, you slip and fall.
+    \item \textbf{DDIM (The Smooth Zip-Line)}: Instead of walking and kicking snow, you clip yourself onto a smooth zip-line cable stretched across the field. You can slide forward or backward smoothly without wobbling. You can stop at only 10 points along the zip-line and still reach the exact same destination at 50 times the speed!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{The Denoised Observation Estimator ($\hat{\mathbf{x}}_0$)}
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}}_0(\mathbf{x}_t) = \frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Tweedie-like optimal estimate of the original clean data point $\mathbf{x}_0$ given noisy observation $\mathbf{x}_t$ and predicted noise $\boldsymbol{\epsilon}_\theta$.
+    \item \textbf{What It Means}: Subtracts the estimated noise vector and scales up the remaining signal to project the current noisy state onto the data manifold.
+    \item \textbf{Why It Is Important}: Serves as the anchor point for constructing the next intermediate state $\mathbf{x}_s$ along the deterministic probability flow curve.
+\end{itemize}
+
+\subsection{The Directional Pointing Tangent Term}
+{\boldmath
+\begin{equation}
+\mathbf{d}_t = \sqrt{1 - \bar{\alpha}_s - \sigma_t^2} \, \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The vector component pointing along the tangent direction towards higher noise variance $\mathbf{x}_t$.
+    \item \textbf{What It Means}: Re-introduces the precise deterministic fraction of noise required to ensure the total variance of the resulting state $\mathbf{x}_s$ exactly equals $1 - \bar{\alpha}_s$.
+    \item \textbf{Why It Is Important}: Guarantees variance preservation across arbitrary jump sizes $\Delta t = t - s$ without blowing up or decaying signal amplitude.
+\end{itemize}
+
+\subsection{The General DDIM Reverse Step Equation}
+{\boldmath
+\begin{equation}
+\mathbf{x}_s = \sqrt{\bar{\alpha}_s} \hat{\mathbf{x}}_0(\mathbf{x}_t) + \sqrt{1 - \bar{\alpha}_s - \sigma_t^2} \, \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) + \sigma_t \mathbf{z}_t, \quad \mathbf{z}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The parameterized interpolation between fully deterministic implicit generation ($\eta = 0$) and standard Markovian diffusion ($\eta = 1$).
+    \item \textbf{What It Means}: Combines the clean signal estimate, the deterministic directional tangent, and an optional scaled stochastic perturbation.
+    \item \textbf{Why It Is Important}: Enables arbitrary stride subsampling of the reverse trajectory while maintaining mathematical consistency with models trained on the standard DDPM objective.
+\end{itemize}
+
+\subsection{The Stochasticity Parameterization ($\sigma_t$)}
+{\boldmath
+\begin{equation}
+\sigma_t = \eta \sqrt{\frac{1 - \bar{\alpha}_s}{1 - \bar{\alpha}_t}} \sqrt{1 - \frac{\bar{\alpha}_t}{\bar{\alpha}_s}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The variance scaling factor linking forward conditional transitions to the backward Markovian property.
+    \item \textbf{What It Means}: When $\eta = 1$, $\sigma_t$ equals the exact DDPM posterior standard deviation $\tilde{\beta}_t^{1/2}$; when $\eta = 0$, $\sigma_t$ collapses to zero.
+    \item \textbf{Why It Is Important}: Proves that DDPM and DDIM are not separate models, but special endpoints of a continuous family of generative inference processes sharing the exact same weights.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{x}_t \in \mathbb{R}^D$: State vector at source timestep $t$.
+    \item $\mathbf{x}_s \in \mathbb{R}^D$: State vector at target destination timestep $s < t$.
+    \item $\bar{\alpha}_t, \bar{\alpha}_s \in (0, 1)$: Cumulative variance coefficients, where $\bar{\alpha}_s > \bar{\alpha}_t$ since $s < t$.
+    \item $\boldsymbol{\epsilon}_\theta \in \mathbb{R}^D$: Noise predicted by neural network.
+    \item $\eta \in [0, 1]$: Continuous stochasticity hyperparameter.
+    \item $\sigma_t \in \mathbb{R}_{\ge 0}$: Standard deviation of added Gaussian noise at step $t$.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Cumulative Variance & $\bar{\alpha}_t$ & Deterministic Schedule & Governs signal-to-noise ratio at step $t$ \\
+Predicted Clean State & $\hat{\mathbf{x}}_0$ & Deduced Analytical Projection & Reconstructed manifold anchor point \\
+Directional Vector & $\mathbf{d}_t$ & Deduced Tangent & Preserves coordinate variance along flow \\
+Stochastic Perturbation & $\sigma_t \mathbf{z}_t$ & Stochastic Regularizer & Controls Langevin diffusion entropy \\
+Destination State & $\mathbf{x}_s$ & Integrated State & Output of single DDIM jump step \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{x}_t, \boldsymbol{\epsilon}_\theta, \bar{\alpha}_t\} \longrightarrow \hat{\mathbf{x}}_0 \longrightarrow \{\bar{\alpha}_s, \eta\} \longrightarrow \{\sigma_t, \mathbf{d}_t\} \longrightarrow \mathbf{x}_s$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All state vectors $\mathbf{x}_t, \mathbf{x}_s, \hat{\mathbf{x}}_0, \mathbf{d}_t, \boldsymbol{\epsilon}_\theta \in \mathbb{R}^D$. All variance scalars $\bar{\alpha}_t, \bar{\alpha}_s, \sigma_t, \eta \in \mathbb{R}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{As $\eta \to 0$}: Stochastic term vanishes; process becomes an Euler discretization of the Probability Flow ODE.
+    \item \textbf{As $\eta \to 1$}: Recovers standard DDPM Langevin sampling step.
+    \item \textbf{As $s \to 0$}: $\bar{\alpha}_s \to 1$; the directional term vanishes and $\mathbf{x}_0 = \hat{\mathbf{x}}_0$, recovering the clean image.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Total Variance Invariance}: For any $\eta \in [0, 1]$, the marginal variance $\operatorname{Var}(\mathbf{x}_s \mid \mathbf{x}_0) = (1 - \bar{\alpha}_s)\mathbf{I}$ is strictly preserved.
+    \item \textbf{Reversibility at $\eta = 0$}: The mapping $\mathbf{x}_t \leftrightarrow \mathbf{x}_s$ is a bijective diffeomorphism.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+When $\eta = 0$, DDIM is isomorphic to an explicit Euler integration of the continuous Probability Flow ODE under variance-preserving reparameterization.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Marginal Distribution Equivalence of the Non-Markovian DDIM Forward Process]
+For any choice of variance sequence $\boldsymbol{\sigma} = \{\sigma_t\}_{t=1}^T$, the non-Markovian joint distribution $q_\sigma(\mathbf{x}_{1:T} \mid \mathbf{x}_0)$ satisfies the identical Gaussian marginals for all individual timesteps $t \in \{1, \dots, T\}$:
+{\boldmath
+\begin{equation}
+q_\sigma(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\left(\mathbf{x}_t; \sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I}\right)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+We prove by mathematical induction on $t$.
+\textbf{Base case ($t = 1$)}: By definition, $q_\sigma(\mathbf{x}_1 \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\bar{\alpha}_1}\mathbf{x}_0, (1 - \bar{\alpha}_1)\mathbf{I})$.
+
+\textbf{Inductive step}: Assume $q_\sigma(\mathbf{x}_{t-1} \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0, (1 - \bar{\alpha}_{t-1})\mathbf{I})$. By definition of conditional probability:
+{\boldmath
+\begin{equation}
+q_\sigma(\mathbf{x}_t \mid \mathbf{x}_0) = \int q_\sigma(\mathbf{x}_t, \mathbf{x}_{t-1} \mid \mathbf{x}_0) \mathrm{d}\mathbf{x}_{t-1} = \int q_\sigma(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0) q_\sigma(\mathbf{x}_t \mid \mathbf{x}_0) \mathrm{d}\mathbf{x}_{t-1}
+\end{equation}
+}
+From the definition of the DDIM forward transition, $\mathbf{x}_{t-1}$ conditioned on $(\mathbf{x}_t, \mathbf{x}_0)$ is linear Gaussian:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1} - \sigma_t^2}\frac{\mathbf{x}_t - \sqrt{\bar{\alpha}_t}\mathbf{x}_0}{\sqrt{1 - \bar{\alpha}_t}} + \sigma_t \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+}
+Taking expectation with respect to $\mathbf{x}_t \sim \mathcal{N}(\sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I})$:
+{\boldmath
+\begin{equation}
+\mathbb{E}[\mathbf{x}_{t-1} \mid \mathbf{x}_0] = \sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0 + \mathbf{0} + \mathbf{0} = \sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0
+\end{equation}
+}
+Computing the total variance:
+{\boldmath
+\begin{equation}
+\operatorname{Var}(\mathbf{x}_{t-1} \mid \mathbf{x}_0) = \frac{1 - \bar{\alpha}_{t-1} - \sigma_t^2}{1 - \bar{\alpha}_t}\operatorname{Var}(\mathbf{x}_t \mid \mathbf{x}_0) + \sigma_t^2 \mathbf{I} = (1 - \bar{\alpha}_{t-1} - \sigma_t^2)\mathbf{I} + \sigma_t^2 \mathbf{I} = (1 - \bar{\alpha}_{t-1})\mathbf{I}
+\end{equation}
+}
+Since linear transformations of Gaussians are Gaussian, $q_\sigma(\mathbf{x}_{t-1} \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0, (1 - \bar{\alpha}_{t-1})\mathbf{I})$. The induction holds for all $t$.
+\end{proof}
+
+\begin{theorem}[Exact Invertibility of Deterministic DDIM Trajectories]
+When $\eta = 0$, the forward and reverse DDIM update rules form a continuous bijection admitting exact reconstruction error bounded only by the solver discretization order.
+\end{theorem}
+
+\begin{proof}
+Let $\eta = 0 \implies \sigma_t = 0$. The reverse update from $t$ to $s < t$ is:
+{\boldmath
+\begin{equation}
+\mathbf{x}_s = \sqrt{\bar{\alpha}_s} \left( \frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}} \right) + \sqrt{1 - \bar{\alpha}_s} \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)
+\end{equation}
+}
+Re-arranging for $\mathbf{x}_t$ yields:
+{\boldmath
+\begin{equation}
+\mathbf{x}_t = \sqrt{\bar{\alpha}_t} \left( \frac{\mathbf{x}_s - \sqrt{1 - \bar{\alpha}_s}\boldsymbol{\epsilon}_\theta(\mathbf{x}_s, s)}{\sqrt{\bar{\alpha}_s}} \right) + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}_\theta(\mathbf{x}_s, s) + \mathcal{O}(|t - s|^2)
+\end{equation}
+}
+In the continuous limit $\Delta t \to 0$, the trajectory corresponds to the continuous ODE $\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}\tau} = \mathbf{v}_\theta(\mathbf{x}, \tau)$. By the Picard-Lindel\"of theorem, since the neural network $\boldsymbol{\epsilon}_\theta$ has Lipschitz continuous activations, the solution trajectory exists uniquely and is globally invertible forward and backward in time.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Accelerated Sampling Schedules}
+\textbf{Question:} How does DDIM enable 10x to 50x acceleration over DDPM without retraining the model?\\
+\textbf{Answer:} Because the DDIM inference distribution family matches the marginals $q(\mathbf{x}_t \mid \mathbf{x}_0)$ for any arbitrary subsequence of timesteps $\tau = \{\tau_1, \tau_2, \dots, \tau_S\} \subset \{1, \dots, T\}$, one can evaluate the exact same neural network $\boldsymbol{\epsilon}_\theta$ on a sub-sequence of length $S = 20$ or $50$ without violating variance consistency.
+
+\textbf{Meta-Question:} Why does skipping steps degrade sample quality if marginals match analytically?\\
+\textbf{Answer:} Skipping steps increases the discretization step size $\Delta t$ in solving the underlying ODE/SDE. Truncation error scales with $(\Delta t)^p$ where $p$ is the solver order, introducing cumulative drift from the true data manifold.
+
+\subsection{Architectural Question 2: Latent Inversion for Image Editing}
+\textbf{Question:} Why does DDIM inversion enable semantic editing of real images?\\
+\textbf{Answer:} By integrating the deterministic ODE backward from $t = 0$ to $t = T$, DDIM maps any real image to a unique latent noise vector $\mathbf{x}_T$. Because $\mathbf{x}_T$ encodes the exact spatial layout and structure of the image, conditional text modifications during forward generation preserve identity while modifying target attributes.
+
+\textbf{Meta-Question:} Why does naive DDIM inversion suffer from error accumulation on real images?\\
+\textbf{Answer:} Forward Euler discretization assumes the score gradient $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ is constant over the interval $[t, t+\Delta t]$. When inverted, accumulated truncation errors prevent perfect cycle consistency unless null-text optimization or higher-order Runge-Kutta solvers are employed.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Deterministic DDIM Step Integration}
+\begin{algorithmic}[1]
+\Require State $\mathbf{x}_t \in \mathbb{R}^D$, noise prediction $\boldsymbol{\epsilon}_\theta \in \mathbb{R}^D$, cumulative variances $\bar{\alpha}_t, \bar{\alpha}_s \in (0, 1)$, parameter $\eta \ge 0$
+\Ensure Next state $\mathbf{x}_s \in \mathbb{R}^D$, predicted clean state $\hat{\mathbf{x}}_0 \in \mathbb{R}^D$, directional tangent $\mathbf{d}_t \in \mathbb{R}^D$, variance $\sigma_t$
+\State $\hat{\mathbf{x}}_0 \gets \frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}_\theta}{\sqrt{\bar{\alpha}_t}}$
+\If{$\bar{\alpha}_s > \bar{\alpha}_t$ \textbf{and} $\eta > 0$}
+    \State $\sigma_t \gets \eta \sqrt{\frac{1 - \bar{\alpha}_s}{1 - \bar{\alpha}_t}} \sqrt{1 - \frac{\bar{\alpha}_t}{\bar{\alpha}_s}}$
+\Else
+    \State $\sigma_t \gets 0.0$
+\EndIf
+\State $c_{\text{dir}} \gets \sqrt{\max(0.0, 1 - \bar{\alpha}_s - \sigma_t^2)}$
+\State $\mathbf{d}_t \gets c_{\text{dir}} \cdot \boldsymbol{\epsilon}_\theta$
+\State $\mathbf{x}_s \gets \sqrt{\bar{\alpha}_s} \cdot \hat{\mathbf{x}}_0 + \mathbf{d}_t$
+\State \Return $(\mathbf{x}_s, \hat{\mathbf{x}}_0, \mathbf{d}_t, \sigma_t)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Integration Step Time Complexity}: $\Theta(D)$ vector-scalar multiplications and additions.
+    \item \textbf{Total Sampling Trajectory Time Complexity}: For a sub-sampled schedule of $S$ steps, total runtime is $\Theta(S \cdot (D + \mathcal{C}_{\text{NN}}))$, achieving an $\frac{T}{S} \approx 20\times\text{--}50\times$ speedup over DDPM.
+    \item \textbf{Space Complexity}: $\Theta(D)$ memory to store intermediate vectors $\hat{\mathbf{x}}_0, \mathbf{d}_t, \mathbf{x}_s$.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(S \cdot D)$; parallel depth across dimension coordinates is $\mathcal{D} = \Theta(S \cdot \log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

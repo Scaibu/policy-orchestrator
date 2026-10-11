@@ -1,0 +1,303 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Neural Radiance Fields and Volume Rendering}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Continuous Radiance Field and Classical Volume Quadrature):}
+Let a 3D scene be represented as a continuous function $F_\theta: (\mathbf{x}, \mathbf{d}) \to (\mathbf{c}, \sigma)$ parameterized by a multi-layer perceptron, where $\mathbf{x} = (x, y, z) \in \mathbb{R}^3$ is 3D spatial position, $\mathbf{d} = (\theta, \phi) \in \mathbb{S}^2$ is viewing direction, $\mathbf{c} = (r, g, b) \in [0, 1]^3$ is emitted radiance, and $\sigma \in \mathbb{R}_{\ge 0}$ is differential volume density.
+
+High-frequency geometric detail is resolved by projecting coordinates through sinusoidal \textbf{Positional Encodings}:
+{\boldmath
+\begin{equation}
+\gamma(p) = \left[ \sin(2^0 \pi p), \cos(2^0 \pi p), \, \dots, \, \sin(2^{L-1} \pi p), \cos(2^{L-1} \pi p) \right] \in \mathbb{R}^{2L}
+\end{equation}
+}
+For a camera ray $\mathbf{r}(t) = \mathbf{o} + t \mathbf{d}$ with near and far bounds $[t_n, t_f]$, the expected rendered color is given by the continuous volume rendering integral:
+{\boldmath
+\begin{equation}
+C(\mathbf{r}) = \int_{t_n}^{t_f} T(t) \, \sigma(\mathbf{r}(t)) \, \mathbf{c}(\mathbf{r}(t), \mathbf{d}) \, \mathrm{d}t, \quad T(t) = \exp\left( -\int_{t_n}^t \sigma(\mathbf{r}(s)) \mathrm{d}s \right)
+\end{equation}
+}
+where $T(t)$ denotes cumulative transmittance from $t_n$ to $t$.
+
+Under stratified discrete numerical quadrature across $N$ sample points with intervals $\delta_i = t_{i+1} - t_i$, the continuous integral simplifies to piecewise-constant alpha compositing:
+{\boldmath
+\begin{equation}
+\hat{C}(\mathbf{r}) = \sum_{i=1}^N w_i \mathbf{c}_i, \quad w_i = T_i \left( 1 - \exp(-\sigma_i \delta_i) \right), \quad T_i = \prod_{j=1}^{i-1} \left( 1 - \alpha_j \right) = \exp\left( -\sum_{j=1}^{i-1} \sigma_j \delta_j \right)
+\end{equation}
+}
+where $\alpha_i = 1 - \exp(-\sigma_i \delta_i)$ represents point opacity.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Replacing 3D Polygons with a Neural Fog}: Traditional computer graphics represent 3D worlds with millions of hard triangular meshes (polygons). NeRF replaces polygons with a continuous glowing cloud of colored fog stored inside an AI's brain.
+    \item \textbf{Asking the AI at Any Coordinate}: If you ask the AI: ``What is at position $(x=1.2, y=3.4, z=5.6)$ if I look from the left?'', the AI answers instantly: ``There is red glowing matter with a density of 8.5.''
+    \item \textbf{Marching Rays of Light}: To render a single pixel on your computer screen, you shoot an imaginary laser beam (ray) from the virtual camera through that pixel into the 3D scene.
+    \item \textbf{Alpha Compositing (Adding Up the Fog)}: As the laser travels through the fog, it samples colors and densities along the way. Thick objects block the laser and add solid color; thin fog lets light pass through (transmittance). Combining all samples along the laser produces a stunning, photorealistic pixel with perfect shadows, reflections, and lighting!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine looking through a series of stained-glass windows:
+\begin{itemize}
+    \item \textbf{Clear Glass}: Density is zero; all light passes straight through to the next layer.
+    \item \textbf{Colored Translucent Glass}: Density is medium; it tints the light yellow and lets some pass through.
+    \item \textbf{Solid Brick Wall}: Density is huge; it stops the light completely and reflects bright red brick.
+    \item \textbf{The Composite View}: What your eye sees is the exact blend of all layers up to the brick wall!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{High-Frequency Positional Encoding Operator}
+{\boldmath
+\begin{equation}
+\gamma(p) = \left[ \sin(2^0 \pi p), \cos(2^0 \pi p), \dots, \sin(2^{L-1} \pi p), \cos(2^{L-1} \pi p) \right]^T
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The deterministic Fourier feature map expanding 1D spatial coordinates into $2L$ orthogonal harmonic bases.
+    \item \textbf{What It Means}: Overcomes the spectral bias of deep MLPs, enabling standard fully-connected networks to learn high-frequency textures rather than oversmoothed blobs.
+    \item \textbf{Why It Is Important}: Essential for rendering sharp object boundaries, hair, and complex reflections.
+\end{itemize}
+
+\subsection{Discrete Transmittance and Opacity Quadrature}
+{\boldmath
+\begin{equation}
+\alpha_i = 1 - \exp(-\sigma_i \delta_i), \quad T_i = \prod_{j=1}^{i-1} (1 - \alpha_j) = \exp\left( -\sum_{j=1}^{i-1} \sigma_j \delta_j \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The discrete approximation of optical extinction along a ray segment of length $\delta_i$.
+    \item \textbf{What It Means}: $\alpha_i$ is the probability that a photon is absorbed by segment $i$; $T_i$ is the probability that the photon survived all preceding segments without being absorbed.
+    \item \textbf{Why It Is Important}: Guarantees that volume rendering adheres to physical Beer-Lambert optical attenuation.
+\end{itemize}
+
+\subsection{Discrete Compositing Weight Equation}
+{\boldmath
+\begin{equation}
+w_i = T_i \alpha_i = \exp\left( -\sum_{j=1}^{i-1} \sigma_j \delta_j \right) \left( 1 - \exp(-\sigma_i \delta_i) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The quadrature weight assigned to color sample $\mathbf{c}_i$ in the composited ray sum.
+    \item \textbf{What It Means}: Peak weight occurs at the first dense surface encountered along the ray; occluded regions behind the surface receive near-zero weight.
+    \item \textbf{Why It Is Important}: Enables precise surface depth estimation and novel-view occlusion handling.
+\end{itemize}
+
+\subsection{Expected Ray Depth Estimator}
+{\boldmath
+\begin{equation}
+\hat{d}(\mathbf{r}) = \sum_{i=1}^N w_i t_i
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The expectation of metric distance $t$ along the camera ray under the compositing weight distribution.
+    \item \textbf{What It Means}: Produces a continuous, metric depth map of the scene directly from the radiance field.
+    \item \textbf{Why It Is Important}: Allows extracting 3D point clouds and depth geometry for robotics and digital twin synthesis.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{r}(t) = \mathbf{o} + t \mathbf{d}$: Camera ray with origin $\mathbf{o}$ and direction $\mathbf{d}$.
+    \item $\sigma_i \in \mathbb{R}_{\ge 0}$: Evaluated volume density.
+    \item $\mathbf{c}_i \in [0, 1]^3$: Evaluated view-dependent RGB color.
+    \item $\delta_i = t_{i+1} - t_i \in \mathbb{R}^+$: Step distance between quadrature points.
+    \item $T_i \in [0, 1]$: Accumulated transmittance.
+    \item $w_i \in [0, 1]$: Quadrature compositing weight.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Volume Density & $\sigma$ & Neural Observable & Quantifies local material opacity \\
+Color Radiance & $\mathbf{c}$ & View-Dependent Neural Map & Emitted color under viewing direction $\mathbf{d}$ \\
+Transmittance & $T_i$ & Exact Optical Integral & Tracks remaining light survival probability \\
+Composited Color & $\hat{C}(\mathbf{r})$ & Differentiable Rendered Value & Compared directly against training photo pixels \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{o}, \mathbf{d}\} \longrightarrow \{t_i, \mathbf{x}_i\} \longrightarrow \text{MLP} \longrightarrow \{\sigma_i, \mathbf{c}_i\} \longrightarrow \{\alpha_i, T_i\} \longrightarrow w_i \longrightarrow \hat{C}(\mathbf{r}) \longrightarrow \mathcal{L}_{\text{photo}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Spatial coordinates $\mathbf{x} \in \mathbb{R}^3$; ray parameters $t, \delta_i \in \mathbb{R}$; colors $\mathbf{c}_i, \hat{C} \in [0, 1]^3$; density $\sigma_i$ has units $[\text{distance}]^{-1}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{Vacuum Limit ($\sigma \to 0$)}: $T_N \to 1, w_i \to 0$; total opacity vanishes, rendering empty transparent space.
+    \item \textbf{Solid Surface Limit ($\sigma_i \to \infty$)}: $\alpha_i \to 1, T_{i+1} \to 0$; surface stops the ray completely, rendering opaque color.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Partition of Unity}: $\sum_{i=1}^N w_i + T_{N+1} \equiv 1$ strictly holds for all density configurations.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+Volume rendering is structurally isomorphic to Continuous-Time Markov Jump Processes and survival analysis under hazard rate $\sigma(t)$.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Exact Partition of Unity in Discrete Volume Rendering]
+Let $\alpha_i = 1 - \exp(-\sigma_i \delta_i)$ with $\sigma_i \ge 0, \delta_i > 0$. Let $T_1 = 1$ and $T_{i+1} = T_i (1 - \alpha_i)$. Then the sum of quadrature weights plus the terminal transmittance equals unity identically:
+{\boldmath
+\begin{equation}
+\sum_{i=1}^N w_i + T_{N+1} = 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Recall the definition of the quadrature weight:
+{\boldmath
+\begin{equation}
+w_i = T_i \alpha_i = T_i (1 - (1 - \alpha_i)) = T_i - T_i(1 - \alpha_i)
+\end{equation}
+}
+From the recurrence relation $T_{i+1} = T_i (1 - \alpha_i)$, we can rewrite $w_i$ as a telescoping difference:
+{\boldmath
+\begin{equation}
+w_i = T_i - T_{i+1}
+\end{equation}
+}
+Summing the weights from $i = 1$ to $N$:
+{\boldmath
+\begin{equation}
+\sum_{i=1}^N w_i = \sum_{i=1}^N (T_i - T_{i+1}) = (T_1 - T_2) + (T_2 - T_3) + \dots + (T_N - T_{N+1})
+\end{equation}
+}
+All intermediate terms cancel telescopically:
+{\boldmath
+\begin{equation}
+\sum_{i=1}^N w_i = T_1 - T_{N+1}
+\end{equation}
+}
+Since by definition $T_1 = 1$ (the ray enters the volume with zero initial attenuation):
+{\boldmath
+\begin{equation}
+\sum_{i=1}^N w_i = 1 - T_{N+1} \iff \sum_{i=1}^N w_i + T_{N+1} = 1
+\end{equation}
+}
+Thus, the composited weights form a valid defective probability distribution whose defect $T_{N+1}$ represents light passing unimpeded through to the background.
+\end{proof}
+
+\begin{theorem}[Equivalence of Discrete Alpha Compositing to Classical Over Operator]
+The discrete volume quadrature recurrence $C_i = C_{i-1} + w_i \mathbf{c}_i$ is equivalent to Porter-Duff front-to-back alpha blending:
+{\boldmath
+\begin{equation}
+\mathbf{C}_{\text{accum}} \gets \mathbf{C}_{\text{accum}} + T_{\text{accum}} \alpha_i \mathbf{c}_i, \quad T_{\text{accum}} \gets T_{\text{accum}}(1 - \alpha_i)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{C}_0 = \mathbf{0}$ and $T_1 = 1$.
+At step $i = 1$:
+{\boldmath
+\begin{equation}
+\mathbf{C}_1 = \mathbf{0} + T_1 \alpha_1 \mathbf{c}_1 = \alpha_1 \mathbf{c}_1, \quad T_2 = 1 - \alpha_1
+\end{equation}
+}
+At step $i = 2$:
+{\boldmath
+\begin{equation}
+\mathbf{C}_2 = \mathbf{C}_1 + T_2 \alpha_2 \mathbf{c}_2 = \alpha_1 \mathbf{c}_1 + (1 - \alpha_1)\alpha_2 \mathbf{c}_2, \quad T_3 = (1 - \alpha_1)(1 - \alpha_2)
+\end{equation}
+}
+By mathematical induction, at step $k$:
+{\boldmath
+\begin{equation}
+\mathbf{C}_k = \sum_{i=1}^k \left( \prod_{j=1}^{i-1} (1 - \alpha_j) \right) \alpha_i \mathbf{c}_i = \sum_{i=1}^k T_i \alpha_i \mathbf{c}_i = \sum_{i=1}^k w_i \mathbf{c}_i
+\end{equation}
+}
+This is identically the front-to-back optical over operator used in real-time GPU volume ray-marching.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: NeRF vs 3D Gaussian Splatting}
+\textbf{Question:} Why does 3D Gaussian Splatting render at 100+ FPS, while vanilla NeRF renders at 0.1 FPS?\\
+\textbf{Answer:} NeRF queries a deep multi-layer perceptron 64 to 128 times along every single camera ray ($800 \times 800 \times 128 \approx 82 \text{ million}$ forward passes per image). 3D Gaussian Splatting replaces the neural network with explicit 3D Gaussian primitives, projecting them into screen space and sorting them into GPU tiles for instantaneous rasterization.
+
+\textbf{Meta-Question:} Does explicit Gaussian splatting lose any representation capacity compared to NeRF?\\
+\textbf{Answer:} Gaussians require substantial memory (millions of Gaussians can consume 1 to 2 GB of VRAM), whereas a NeRF MLP is a compact 5 MB neural file. NeRF represents a continuous neural field; Gaussian splatting is an explicit point-based volumetric proxy.
+
+\subsection{Architectural Question 2: View-Dependent Effects and Geometric Overfitting}
+\textbf{Question:} Why does NeRF inject viewing direction $\mathbf{d}$ only in the final RGB layers rather than the initial density layers?\\
+\textbf{Answer:} Volume density $\sigma$ must depend strictly on 3D spatial position $\mathbf{x}$ to enforce physical multiview consistency (an object does not disappear when viewed from another angle). If density depended on $\mathbf{d}$, the network could overfit by rendering separate 2D billboard images for each camera angle without discovering real 3D geometry.
+
+\textbf{Meta-Question:} How does NeRF capture specular highlights (glossiness)?\\
+\textbf{Answer:} By conditioning the final color emission layer on $\mathbf{d}$. The density remains fixed, while the emitted color varies smoothly with camera angle, faithfully capturing reflection physics.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Discrete Volume Rendering Quadrature Ray-Marcher}
+\begin{algorithmic}[1]
+\Require Densities $\boldsymbol{\sigma} \in \mathbb{R}^N$, colors $\mathbf{C}_{\text{in}} \in \mathbb{R}^{N \times 3}$, intervals $\boldsymbol{\delta} \in \mathbb{R}^N$, optional depths $\mathbf{t} \in \mathbb{R}^N$
+\Ensure Composited RGB $\mathbf{C} \in \mathbb{R}^3$, terminal transmittance $T_{\text{term}}$, total opacity $\alpha_{\text{total}}$, weights $\mathbf{w} \in \mathbb{R}^N$
+\State $T \gets 1.0, \quad \alpha_{\text{total}} \gets 0.0, \quad d_{\text{exp}} \gets 0.0$
+\State Initialize $\mathbf{C} \gets [0.0, 0.0, 0.0]$, weights array $\mathbf{w}$ of length $N$
+\For{$i = 0$ \textbf{to} $N - 1$}
+    \State $\sigma_i \gets \max(0.0, \boldsymbol{\sigma}[i])$
+    \State $\delta_i \gets \max(0.0, \boldsymbol{\delta}[i])$
+    \State $\alpha_i \gets 1.0 - \exp(-\sigma_i \cdot \delta_i)$
+    \State $w_i \gets T \cdot \alpha_i$
+    \State $\mathbf{w}[i] \gets w_i$
+    \State $\alpha_{\text{total}} \gets \alpha_{\text{total}} + w_i$
+    \State $\mathbf{C}[0] \gets \mathbf{C}[0] + w_i \cdot \mathbf{C}_{\text{in}}[i][0]$
+    \State $\mathbf{C}[1] \gets \mathbf{C}[1] + w_i \cdot \mathbf{C}_{\text{in}}[i][1]$
+    \State $\mathbf{C}[2] \gets \mathbf{C}[2] + w_i \cdot \mathbf{C}_{\text{in}}[i][2]$
+    \If{$\mathbf{t}$ is provided} \State $d_{\text{exp}} \gets d_{\text{exp}} + w_i \cdot \mathbf{t}[i]$ \EndIf
+    \State $T \gets T \cdot (1.0 - \alpha_i)$
+\EndFor
+\State \Return $(\mathbf{C}, T, \alpha_{\text{total}}, \mathbf{w})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Ray Quadrature Time Complexity}: $\Theta(N)$ scalar operations per camera ray for $N$ sample points.
+    \item \textbf{Full Image Rendering Complexity}: For an image of $H \times W$ pixels, total runtime is $\Theta(H \cdot W \cdot N \cdot \mathcal{C}_{\text{MLP}})$.
+    \item \textbf{Space Complexity}: $\Theta(N)$ memory to store sample weights along the active ray.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(H \cdot W \cdot N)$; parallel depth across rays and sample steps is $\mathcal{D} = \Theta(\log N)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

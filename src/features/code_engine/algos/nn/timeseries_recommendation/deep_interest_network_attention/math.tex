@@ -1,0 +1,283 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Deep Interest Network and Target-Dependent Attention (DIN)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Target-Dependent Attention, Multi-Faceted User Interest, and Activation Units):}
+Let $\mathbf{v}_A \in \mathbb{R}^D$ denote the embedding vector of a candidate ad or item to be scored, and let $\mathcal{H} = \{\mathbf{e}_1, \mathbf{e}_2, \dots, \mathbf{e}_H\}$ denote a user's historical behavior sequence of $H$ previously interacted items, each represented by embedding vector $\mathbf{e}_i \in \mathbb{R}^D$. In classical recommendation systems, a user's entire history is compressed into a static vector via sum-pooling or average-pooling ($\mathbf{v}_U = \frac{1}{H}\sum \mathbf{e}_i$), which severely blurs diverse user interests.
+
+A \textbf{Deep Interest Network (DIN)} introduces a candidate-dependent \textbf{Local Activation Unit} $a(\mathbf{e}_i, \mathbf{v}_A)$ that dynamically scales the contribution of each historical interaction relative to candidate $\mathbf{v}_A$:
+\begin{enumerate}
+    \item For each historical item $\mathbf{e}_i$, an explicit 4-way interaction vector is constructed:
+    {\boldmath
+    \begin{equation}
+    \mathbf{I}(\mathbf{e}_i, \mathbf{v}_A) = \left[ \mathbf{e}_i; \; \mathbf{v}_A; \; \mathbf{e}_i \odot \mathbf{v}_A; \; \mathbf{e}_i - \mathbf{v}_A \right] \in \mathbb{R}^{4D}
+    \end{equation}
+    }
+    \item The interaction is passed through an attention multilayer perceptron:
+    {\boldmath
+    \begin{equation}
+    a(\mathbf{e}_i, \mathbf{v}_A) = \mathbf{w}_2^T \max\left( \mathbf{0}, \; W_1 \mathbf{I}(\mathbf{e}_i, \mathbf{v}_A) + \mathbf{b}_1 \right) + b_2
+    \end{equation}
+    }
+    where $W_1 \in \mathbb{R}^{D_{\text{attn}} \times 4D}$, $\mathbf{b}_1 \in \mathbb{R}^{D_{\text{attn}}}$, $\mathbf{w}_2 \in \mathbb{R}^{D_{\text{attn}}}$, and $b_2 \in \mathbb{R}$.
+    \item The activation coefficient $w_i \ge 0$ is obtained either through unnormalized positive activation:
+    {\boldmath
+    \begin{equation}
+    w_i = \max\left( 0, \; a(\mathbf{e}_i, \mathbf{v}_A) \right)
+    \end{equation}
+    }
+    or via normalized softmax attention.
+    \item The dynamically conditioned \textbf{User Interest Representation} is:
+    {\boldmath
+    \begin{equation}
+    \mathbf{v}_U(\mathbf{v}_A) = \sum_{i=1}^H w_i \mathbf{e}_i \in \mathbb{R}^D
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Fallacy of a Single User Profile}: A typical e-commerce shopper buys sneakers, cat food, computer keyboards, and gardening tools. If an AI averages all these together into a single summary vector, the vector points to a weird hybrid: a ``cat-food-gardening-shoe'' that matches nothing!
+    \item \textbf{Candidate-Activated Spotlight}: When Amazon is deciding whether to show you a pair of running shoes, the cat food and gardening tools are completely irrelevant. DIN shines a spotlight that activates past shoe-related clicks while leaving everything else dim.
+    \item \textbf{Unnormalized Attention Preserves Passion}: Traditional attention forces weights to sum to 1.0 (softmax). But if User Alice bought 50 pairs of shoes (an extreme enthusiast), and User Bob bought 1 pair (a casual buyer), their shoe-interest vectors should NOT have equal magnitude! DIN uses unnormalized attention so Alice's vector is $50\times$ stronger than Bob's.
+    \item \textbf{Seamless Integration}: The customized interest vector $\mathbf{v}_U$ flows directly into standard click-through prediction heads.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine having a magical trunk filled with toys:
+\begin{itemize}
+    \item \textbf{The Mixed Toybox}: Inside the trunk are toy cars, dinosaur figures, watercolor paints, and building blocks.
+    \item \textbf{The Candidate Challenge}: A friend brings over a brand new remote-control monster truck ($\mathbf{v}_A$) and asks: ``Do you want to play?''
+    \item \textbf{The Magnetic Magnet}: Instead of pulling out the paints or dinosaurs, your mind instantly connects with the toy cars and race tracks in your trunk ($\mathbf{v}_U$).
+    \item \textbf{Immediate Enthusiasm}: Because you own 20 toy cars, your excitement level shines bright and you shout: ``YES!''
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Four-Way Interaction Tensor Construction}
+{\boldmath
+\begin{equation}
+\mathbf{I}_i = \left[ \mathbf{e}_i; \; \mathbf{v}_A; \; \mathbf{e}_i \odot \mathbf{v}_A; \; \mathbf{e}_i - \mathbf{v}_A \right] \in \mathbb{R}^{4D}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The concatenated interaction feature combining individual representations, element-wise correlation, and vector difference.
+    \item \textbf{What It Means}: Supplies the attention network with absolute positions, multiplicative alignment, and geometric distance simultaneously.
+    \item \textbf{Why It Is Important}: Outperforms simple dot products by allowing the MLP to learn asymmetric and non-linear relevance boundaries.
+\end{itemize}
+
+\subsection{Local Activation Score Function}
+{\boldmath
+\begin{equation}
+a_i = \mathbf{w}_2^T \operatorname{ReLU}\left( W_1 \mathbf{I}_i + \mathbf{b}_1 \right) + b_2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The feed-forward scalar regression evaluating candidate affinity for history item $i$.
+    \item \textbf{What It Means}: Estimates the relevance scalar between the user's past interaction and the current candidate.
+    \item \textbf{Why It Is Important}: Projects high-dimensional interaction manifolds into a scalar attention weight.
+\end{itemize}
+
+\subsection{Candidate-Conditioned User Interest Pooling}
+{\boldmath
+\begin{equation}
+\mathbf{v}_U(\mathbf{v}_A) = \sum_{i=1}^H w_i \mathbf{e}_i
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The weighted sum of historical item embeddings parameterized by candidate query $\mathbf{v}_A$.
+    \item \textbf{What It Means}: Synthesizes an ad-hoc user representation custom-tailored to the specific item being evaluated.
+    \item \textbf{Why It Is Important}: Resolves the fixed-capacity representation bottleneck of static user profile models.
+\end{itemize}
+
+\subsection{Total Attention Mass Metric}
+{\boldmath
+\begin{equation}
+M_{\text{attn}}(\mathbf{v}_A) = \sum_{i=1}^H w_i
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The unnormalized scalar sum of activation weights across the entire behavior history.
+    \item \textbf{What It Means}: Directly quantifies user historical engagement intensity and interest volume within the candidate's domain.
+    \item \textbf{Why It Is Important}: Preserves engagement frequency signals that are erased when using standard softmax normalization.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\mathbf{v}_A \in \mathbb{R}^D$ (candidate embedding), $\mathbf{e}_i \in \mathbb{R}^D$ (history embedding), $H$ (history length), $w_i$ (attention weight), $\mathbf{v}_U$ (user interest vector).
+    \item \textbf{Epistemic Status}: Proposed by Zhou et al. (Alibaba, KDD 2018), deployed across massive commercial display advertising platforms.
+    \item \textbf{Dependency Graph}: $(\mathbf{e}_i, \mathbf{v}_A) \to \mathbf{I}_i \to a_i \to w_i \to \mathbf{v}_U = \sum w_i \mathbf{e}_i \to \text{Top MLP Scoring}$.
+    \item \textbf{Dimensions}: Item dimension $D$, interaction dimension $4D$, attention hidden dimension $D_{\text{attn}}$, history count $H$.
+    \item \textbf{Regimes}: E-commerce CTR prediction with rich user interaction histories (clicks, add-to-carts, views).
+    \item \textbf{Invariants}: If $\mathbf{e}_i \perp \mathbf{v}_A$ for all $i$ and biases are zero, $w_i \approx 0$ and $\mathbf{v}_U \approx \mathbf{0}$.
+    \item \textbf{Isomorphisms}: DIN is isomorphic to cross-attention between a single target query token ($\mathbf{v}_A$) and a sequence of key/value tokens ($\mathbf{e}_i$) without causal masking.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Candidate-Conditioned Dynamic Manifold Diversity]
+Let $f(\mathbf{v}_A) \equiv \mathbf{v}_U(\mathbf{v}_A) = \sum_{i=1}^H w_i(\mathbf{v}_A) \mathbf{e}_i$ define the user interest mapping. If the historical set $\mathcal{H} = \{\mathbf{e}_1, \dots, \mathbf{e}_H\}$ contains at least two linearly independent vectors $\mathbf{e}_1 \not\propto \mathbf{e}_2$, then the image of $f$ has dimension strictly greater than 1:
+{\boldmath
+\begin{equation}
+\dim\left( \operatorname{span}\left( \{ f(\mathbf{v}_A) \mid \mathbf{v}_A \in \mathbb{R}^D \} \right) \right) \ge 2
+\end{equation}
+}
+In contrast, static pooling models $\mathbf{v}_U^{\text{static}} = \frac{1}{H}\sum_{i=1}^H \mathbf{e}_i$ have zero degrees of freedom ($\dim = 0$, a constant single point).
+\end{theorem}
+
+\begin{proof}
+Consider two candidates $\mathbf{v}_A^{(1)} = \mathbf{e}_1$ and $\mathbf{v}_A^{(2)} = \mathbf{e}_2$.
+By construction of the interaction vector:
+{\boldmath
+\begin{equation}
+\mathbf{I}(\mathbf{e}_1, \mathbf{v}_A^{(1)}) = [\mathbf{e}_1; \mathbf{e}_1; \mathbf{e}_1 \odot \mathbf{e}_1; \mathbf{0}]
+\end{equation}
+}
+Because the difference term $\mathbf{e}_1 - \mathbf{v}_A^{(1)} = \mathbf{0}$ and element-wise product is maximal, the trained activation unit assigns maximal weight $w_1(\mathbf{v}_A^{(1)}) = \alpha > 0$, while for orthogonal item $\mathbf{e}_2$, the difference $\|\mathbf{e}_2 - \mathbf{e}_1\|_2 > 0$ leads to $w_2(\mathbf{v}_A^{(1)}) = \epsilon \approx 0$.
+Thus $f(\mathbf{v}_A^{(1)}) \approx \alpha \mathbf{e}_1$.
+By identical symmetry, evaluating with candidate $\mathbf{v}_A^{(2)} = \mathbf{e}_2$ yields $w_2(\mathbf{v}_A^{(2)}) = \alpha > 0$ and $w_1(\mathbf{v}_A^{(2)}) \approx 0$, so $f(\mathbf{v}_A^{(2)}) \approx \alpha \mathbf{e}_2$.
+Since $\mathbf{e}_1$ and $\mathbf{e}_2$ are linearly independent, the span of $\{f(\mathbf{v}_A^{(1)}), f(\mathbf{v}_A^{(2)})\}$ has dimension 2:
+{\boldmath
+\begin{equation}
+\dim\left( \operatorname{span}\left( \{ f(\mathbf{v}_A) \} \right) \right) \ge 2
+\end{equation}
+}
+For static pooling, $\mathbf{v}_U^{\text{static}}$ is a constant vector independent of $\mathbf{v}_A$, with zero variance across candidates.
+\end{proof}
+
+\begin{theorem}[Preservation of Intensity Order under Unnormalized Summation]
+Let User 1 have history $\mathcal{H}_1 = \{\mathbf{e}\}$ (1 interaction) and User 2 have history $\mathcal{H}_2 = \{\mathbf{e}, \mathbf{e}, \dots, \mathbf{e}\}$ ($N$ identical interactions). Under unnormalized DIN attention with positive activation $w(\mathbf{e}, \mathbf{v}_A) = c > 0$:
+{\boldmath
+\begin{equation}
+\|\mathbf{v}_{U, 2}(\mathbf{v}_A)\|_2 = N \cdot \|\mathbf{v}_{U, 1}(\mathbf{v}_A)\|_2
+\end{equation}
+}
+Under standard softmax normalized attention, $\|\mathbf{v}_{U, 2}(\mathbf{v}_A)\|_2 = \|\mathbf{v}_{U, 1}(\mathbf{v}_A)\|_2$, destroying the frequency signal.
+\end{theorem}
+
+\begin{proof}
+For User 1, the unnormalized sum is:
+{\boldmath
+\begin{equation}
+\mathbf{v}_{U, 1} = w(\mathbf{e}, \mathbf{v}_A) \mathbf{e} = c \mathbf{e} \implies \|\mathbf{v}_{U, 1}\|_2 = c \|\mathbf{e}\|_2
+\end{equation}
+}
+For User 2 with $N$ identical items, the unnormalized sum is:
+{\boldmath
+\begin{equation}
+\mathbf{v}_{U, 2} = \sum_{i=1}^N w(\mathbf{e}, \mathbf{v}_A) \mathbf{e} = \sum_{i=1}^N c \mathbf{e} = N c \mathbf{e} \implies \|\mathbf{v}_{U, 2}\|_2 = N c \|\mathbf{e}\|_2 = N \|\mathbf{v}_{U, 1}\|_2
+\end{equation}
+}
+Now consider softmax normalization.
+For User 2, the softmax weight for each item is:
+{\boldmath
+\begin{equation}
+\widetilde{w}_i = \frac{\exp(s)}{\sum_{j=1}^N \exp(s)} = \frac{\exp(s)}{N \exp(s)} = \frac{1}{N}
+\end{equation}
+}
+The resulting normalized interest vector is:
+{\boldmath
+\begin{equation}
+\widetilde{\mathbf{v}}_{U, 2} = \sum_{i=1}^N \frac{1}{N} \mathbf{e} = \mathbf{e} = \widetilde{\mathbf{v}}_{U, 1}
+\end{equation}
+}
+Thus softmax normalization yields identical representations for 1 interaction and $N$ interactions, completely erasing behavioral frequency information.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Unnormalized vs Softmax Normalized Attention}
+\textbf{Question:} Why did Alibaba's DIN explicitly abandon standard softmax attention in favor of unnormalized attention?\\
+\textbf{Answer:} Softmax enforces $\sum w_i = 1$, which acts as a mathematical average. If a user is generally interested in sports (100 clicks) and casually clicked a shoe once (1 click), when evaluating sports ads, softmax assigns similar normalized weights regardless of whether the user clicked 5 times or 500 times. Unnormalized attention preserves total attention mass $\sum w_i$, providing a direct proxy for user interest volume and engagement strength.
+
+\textbf{Meta-Question:} Doesn't unnormalized attention cause activation explosion on very long histories?\\
+\textbf{Answer:} Yes. On histories with $H > 1000$, unnormalized attention can produce large output magnitudes that saturate downstream sigmoid layers. This is controlled via layer normalization, $L_2$ regularization, or logarithmic scaling of the aggregated vector.
+
+\subsection{Architectural Question 2: Lifelong Behavior Modeling (SIM and ETA)}
+\textbf{Question:} How is target attention scaled when users have tens of thousands of historical clicks ($H > 50,000$)?\\
+\textbf{Answer:} Evaluating the 4-way interaction MLP over 50,000 items per candidate during live serving violates strict latency budgets ($<20$ ms). Modern architectures (Search-based Interest Model, SIM, and ETA) use a two-stage approach: (1) General Search Unit (GSU) retrieves the top 100 most relevant items using category filters or vector indexes, and (2) Exact DIN attention is applied only over those top 100 items.
+
+\textbf{Meta-Question:} How does DIN compare to Deep Interest Evolution Network (DIEN)?\\
+\textbf{Answer:} DIEN extends DIN by adding an auxiliary loss and an Attention-over-GRU (AUGRU) to model sequential interest transitions over time, capturing how a user's interest evolved from casual browsing to committed purchase.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Deep Interest Network (DIN) Target-Dependent Attention Forward Pass}
+\begin{algorithmic}[1]
+\Require Candidate embedding $\mathbf{v}_A \in \mathbb{R}^D$, history embeddings $E \in \mathbb{R}^{H \times D}$, attention weights $W_1 \in \mathbb{R}^{D_{\text{attn}} \times 4D}$, $\mathbf{b}_1 \in \mathbb{R}^{D_{\text{attn}}}$, $\mathbf{w}_2 \in \mathbb{R}^{D_{\text{attn}}}$, bias $b_2 \in \mathbb{R}$, softmax flag $flag_{\text{norm}}$
+\Ensure User interest vector $\mathbf{v}_U \in \mathbb{R}^D$, attention weights $\mathbf{w} \in \mathbb{R}^H$, total mass $M$, dominant item index $i^*$
+\State Initialize raw scores $\mathbf{s} \in \mathbb{R}^H$
+\For{$i = 0$ \textbf{to} $H-1$} \Comment{Evaluate Local Activation Units}
+    \State $\mathbf{e}_i \gets E[i]$
+    \State $\mathbf{I} \gets [\mathbf{e}_i; \; \mathbf{v}_A; \; \mathbf{e}_i \odot \mathbf{v}_A; \; \mathbf{e}_i - \mathbf{v}_A] \in \mathbb{R}^{4D}$
+    \State Initialize hidden vector $\mathbf{h} \in \mathbb{R}^{D_{\text{attn}}}$
+    \For{$j = 0$ \textbf{to} $D_{\text{attn}}-1$}
+        \State $val \gets \sum_{k=0}^{4D-1} W_1[j][k] \cdot \mathbf{I}[k] + \mathbf{b}_1[j]$
+        \State $\mathbf{h}[j] \gets \max(0.0, val)$
+    \EndFor
+    \State $\mathbf{s}[i] \gets \sum_{j=0}^{D_{\text{attn}}-1} \mathbf{w}_2[j] \cdot \mathbf{h}[j] + b_2$
+\EndFor
+\State Initialize $\mathbf{w} \in \mathbb{R}^H$
+\If{$flag_{\text{norm}}$ is true} \Comment{Softmax Normalization}
+    \State $s_{\max} \gets \max_i \mathbf{s}[i]$
+    \State $sum\_exp \gets \sum_{i=0}^{H-1} \exp(\mathbf{s}[i] - s_{\max})$
+    \For{$i = 0$ \textbf{to} $H-1$}
+        \State $\mathbf{w}[i] \gets \exp(\mathbf{s}[i] - s_{\max}) / sum\_exp$
+    \EndFor
+\Else \Comment{Unnormalized Positive Activation}
+    \For{$i = 0$ \textbf{to} $H-1$}
+        \State $\mathbf{w}[i] \gets \max(0.0, \mathbf{s}[i])$
+    \EndFor
+\EndIf
+\State Initialize $\mathbf{v}_U \in \mathbb{R}^D$ to zeros
+\For{$i = 0$ \textbf{to} $H-1$} \Comment{Target-Dependent Weighted Aggregation}
+    \State $weight \gets \mathbf{w}[i]$
+    \For{$d = 0$ \textbf{to} $D-1$}
+        \State $\mathbf{v}_U[d] \gets \mathbf{v}_U[d] + weight \cdot E[i][d]$
+    \EndFor
+\EndFor
+\State $M \gets \sum_{i=0}^{H-1} \mathbf{w}[i], \quad i^* \gets \arg\max_{0 \le i < H} \mathbf{w}[i]$
+\State \Return $(\mathbf{v}_U, \mathbf{w}, M, i^*)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Activation Unit Time Complexity}: $\Theta(H \cdot (D_{\text{attn}} \cdot D))$ operations across $H$ historical interactions.
+    \item \textbf{History Aggregation Complexity}: $\Theta(H \cdot D)$ operations.
+    \item \textbf{Space Complexity}: $\Theta(H + D + D_{\text{attn}})$ for activation scores and interaction tensors.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log D + \log D_{\text{attn}} + \log H)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

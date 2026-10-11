@@ -1,0 +1,261 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Deep Learning Recommendation Model (DLRM)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Dual-Stream Hybrid Architecture, Gramian Dot-Product Interactions, and Top MLP Scoring):}
+Let $\mathbf{x}_{\text{dense}} \in \mathbb{R}^{D_{\text{dense}}}$ denote a continuous feature vector (e.g. historical click counts, account age, price), and let $\mathcal{S} = \{s_1, s_2, \dots, s_S\}$ denote $S$ categorical sparse feature indices (e.g. User ID, Ad ID, Query ID, Category ID). \textbf{Deep Learning Recommendation Model (DLRM)} processes dense and sparse modalities through decoupled specialized pathways:
+
+\begin{enumerate}
+    \item \textbf{Bottom MLP Stream}: Dense features pass through a bottom multilayer perceptron to match the embedding dimension $D$ of the sparse tables:
+    {\boldmath
+    \begin{equation}
+    \mathbf{v}_0 = \max\left( \mathbf{0}, \; W_{\text{bot}} \mathbf{x}_{\text{dense}} + \mathbf{b}_{\text{bot}} \right) \in \mathbb{R}^D, \quad W_{\text{bot}} \in \mathbb{R}^{D \times D_{\text{dense}}}
+    \end{equation}
+    }
+    \item \textbf{Sparse Embedding Stream}: Each sparse category index $s_i$ is mapped to a dense embedding vector via table lookup:
+    {\boldmath
+    \begin{equation}
+    \mathbf{v}_i = \operatorname{Lookup}(\mathcal{T}_i, s_i) \in \mathbb{R}^D, \quad i \in \{1, \dots, S\}
+    \end{equation}
+    }
+    \item \textbf{Explicit Pairwise Interaction Operator}: All $S + 1$ vectors are arranged into a unified matrix $V = [\mathbf{v}_0, \mathbf{v}_1, \dots, \mathbf{v}_S]^T \in \mathbb{R}^{(S+1) \times D}$. The interaction operator computes the Gramian matrix $M = V V^T \in \mathbb{R}^{(S+1) \times (S+1)}$ and flattens its strictly lower triangle:
+    {\boldmath
+    \begin{equation}
+    \boldsymbol{\phi}_{\text{inter}} = \operatorname{vech}_{\text{strict}}(V V^T) = \left[ \mathbf{v}_i \cdot \mathbf{v}_j \right]_{1 \le i \le S, \; 0 \le j < i} \in \mathbb{R}^{\frac{S(S+1)}{2}}
+    \end{equation}
+    }
+    \item \textbf{Top MLP Prediction Head}: The bottom representation $\mathbf{v}_0$ is concatenated with the interaction vector $\boldsymbol{\phi}_{\text{inter}}$ and scored:
+    {\boldmath
+    \begin{equation}
+    \widehat{y} = \sigma\left( \mathbf{w}_{\text{top}}^T [\mathbf{v}_0; \; \boldsymbol{\phi}_{\text{inter}}] + b_{\text{top}} \right) \in [0, 1]
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Why Recommender AI Differs from ChatGPT and Computer Vision}: Models like GPT or ResNet are compute-heavy: they spend 99\% of their time doing matrix multiplications on GPUs. In contrast, Meta's and ByteDance's recommender systems are memory-heavy: they store trillions of user and video IDs across terabytes of RAM.
+    \item \textbf{DLRM's Hybrid Architecture}: DLRM splits computation into two clean worlds:
+    \begin{itemize}
+        \item \emph{The Dense World}: Continuous numbers (user age, video length) are compressed into an embedding by the Bottom MLP.
+        \item \emph{The Sparse World}: Massive embedding tables lookup IDs into vectors.
+    \end{itemize}
+    \item \textbf{The Geometric Handshake (Dot-Product Interaction)}: Once all features (both dense and sparse) are translated into the same vector size $D$, DLRM evaluates pairwise dot products between every pair of features. This tells the system how well the user profile aligns with the ad category.
+    \item \textbf{Top MLP Decision Maker}: The Top MLP reviews all pairwise alignment scores and outputs the final calibrated probability of a click.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine assembling a fantasy trading-card tournament:
+\begin{itemize}
+    \item \textbf{The Player Stats Badge ($\mathbf{v}_0$)}: A card showing player speed and agility, stamped by the ref (Bottom MLP).
+    \item \textbf{The Rare Hero Cards ($\mathbf{v}_1, \dots, \mathbf{v}_S$)}: Gold foil cards drawn from your binder (Knight, Dragon, Wizard).
+    \item \textbf{The Circle of High-Fives ($\boldsymbol{\phi}_{\text{inter}}$)}: Every card in your team steps into a circle and high-fives every other card! If the Knight and Dragon work great together, their high-five makes a loud \emph{CLAP!} (high dot product).
+    \item \textbf{The Trophy Judge ($\widehat{y}$)}: The head judge listens to all the high-fives and awards the championship trophy!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Bottom MLP Representation}
+{\boldmath
+\begin{equation}
+v_{0, d} = \max\left( 0, \; \sum_{j=0}^{D_{\text{dense}}-1} W_{\text{bot}, d, j} x_{\text{dense}, j} + b_{\text{bot}, d} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The rectified linear projection mapping heterogeneous dense features into the shared embedding manifold.
+    \item \textbf{What It Means}: Bridges continuous numerical signals with categorical embeddings so they share identical dimensional geometry.
+    \item \textbf{Why It Is Important}: Allows continuous features to participate directly in dot-product interactions alongside discrete entity embeddings.
+\end{itemize}
+
+\subsection{Pairwise Gramian Dot-Product Interaction}
+{\boldmath
+\begin{equation}
+M_{i, j} = \mathbf{v}_i \cdot \mathbf{v}_j = \sum_{d=0}^{D-1} v_{i, d} v_{j, d}, \quad 0 \le j < i \le S
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The scalar dot product between embedding vectors $i$ and $j$ in the unified feature set.
+    \item \textbf{What It Means}: Measures bilateral geometric similarity and directional alignment between feature pairs.
+    \item \textbf{Why It Is Important}: Provides explicit 2nd-order feature crosses without learnable interaction parameters, cutting memory overhead.
+\end{itemize}
+
+\subsection{Strict Lower-Triangular Vectorization}
+{\boldmath
+\begin{equation}
+\boldsymbol{\phi}_{\text{inter}} = [M_{1, 0}, \; M_{2, 0}, \; M_{2, 1}, \; M_{3, 0}, \; \dots, \; M_{S, S-1}]^T \in \mathbb{R}^{\frac{S(S+1)}{2}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The half-vectorization operator collecting off-diagonal unique elements of the symmetric Gram matrix.
+    \item \textbf{What It Means}: Removes redundant symmetric duplicates ($M_{j, i} = M_{i, j}$) and self-interactions ($M_{i, i} = \|\mathbf{v}_i\|^2$).
+    \item \textbf{Why It Is Important}: Reduces the interaction vector size by more than half while preserving complete mutual interaction information.
+\end{itemize}
+
+\subsection{Top MLP Scoring and Logistic Calibration}
+{\boldmath
+\begin{equation}
+\widehat{y} = \sigma\left( \mathbf{w}_{\text{top}}^T [\mathbf{v}_0; \; \boldsymbol{\phi}_{\text{inter}}] + b_{\text{top}} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The final classification projection layer followed by the logistic sigmoid link function.
+    \item \textbf{What It Means}: Synthesizes explicit feature interaction scores into an actionable click or conversion probability.
+    \item \textbf{Why It Is Important}: Calibrates predictions for downstream real-time bidding, ranking, and revenue optimization.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $D_{\text{dense}}$ (dense dimension), $D$ (embedding dimension), $S$ (sparse feature count), $\mathbf{v}_0$ (bottom dense representation), $\boldsymbol{\phi}_{\text{inter}}$ (interaction vector), $\widehat{y}$ (predicted probability).
+    \item \textbf{Epistemic Status}: Developed by Naumov et al. (Meta AI, 2019), fundamental workload benchmark for MLPerf training and inference systems.
+    \item \textbf{Dependency Graph}: $\mathbf{x}_{\text{dense}} \to \mathbf{v}_0$ and $\{s_i\} \to \{\mathbf{v}_i\} \to M = V V^T \to \boldsymbol{\phi}_{\text{inter}} \to [\mathbf{v}_0; \boldsymbol{\phi}_{\text{inter}}] \to \text{Top MLP} \to \widehat{y}$.
+    \item \textbf{Dimensions}: Total interaction length $K_{\text{inter}} = \frac{S(S+1)}{2}$, Top MLP input dimension $D + K_{\text{inter}}$, output scalar $\widehat{y} \in [0, 1]$.
+    \item \textbf{Regimes}: Production click-through rate (CTR) prediction, ad ranking, content recommendations at terabyte table scale.
+    \item \textbf{Invariants}: Symmetric Gram matrix: $M = M^T$; interaction vector length strictly equals $\frac{S(S+1)}{2}$.
+    \item \textbf{Isomorphisms}: The interaction operator is isomorphic to the Factorization Machine (FM) interaction layer evaluated on concatenated dense and sparse embeddings.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Combinatorial Dimension of the Strict Interaction Subspace]
+Let $V \in \mathbb{R}^{(S+1) \times D}$ denote the matrix containing 1 bottom dense vector and $S$ sparse embedding vectors. The number of unique off-diagonal pairwise dot products in $V V^T$ is strictly:
+{\boldmath
+\begin{equation}
+N_{\text{inter}} = \frac{S(S + 1)}{2}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+The total number of vectors in $V$ is $N_{\text{total}} = S + 1$.
+The Gramian matrix $M = V V^T$ has size $(S + 1) \times (S + 1)$, containing $(S + 1)^2$ total entries.
+Because the matrix product satisfies $(V V^T)^T = (V^T)^T V^T = V V^T$, $M$ is symmetric: $M_{i, j} = M_{j, i}$ for all $i, j \in \{0, \dots, S\}$.
+The diagonal elements $M_{i, i} = \|\mathbf{v}_i\|_2^2$ count $S + 1$ self-interactions.
+Subtracting the diagonal entries leaves $(S + 1)^2 - (S + 1) = (S + 1)(S + 1 - 1) = S(S + 1)$ off-diagonal entries.
+Due to symmetry $M_{i, j} = M_{j, i}$, the off-diagonal entries partition into two identical triangular halves (upper and lower).
+Therefore, the number of unique pairwise interaction terms in the strict lower triangle is:
+{\boldmath
+\begin{equation}
+N_{\text{inter}} = \frac{S(S + 1)}{2}
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\begin{theorem}[Orthogonality Annihilation of Pairwise Interactions]
+If the sparse embedding vectors $\{\mathbf{v}_1, \dots, \mathbf{v}_S\}$ and bottom dense vector $\mathbf{v}_0$ form an orthogonal set ($\mathbf{v}_i \cdot \mathbf{v}_j = 0$ for all $i \neq j$), then the interaction vector vanishes identically:
+{\boldmath
+\begin{equation}
+\boldsymbol{\phi}_{\text{inter}} = \mathbf{0}
+\end{equation}
+}
+and the Top MLP output reduces strictly to a function of the dense representation $\mathbf{v}_0$: $\widehat{y} = \sigma(\mathbf{w}_{\text{dense}}^T \mathbf{v}_0 + b_{\text{top}})$.
+\end{theorem}
+
+\begin{proof}
+By definition of the interaction vector:
+{\boldmath
+\begin{equation}
+\boldsymbol{\phi}_{\text{inter}} = \left[ \mathbf{v}_i \cdot \mathbf{v}_j \right]_{1 \le i \le S, \; 0 \le j < i}
+\end{equation}
+}
+If all vectors in $\{\mathbf{v}_0, \mathbf{v}_1, \dots, \mathbf{v}_S\}$ are mutually orthogonal, then $\mathbf{v}_i \cdot \mathbf{v}_j = 0$ for every distinct pair $(i, j)$ with $i \neq j$.
+Consequently, every scalar element of $\boldsymbol{\phi}_{\text{inter}}$ is zero, so $\boldsymbol{\phi}_{\text{inter}} = \mathbf{0}$.
+Now examining the input to the Top MLP:
+{\boldmath
+\begin{equation}
+\mathbf{z}_{\text{top}} = [\mathbf{v}_0; \; \boldsymbol{\phi}_{\text{inter}}] = [\mathbf{v}_0; \; \mathbf{0}]
+\end{equation}
+}
+Partitioning the top weight vector as $\mathbf{w}_{\text{top}} = [\mathbf{w}_{\text{dense}}; \; \mathbf{w}_{\text{inter}}]$ where $\mathbf{w}_{\text{dense}} \in \mathbb{R}^D$ and $\mathbf{w}_{\text{inter}} \in \mathbb{R}^{N_{\text{inter}}}$:
+{\boldmath
+\begin{align}
+\mathbf{w}_{\text{top}}^T \mathbf{z}_{\text{top}} + b_{\text{top}} &= \mathbf{w}_{\text{dense}}^T \mathbf{v}_0 + \mathbf{w}_{\text{inter}}^T \mathbf{0} + b_{\text{top}} = \mathbf{w}_{\text{dense}}^T \mathbf{v}_0 + b_{\text{top}}
+\end{align}
+}
+Applying the sigmoid activation gives $\widehat{y} = \sigma(\mathbf{w}_{\text{dense}}^T \mathbf{v}_0 + b_{\text{top}})$, proving complete decoupling from sparse embeddings under mutual orthogonality.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Hybrid Model Parallelism vs Data Parallelism}
+\textbf{Question:} Why cannot DLRM be trained using standard data parallelism across GPU clusters?\\
+\textbf{Answer:} Recommender embedding tables often reach hundreds of gigabytes or terabytes, far exceeding the memory capacity of a single GPU (80 GB). DLRM uses a hybrid distributed paradigm: (1) \emph{Model Parallelism} shards embedding tables across multiple GPU memories, and (2) \emph{Data Parallelism} replicates Bottom and Top MLPs across GPUs. An All-to-All communication collective exchanges looked-up embeddings across devices.
+
+\textbf{Meta-Question:} What is the primary hardware bottleneck during DLRM training?\\
+\textbf{Answer:} Memory bandwidth and All-to-All inter-GPU interconnect bandwidth (NVLink / InfiniBand). Unlike Vision or NLP models which saturate Tensor Core compute, DLRM spends the majority of training time waiting on sparse memory gathers and collective communication.
+
+\subsection{Architectural Question 2: Hashing Tricks and Compositional Embeddings}
+\textbf{Question:} How do systems compress terabyte-scale embedding tables to fit within limited memory?\\
+\textbf{Answer:} Through two primary techniques: (1) \emph{Hashing Trick}: hashing sparse entity IDs into a smaller fixed bucket count $B \ll |\mathcal{I}|$ using modulo hashing (collisions share representations), and (2) \emph{Compositional Embeddings (Quotient-Remainder Trick)}: mapping an ID to two smaller tables of size $Q$ and $R$ via $q = \lfloor \text{ID} / R \rfloor$ and $r = \text{ID} \bmod R$, representing the ID as $\mathbf{v} = \mathbf{v}_q^Q + \mathbf{v}_r^R$, reducing parameter count by thousands of times.
+
+\textbf{Meta-Question:} How do hashing collisions affect model accuracy?\\
+\textbf{Answer:} Mild collision rates ($<10\%$) have negligible impact on CTR prediction because categorical features share contextual correlations. However, extreme collision rates degrade tail entity ranking, which is mitigated using double hashing or frequency-based dimension allocation.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{DLRM Dual-Stream Evaluation, Gramian Interaction, and Top MLP Scoring}
+\begin{algorithmic}[1]
+\Require Dense features $\mathbf{x}_{\text{dense}} \in \mathbb{R}^{D_{\text{dense}}}$, sparse embeddings $V_{\text{sparse}} \in \mathbb{R}^{S \times D}$, bottom weights $W_{\text{bot}} \in \mathbb{R}^{D \times D_{\text{dense}}}$, bias $\mathbf{b}_{\text{bot}} \in \mathbb{R}^D$, top weights $\mathbf{w}_{\text{top}} \in \mathbb{R}^{D + \frac{S(S+1)}{2}}$, scalar bias $b_{\text{top}}$
+\Ensure Bottom vector $\mathbf{v}_0 \in \mathbb{R}^D$, interaction vector $\boldsymbol{\phi} \in \mathbb{R}^{\frac{S(S+1)}{2}}$, predicted probability $\widehat{y}$, interaction energy $E_{\text{inter}}$
+\State Initialize $\mathbf{v}_0 \in \mathbb{R}^D$
+\For{$d = 0$ \textbf{to} $D-1$} \Comment{Bottom MLP Dense Transformation}
+    \State $val \gets \sum_{j=0}^{D_{\text{dense}}-1} W_{\text{bot}}[d][j] \cdot \mathbf{x}_{\text{dense}}[j] + \mathbf{b}_{\text{bot}}[d]$
+    \State $\mathbf{v}_0[d] \gets \max(0.0, val)$
+\EndFor
+\State $V_{\text{all}} \gets [\mathbf{v}_0; \; V_{\text{sparse}}] \in \mathbb{R}^{(S+1) \times D}$ \Comment{Combine Vectors}
+\State Initialize dynamic array $\boldsymbol{\phi}$
+\For{$i = 1$ \textbf{to} $S$} \Comment{Extract Strict Lower Triangle of Gram Matrix}
+    \For{$j = 0$ \textbf{to} $i-1$}
+        \State $dot \gets \sum_{d=0}^{D-1} V_{\text{all}}[i][d] \cdot V_{\text{all}}[j][d]$
+        \State Append $dot$ to $\boldsymbol{\phi}$
+    \EndFor
+\EndFor
+\State $\mathbf{z}_{\text{top}} \gets [\mathbf{v}_0; \; \boldsymbol{\phi}] \in \mathbb{R}^{D + \frac{S(S+1)}{2}}$
+\State $t\_logit \gets \sum_{k=0}^{\operatorname{len}(\mathbf{z}_{\text{top}})-1} \mathbf{w}_{\text{top}}[k] \cdot \mathbf{z}_{\text{top}}[k] + b_{\text{top}}$ \Comment{Top MLP Scoring}
+\State $\widehat{y} \gets (t\_logit \ge 0) \;?\; \frac{1}{1 + \exp(-t\_logit)} : \frac{\exp(t\_logit)}{1 + \exp(t\_logit)}$
+\State $E_{\text{inter}} \gets \sqrt{\sum_{k} \boldsymbol{\phi}[k]^2}$
+\State \Return $(\mathbf{v}_0, \boldsymbol{\phi}, \widehat{y}, E_{\text{inter}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Bottom MLP Time Complexity}: $\Theta(D \cdot D_{\text{dense}})$ scalar multiply-accumulate operations.
+    \item \textbf{Pairwise Dot-Product Complexity}: $\Theta(S^2 \cdot D)$ scalar operations for the lower triangle of the Gram matrix.
+    \item \textbf{Top MLP Scoring Complexity}: $\Theta(D + S^2)$ operations.
+    \item \textbf{Space Complexity}: $\Theta(D + S^2)$ for intermediate interaction vectors.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log D_{\text{dense}} + \log D + \log S)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

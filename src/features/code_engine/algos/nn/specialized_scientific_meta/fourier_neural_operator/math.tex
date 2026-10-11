@@ -1,0 +1,268 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Fourier Neural Operator}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Fourier Neural Operator and Non-Local Integral Kernels):}
+Let $D \subset \mathbb{R}^d$ be a bounded domain and let $\mathcal{A} = \mathcal{A}(D; \mathbb{R}^{d_a})$ and $\mathcal{U} = \mathcal{U}(D; \mathbb{R}^{d_u})$ denote Banach spaces of functions representing input parameters (e.g. initial conditions, coefficients) and PDE solutions respectively. A non-linear differential operator maps $\mathcal{G}^\dagger: \mathcal{A} \to \mathcal{U}$.
+
+A \textbf{Fourier Neural Operator (FNO)} approximates $\mathcal{G}^\dagger$ as a composite mapping:
+{\boldmath
+\begin{equation}
+\mathcal{G}_\theta = \mathcal{Q} \circ (\mathcal{K}_{L-1} \circ \cdots \circ \mathcal{K}_1 \circ \mathcal{K}_0) \circ \mathcal{P}
+\end{equation}
+}
+where $\mathcal{P}: \mathbb{R}^{d_a} \to \mathbb{R}^{d_v}$ is a local lifting network, $\mathcal{Q}: \mathbb{R}^{d_v} \to \mathbb{R}^{d_u}$ is a local projection network, and each Fourier layer $\mathcal{K}_l$ computes:
+{\boldmath
+\begin{equation}
+v_{l+1}(x) = \sigma \left( W v_l(x) + (\mathcal{K}(a; \phi) v_l)(x) \right), \quad \forall x \in D
+\end{equation}
+}
+where $W \in \mathbb{R}^{d_v \times d_v}$ is a local linear transformation, $\sigma$ is a component-wise non-linear activation function, and the non-local kernel integral operator is parameterized directly in Fourier space:
+{\boldmath
+\begin{equation}
+(\mathcal{K}(\phi) v_l)(x) = \mathcal{F}^{-1} \left( R_\phi \cdot (\mathcal{F} v_l) \right)(x)
+\end{equation}
+}
+Here $\mathcal{F}$ and $\mathcal{F}^{-1}$ denote forward and inverse Fourier transforms, and $R_\phi \in \mathbb{C}^{d_v \times d_v \times k_{\max}}$ is a tensor of learnable complex weights truncated at maximum frequency modes $k_{\max}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Learning Operators Rather than Functions}: Standard neural networks map vectors to vectors (e.g. pixels to dog/cat). FNO maps entire continuous functions to entire continuous functions (e.g. wind velocity map at 8 AM to wind velocity map at 5 PM).
+    \item \textbf{Global Sight Without Giant Convolutions}: In regular ConvNets, a $3 \times 3$ filter only sees neighboring pixels; seeing the whole image requires dozens of deep layers. In the frequency domain, a single Fourier mode captures physical waves spanning across the entire ocean or planet instantaneously.
+    \item \textbf{Zero-Shot Super-Resolution (Mesh Independence)}: Because waves (sines and cosines) are defined continuously across space, an FNO trained on a coarse $64 \times 64$ weather grid can be evaluated directly on an ultra-high-definition $1024 \times 1024$ grid without retraining!
+    \item \textbf{Spectral Convolution as Matrix Multiplication}: Transforming to frequency space turns complex spatial convolutions into fast point-wise complex matrix multiplications, cutting simulation time by thousands of times compared to traditional solvers.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine listening to a symphony:
+\begin{itemize}
+    \item \textbf{The Tangled Soundwave}: In the physical room, billions of air molecules vibrate wildly every microsecond.
+    \item \textbf{The Musical Score}: The Fourier transform acts like magical ears that separate the chaos into clean musical notes: Bass (low pitch), Cello (medium), and Flute (high).
+    \item \textbf{The Soundboard Operator}: FNO acts like an audio mixing board: it adjusts the volume and timing of each musical note directly.
+    \item \textbf{Instant Replay}: When you convert the tuned notes back into sound, the entire stadium hears the perfect harmonic song everywhere at once!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Forward Discrete Fourier Transform Operator}
+{\boldmath
+\begin{equation}
+(\mathcal{F} v_l)_k = \sum_{n=0}^{N-1} v_l[n] \exp\left( -i \frac{2\pi k n}{N} \right), \quad k \in \{0, \dots, k_{\max}-1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The truncated discrete projection of the spatial field onto the orthogonal basis of harmonic complex exponentials.
+    \item \textbf{What It Means}: Decomposes the spatial state into its dominant long-wavelength spectral components.
+    \item \textbf{Why It Is Important}: Allows the operator to capture global physical coupling in a compact frequency-domain representation.
+\end{itemize}
+
+\subsection{Spectral Complex Matrix Parameterization}
+{\boldmath
+\begin{equation}
+Y[k] = R[k] \cdot (\mathcal{F} v_l)_k = (R_{\text{re}}[k] + i R_{\text{im}}[k]) (X_{\text{re}}[k] + i X_{\text{im}}[k])
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Mode-wise complex linear transformation parameterized by learnable tensors $R \in \mathbb{C}^{k_{\max}}$.
+    \item \textbf{What It Means}: Linearly mixes and phase-shifts the spectral harmonics of the physical field.
+    \item \textbf{Why It Is Important}: Implements a translation-invariant Green's function convolution kernel in frequency space via the convolution theorem.
+\end{itemize}
+
+\subsection{Inverse Fourier Synthesis with Hermitian Symmetry}
+{\boldmath
+\begin{equation}
+(\mathcal{K} v_l)[n] = \frac{1}{N} \left[ Y[0] + 2 \sum_{k=1}^{k_{\max}-1} \left( Y_{\text{re}}[k] \cos\left(\frac{2\pi k n}{N}\right) - Y_{\text{im}}[k] \sin\left(\frac{2\pi k n}{N}\right) \right) \right]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The discrete inverse Fourier transform reconstructing the continuous real-valued spatial field from truncated frequency coefficients.
+    \item \textbf{What It Means}: Reconstructs the non-local filtered spatial field while preserving real-valued outputs through conjugate symmetry.
+    \item \textbf{Why It Is Important}: Maps the frequency-domain interactions back to the physical coordinate domain for point-wise non-linear updates.
+\end{itemize}
+
+\subsection{Local Shortcut and Non-linear Layer Update}
+{\boldmath
+\begin{equation}
+v_{l+1}[n] = \max\left( 0, \; W v_l[n] + (\mathcal{K} v_l)[n] \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The combined non-local spectral convolution and local point-wise linear transform activated by a non-linearity.
+    \item \textbf{What It Means}: Blends non-local global wave interactions with local point-wise residual features.
+    \item \textbf{Why It Is Important}: Prevents loss of high-frequency local features removed by spectral truncation and enables deep composition of non-linear operators.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\mathcal{G}_\theta$ (operator network), $v_l$ (hidden field state), $R_\phi$ (complex spectral weights), $k_{\max}$ (retained Fourier modes), $N$ (spatial grid discretization count).
+    \item \textbf{Epistemic Status}: Established scientific ML paradigm by Li et al. (2020), proven to satisfy universal operator approximation on compact domains.
+    \item \textbf{Dependency Graph}: Lifting $\mathcal{P} \to$ [FFT $\to$ Complex Spectral Mult $\to$ IFFT + Local Skip $W \to$ Activation $\sigma$]$^L \to$ Projection $\mathcal{Q}$.
+    \item \textbf{Dimensions}: Spatial signal $v \in \mathbb{R}^N$, Fourier modes $k \in \{0, \dots, k_{\max}-1\}$ with $k_{\max} \le N/2$, weights $R \in \mathbb{C}^{k_{\max}}$.
+    \item \textbf{Regimes}: Dominates when the governing PDE is smooth and continuous (Navier-Stokes, Burgers, Darcy flow); degrades when solutions exhibit shocks or discontinuities (discontinuous Galerkin regimes).
+    \item \textbf{Invariants}: Translation equivariance in periodic domains; mesh-resolution invariance.
+    \item \textbf{Isomorphisms}: Convolution in spatial domain $\Leftrightarrow$ Pointwise multiplication in frequency domain via the Convolution Theorem.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Mesh Invariance of the Fourier Neural Operator]
+Let $v \in L^2(D)$ be a continuous square-integrable field over torus $\mathbb{T}^d$, and let $P_N(v)$ denote its discrete sampling on a uniform grid of resolution $N$. Let $\mathcal{K}$ be an FNO layer with fixed frequency cutoff $k_{\max}$. If $N > 2 k_{\max}$, the operator output evaluated at any continuous coordinate $x \in D$ is invariant to grid resolution $N$:
+{\boldmath
+\begin{equation}
+\lim_{N \to \infty} \mathcal{K}(P_N(v))(x) = \mathcal{K}(v)(x)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $v(x) = \sum_{k=-\infty}^\infty c_k e^{i 2\pi k x}$ be the Fourier series of $v(x)$.
+The discrete Fourier coefficients $\hat{v}_N[k]$ obtained from grid $P_N(v)$ with spacing $h = 1/N$ satisfy the Poisson summation formula / aliasing relation:
+{\boldmath
+\begin{equation}
+\hat{v}_N[k] = c_k + \sum_{m \neq 0} c_{k + m N}
+\end{equation}
+}
+Since $v \in L^2(D)$, the Fourier coefficients decay such that $\lim_{|k| \to \infty} |c_k| = 0$.
+The spectral convolution operator only acts on modes $|k| < k_{\max}$.
+For any resolution $N > 2 k_{\max}$, the aliased terms $c_{k + mN}$ have indices $|k + mN| \ge N - k_{\max} > k_{\max}$.
+Therefore, as $N \to \infty$, the aliasing error vanishes:
+{\boldmath
+\begin{equation}
+\lim_{N \to \infty} |\hat{v}_N[k] - c_k| = 0, \quad \forall |k| < k_{\max}
+\end{equation}
+}
+Because the weights $R[k]$ are defined solely for $|k| < k_{\max}$, the continuous interpolation of the output yields:
+{\boldmath
+\begin{equation}
+\mathcal{K}(P_N(v))(x) = \sum_{|k| < k_{\max}} R[k] \hat{v}_N[k] e^{i 2\pi k x} \xrightarrow{N \to \infty} \sum_{|k| < k_{\max}} R[k] c_k e^{i 2\pi k x} = \mathcal{K}(v)(x)
+\end{equation}
+}
+Thus the FNO operator converges to the continuous operator independently of the mesh resolution.
+\end{proof}
+
+\begin{theorem}[Spectral Energy Preservation and Truncation Bound]
+Let $E_{\text{total}} = \frac{1}{N} \sum_{n=0}^{N-1} |v[n]|^2$ be the total signal energy. Truncating to $k_{\max}$ Fourier modes guarantees that the retained spectral energy satisfies Parseval's identity:
+{\boldmath
+\begin{equation}
+E_{\text{retained}} = \frac{1}{N^2} \left[ |X[0]|^2 + 2 \sum_{k=1}^{k_{\max}-1} |X[k]|^2 \right] \le E_{\text{total}}
+\end{equation}
+}
+with truncation power error bounded by the Sobolev decay rate $\|v\|_{H^s}$.
+\end{theorem}
+
+\begin{proof}
+By Parseval's discrete theorem:
+{\boldmath
+\begin{equation}
+\sum_{n=0}^{N-1} |v[n]|^2 = \frac{1}{N} \sum_{k=0}^{N-1} |X[k]|^2
+\end{equation}
+}
+Dividing by $N$ gives the total average power $E_{\text{total}} = \frac{1}{N^2} \sum_{k=0}^{N-1} |X[k]|^2$.
+For real signals, $|X[N-k]| = |X[k]|$, so the summation partitions into:
+{\boldmath
+\begin{equation}
+E_{\text{total}} = \frac{1}{N^2} \left[ |X[0]|^2 + 2 \sum_{k=1}^{k_{\max}-1} |X[k]|^2 + \sum_{k=k_{\max}}^{N - k_{\max}} |X[k]|^2 \right]
+\end{equation}
+}
+Since all squared terms $|X[k]|^2 \ge 0$, we have $E_{\text{retained}} \le E_{\text{total}}$, with residual high-frequency energy $E_{\text{trunc}} = E_{\text{total}} - E_{\text{retained}} \ge 0$.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Global vs Local Receptive Fields}
+\textbf{Question:} Why does FNO perform better than standard Convolutional Neural Networks on PDE problems?\\
+\textbf{Answer:} PDEs are governed by non-local boundary conditions and elliptic/parabolic propagations where changes at one boundary affect the entire domain instantaneously. Standard CNNs require receptive fields that grow linearly with layer depth, requiring dozens of layers to communicate across the domain. FNO's Fourier multiplication computes a global integral operator with infinite receptive field in a single layer.
+
+\textbf{Meta-Question:} When does FNO fail compared to CNNs?\\
+\textbf{Answer:} FNO fails on non-periodic boundaries with sharp discontinuities or localized shocks (e.g. supersonic shock waves), where global Fourier representations suffer from Gibbs oscillations. In such cases, wavelet or spatial graph operators are preferred.
+
+\subsection{Architectural Question 2: Super-Resolution Generalization}
+\textbf{Question:} Can an FNO trained on $32 \times 32$ data accurately predict on a $256 \times 256$ grid?\\
+\textbf{Answer:} Yes. Because FNO parameters are defined on frequency indices rather than spatial coordinates, the learned weights $R[k]$ operate on the continuous wave modes of the PDE. Evaluating on a higher-resolution grid simply samples the same continuous wave modes at finer spatial intervals.
+
+\textbf{Meta-Question:} Does zero-shot super-resolution capture fine turbulent eddies?\\
+\textbf{Answer:} No. FNO will correctly resolve the large-scale structures up to mode $k_{\max}$, but cannot predict newly created high-frequency eddies beyond $k_{\max}$ without sub-grid scale modeling or multi-scale architectures.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Fourier Neural Operator Layer Forward Pass}
+\begin{algorithmic}[1]
+\Require Spatial signal $\mathbf{x} \in \mathbb{R}^N$, complex weights $R_{\text{re}}, R_{\text{im}} \in \mathbb{R}^{k_{\max}}$, local weight $W \in \mathbb{R}$, mode count $k_{\max}$
+\Ensure Transformed signal $\mathbf{v}_{\text{next}} \in \mathbb{R}^N$, retained energy $E_{\text{ret}}$, total power $E_{\text{tot}}$, truncated power $E_{\text{trunc}}$
+\State $E_{\text{ret}} \gets 0.0, \quad \theta_{\text{step}} \gets 2\pi / N$
+\State Initialize arrays $\mathbf{X}_{\text{re}}, \mathbf{X}_{\text{im}} \in \mathbb{R}^{k_{\max}}$
+\For{$k = 0$ \textbf{to} $k_{\max}-1$} \Comment{Truncated Forward DFT}
+    \State $re \gets 0.0, \quad im \gets 0.0$
+    \For{$n = 0$ \textbf{to} $N-1$}
+        \State $\theta \gets \theta_{\text{step}} \cdot (k \cdot n)$
+        \State $re \gets re + \mathbf{x}[n] \cdot \cos(\theta)$
+        \State $im \gets im - \mathbf{x}[n] \cdot \sin(\theta)$
+    \EndFor
+    \State $\mathbf{X}_{\text{re}}[k] \gets re, \quad \mathbf{X}_{\text{im}}[k] \gets im$
+    \State $E_{\text{ret}} \gets E_{\text{ret}} + (re^2 + im^2) / N$
+\EndFor
+\State Initialize arrays $\mathbf{Y}_{\text{re}}, \mathbf{Y}_{\text{im}} \in \mathbb{R}^{k_{\max}}$
+\For{$k = 0$ \textbf{to} $k_{\max}-1$} \Comment{Spectral Multiplication}
+    \State $\mathbf{Y}_{\text{re}}[k] \gets R_{\text{re}}[k] \cdot \mathbf{X}_{\text{re}}[k] - R_{\text{im}}[k] \cdot \mathbf{X}_{\text{im}}[k]$
+    \State $\mathbf{Y}_{\text{im}}[k] \gets R_{\text{re}}[k] \cdot \mathbf{X}_{\text{im}}[k] + R_{\text{im}}[k] \cdot \mathbf{X}_{\text{re}}[k]$
+\EndFor
+\State Initialize $\mathbf{v}_{\text{idft}} \in \mathbb{R}^N$
+\For{$n = 0$ \textbf{to} $N-1$} \Comment{Truncated Inverse DFT}
+    \State $val \gets \mathbf{Y}_{\text{re}}[0]$
+    \For{$k = 1$ \textbf{to} $k_{\max}-1$}
+        \State $\theta \gets \theta_{\text{step}} \cdot (k \cdot n)$
+        \State $val \gets val + 2.0 \cdot (\mathbf{Y}_{\text{re}}[k] \cdot \cos(\theta) - \mathbf{Y}_{\text{im}}[k] \cdot \sin(\theta))$
+    \EndFor
+    \State $\mathbf{v}_{\text{idft}}[n] \gets val / N$
+\EndFor
+\State Initialize $\mathbf{v}_{\text{next}} \in \mathbb{R}^N, \quad E_{\text{tot}} \gets 0.0$
+\For{$n = 0$ \textbf{to} $N-1$} \Comment{Skip Connection + Activation}
+    \State $E_{\text{tot}} \gets E_{\text{tot}} + \mathbf{x}[n]^2$
+    \State $\mathbf{v}_{\text{next}}[n] \gets \max(0.0, W \cdot \mathbf{x}[n] + \mathbf{v}_{\text{idft}}[n])$
+\EndFor
+\State $E_{\text{trunc}} \gets \max(0.0, E_{\text{tot}} - E_{\text{ret}})$
+\State \Return $(\mathbf{v}_{\text{next}}, E_{\text{ret}}, E_{\text{tot}}, E_{\text{trunc}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Truncated DFT Time Complexity}: $\Theta(N \cdot k_{\max})$ scalar operations using truncated discrete Fourier evaluation (or $\Theta(N \log N)$ when using standard FFT algorithms).
+    \item \textbf{Spectral Convolution Complexity}: $\Theta(k_{\max})$ complex scalar operations.
+    \item \textbf{Inverse Synthesis Complexity}: $\Theta(N \cdot k_{\max})$ scalar operations to synthesize real-space fields.
+    \item \textbf{Space Complexity}: $\Theta(N + k_{\max})$ for intermediate spectral buffers.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log N)$ on distributed parallel architectures.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

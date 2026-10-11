@@ -1,0 +1,296 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Prototypical Networks for Few-Shot Learning}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Metric-Space Prototypical Representation and Episodic Classification):}
+Let $\mathcal{S} = \{(\mathbf{x}_i, y_i)\}_{i=1}^{N_s}$ denote a support set of labeled examples where $y_i \in \{1, \dots, K\}$, and let $\mathcal{S}_k \subset \mathcal{S}$ denote the subset of examples belonging to class $k$. Let $f_\phi: \mathcal{X} \to \mathbb{R}^D$ denote an embedding function parameterized by learnable weights $\phi$.
+
+The \textbf{Class Prototype} $\mathbf{c}_k \in \mathbb{R}^D$ is the arithmetic mean vector of the embedded support points belonging to class $k$:
+{\boldmath
+\begin{equation}
+\mathbf{c}_k = \frac{1}{|\mathcal{S}_k|} \sum_{(\mathbf{x}_i, y_i) \in \mathcal{S}_k} f_\phi(\mathbf{x}_i)
+\end{equation}
+}
+Given a query sample $\mathbf{x} \in \mathcal{X}$ and distance metric $d: \mathbb{R}^D \times \mathbb{R}^D \to \mathbb{R}_{\ge 0}$ (the standard Euclidean squared distance $d(\mathbf{u}, \mathbf{v}) = \|\mathbf{u} - \mathbf{v}\|_2^2$), Prototypical Networks define a distribution over classes via softmax over negative distances:
+{\boldmath
+\begin{equation}
+p_\phi(y = k \mid \mathbf{x}) = \frac{\exp\left( -d(f_\phi(\mathbf{x}), \mathbf{c}_k) \right)}{\sum_{j=1}^K \exp\left( -d(f_\phi(\mathbf{x}), \mathbf{c}_j) \right)}
+\end{equation}
+}
+Training proceeds episodically via negative log-probability minimization on query sets $\mathcal{Q}_k$:
+{\boldmath
+\begin{equation}
+\mathcal{L}(\phi) = \frac{1}{\sum_k |\mathcal{Q}_k|} \sum_{k=1}^K \sum_{\mathbf{x} \in \mathcal{Q}_k} \left[ d(f_\phi(\mathbf{x}), \mathbf{c}_k) + \log \sum_{j=1}^K \exp\left( -d(f_\phi(\mathbf{x}), \mathbf{c}_j) \right) \right]
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{How Humans Learn with Few Examples}: If a toddler sees 3 pictures of an armadillo for the first time in their life, they don't need 10,000 photos and 50 hours of training. They immediately recognize an armadillo in a cartoon or zoo.
+    \item \textbf{The Center of Gravity (The Prototype)}: Prototypical Networks work the same way. When given 5 examples of a new concept, it plots their coordinates on a mental map and places a marker right at the center of gravity (the average). That marker is the ``Prototype Armadillo.''
+    \item \textbf{Measuring Closeness}: When a mystery photo arrives, the AI simply measures the distance between the mystery photo and all the category markers.
+    \item \textbf{Zero Retraining Needed}: To teach the AI an entirely new animal, you do not update the network weights or run gradient descent. You just drop 3 examples into the map, compute their center, and you are finished in a millisecond!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a playground with 3 different teams wearing team shirts:
+\begin{itemize}
+    \item \textbf{Team Captain Marker}: Each team plants a colorful flag in the middle of their group.
+    \item \textbf{The New Kid}: A new kid enters the playground. You look at where they are standing and measure which flag is closest.
+    \item \textbf{Instant Assignment}: If they are standing 2 feet from the Red Flag and 30 feet from the Blue Flag, they belong to the Red Team!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Euclidean Squared Metric Classifier}
+{\boldmath
+\begin{equation}
+d(\mathbf{z}, \mathbf{c}_k) = \|\mathbf{z} - \mathbf{c}_k\|_2^2 = \sum_{d=1}^D (z_d - c_{kd})^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The squared $L_2$ distance evaluating separation between query feature $\mathbf{z}$ and prototype $\mathbf{c}_k$.
+    \item \textbf{What It Means}: Measures Euclidean geometric divergence in the learned representation space $\mathbb{R}^D$.
+    \item \textbf{Why It Is Important}: Unlike cosine similarity, Euclidean distance acts as a Bregman divergence corresponding to linear hyperplanes in Gaussian mixture spaces.
+\end{itemize}
+
+\subsection{Query Posterior Categorical Distribution}
+{\boldmath
+\begin{equation}
+p(y = k \mid \mathbf{x}) = \frac{\exp(-\|\mathbf{z} - \mathbf{c}_k\|_2^2)}{\sum_{j=1}^K \exp(-\|\mathbf{z} - \mathbf{c}_j\|_2^2)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The normalized Boltzmann distribution converting Euclidean distance into class likelihoods.
+    \item \textbf{What It Means}: Assigns high probability to prototypes that are close and exponentially penalizes distant prototypes.
+    \item \textbf{Why It Is Important}: Allows direct end-to-end backpropagation through the metric representation space during episodic meta-training.
+\end{itemize}
+
+\subsection{Linear Hyperplane Decision Boundary Equivalence}
+{\boldmath
+\begin{equation}
+-\|\mathbf{z} - \mathbf{c}_k\|_2^2 = 2 \mathbf{c}_k^T \mathbf{z} - \|\mathbf{c}_k\|_2^2 - \|\mathbf{z}\|_2^2 = \mathbf{w}_k^T \mathbf{z} + b_k - \|\mathbf{z}\|_2^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The algebraic expansion of squared Euclidean distance into linear classifier weights $\mathbf{w}_k = 2\mathbf{c}_k$ and bias $b_k = -\|\mathbf{c}_k\|_2^2$.
+    \item \textbf{What It Means}: Since $\|\mathbf{z}\|_2^2$ is shared across all classes, the decision boundary between any two classes is an exact linear hyperplane.
+    \item \textbf{Why It Is Important}: Proves that Prototypical Networks learn linear Voronoi tessellations of the latent representation space.
+\end{itemize}
+
+\subsection{Episodic Empirical Risk Formulation}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{episode}} = -\frac{1}{N_q} \sum_{i=1}^{N_q} \log p(y_i^* \mid \mathbf{x}_i)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The cross-entropy loss evaluated across query instances in an $N$-way $K$-shot training episode.
+    \item \textbf{What It Means}: Simulates test-time few-shot conditions during every training gradient step.
+    \item \textbf{Why It Is Important}: Prevents meta-overfitting by forcing the embedding to generalize across disjoint label sets.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $K \in \mathbb{N}$: Number of classes in episode ($N$-way).
+    \item $N_s, N_q \in \mathbb{N}$: Number of support and query samples per class ($K$-shot).
+    \item $\mathbf{c}_k \in \mathbb{R}^D$: Centroid prototype vector for class $k$.
+    \item $\mathbf{z} = f_\phi(\mathbf{x}) \in \mathbb{R}^D$: Embedded query feature.
+    \item $d(\cdot, \cdot) \in \mathbb{R}_{\ge 0}$: Squared Euclidean metric.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Support Embedding & $f_\phi(\mathbf{x})$ & Neural Feature Vector & Basis for prototype calculation \\
+Prototype & $\mathbf{c}_k$ & Arithmetic Centroid & Cluster anchor for class $k$ \\
+Distance & $d(\mathbf{z}, \mathbf{c}_k)$ & Metric Observable & Measures class affiliation \\
+Posterior & $p(y = k \mid \mathbf{x})$ & Softmax Probability & Categorical query decision \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\mathcal{S}_k \longrightarrow f_\phi(\mathcal{S}_k) \longrightarrow \mathbf{c}_k \longrightarrow \{\mathbf{z} = f_\phi(\mathbf{x}_{\text{query}}), \mathbf{c}_k\} \longrightarrow d(\mathbf{z}, \mathbf{c}_k) \longrightarrow p(y \mid \mathbf{x}) \longrightarrow \mathcal{L}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All embeddings and prototypes reside in $\mathbb{R}^D$. Log-probabilities reside in $\mathbb{R}_{\le 0}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{1-Shot Regime ($N_s = 1$)}: Prototypes equal support embeddings identically ($\mathbf{c}_k = \mathbf{z}_k$); high variance.
+    \item \textbf{Large-Shot Limit ($N_s \to \infty$)}: $\mathbf{c}_k \to \mathbb{E}_{\mathbf{x} \sim p_k}[f_\phi(\mathbf{x})]$; converges to the true class centroid by the Law of Large Numbers.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Permutation Invariance}: The prototype $\mathbf{c}_k$ is invariant to any permutation of support examples within class $k$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+Prototypical Networks are isomorphic to Gaussian Mixture Models with tied isotropic covariance matrices $\boldsymbol{\Sigma}_k = \frac{1}{2}\mathbf{I}$ and uniform class priors.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Equivalence of Prototypical Networks to Linear Softmax Classifiers]
+Under the squared Euclidean distance metric $d(\mathbf{z}, \mathbf{c}) = \|\mathbf{z} - \mathbf{c}\|_2^2$, the class conditional posterior $p(y = k \mid \mathbf{x})$ is identical to a standard linear softmax layer with weights $\mathbf{W} \in \mathbb{R}^{K \times D}$ and biases $\mathbf{b} \in \mathbb{R}^K$:
+{\boldmath
+\begin{equation}
+p(y = k \mid \mathbf{x}) = \frac{\exp(\mathbf{w}_k^T \mathbf{z} + b_k)}{\sum_{j=1}^K \exp(\mathbf{w}_j^T \mathbf{z} + b_j)}, \quad \mathbf{w}_k = 2\mathbf{c}_k, \quad b_k = -\|\mathbf{c}_k\|_2^2
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Expand the negative squared Euclidean distance:
+{\boldmath
+\begin{equation}
+-d(\mathbf{z}, \mathbf{c}_k) = -\|\mathbf{z} - \mathbf{c}_k\|_2^2 = -(\mathbf{z}^T \mathbf{z} - 2 \mathbf{c}_k^T \mathbf{z} + \mathbf{c}_k^T \mathbf{c}_k) = 2 \mathbf{c}_k^T \mathbf{z} - \|\mathbf{c}_k\|_2^2 - \|\mathbf{z}\|_2^2
+\end{equation}
+}
+Substitute this expansion into the softmax probability definition:
+{\boldmath
+\begin{equation}
+p(y = k \mid \mathbf{x}) = \frac{\exp\left( 2 \mathbf{c}_k^T \mathbf{z} - \|\mathbf{c}_k\|_2^2 - \|\mathbf{z}\|_2^2 \right)}{\sum_{j=1}^K \exp\left( 2 \mathbf{c}_j^T \mathbf{z} - \|\mathbf{c}_j\|_2^2 - \|\mathbf{z}\|_2^2 \right)}
+\end{equation}
+}
+Factoring out the term $\exp(-\|\mathbf{z}\|_2^2)$, which is constant with respect to index $k$:
+{\boldmath
+\begin{equation}
+p(y = k \mid \mathbf{x}) = \frac{\exp(-\|\mathbf{z}\|_2^2) \exp\left( 2 \mathbf{c}_k^T \mathbf{z} - \|\mathbf{c}_k\|_2^2 \right)}{\exp(-\|\mathbf{z}\|_2^2) \sum_{j=1}^K \exp\left( 2 \mathbf{c}_j^T \mathbf{z} - \|\mathbf{c}_j\|_2^2 \right)} = \frac{\exp\left( 2 \mathbf{c}_k^T \mathbf{z} - \|\mathbf{c}_k\|_2^2 \right)}{\sum_{j=1}^K \exp\left( 2 \mathbf{c}_j^T \mathbf{z} - \|\mathbf{c}_j\|_2^2 \right)}
+\end{equation}
+}
+Defining $\mathbf{w}_k = 2\mathbf{c}_k$ and scalar bias $b_k = -\|\mathbf{c}_k\|_2^2$:
+{\boldmath
+\begin{equation}
+p(y = k \mid \mathbf{x}) = \frac{\exp(\mathbf{w}_k^T \mathbf{z} + b_k)}{\sum_{j=1}^K \exp(\mathbf{w}_j^T \mathbf{z} + b_j)}
+\end{equation}
+}
+This is identically a standard linear softmax classifier where weight vectors and biases are determined dynamically from support prototypes without gradient descent.
+\end{proof}
+
+\begin{theorem}[Bregman Divergence Representation and Prototype Optimality]
+For any Bregman divergence $d_\psi(\mathbf{x}, \mathbf{y})$, the unique vector $\mathbf{c}^*$ minimizing the expected distance to a random variable $\mathbf{X}$ is the arithmetic expectation $\mathbf{c}^* = \mathbb{E}[\mathbf{X}]$.
+\end{theorem}
+
+\begin{proof}
+Let $d_\psi(\mathbf{x}, \mathbf{y}) = \psi(\mathbf{x}) - \psi(\mathbf{y}) - \langle \nabla \psi(\mathbf{y}), \mathbf{x} - \mathbf{y} \rangle$ be a Bregman divergence generated by strictly convex function $\psi$.
+Consider the expected divergence to point $\mathbf{c}$:
+{\boldmath
+\begin{equation}
+F(\mathbf{c}) = \mathbb{E}_{\mathbf{X}}[d_\psi(\mathbf{X}, \mathbf{c})] = \mathbb{E}[\psi(\mathbf{X})] - \psi(\mathbf{c}) - \langle \nabla \psi(\mathbf{c}), \mathbb{E}[\mathbf{X}] - \mathbf{c} \rangle
+\end{equation}
+}
+Differentiating with respect to $\mathbf{c}$:
+{\boldmath
+\begin{equation}
+\nabla_\mathbf{c} F(\mathbf{c}) = -\nabla \psi(\mathbf{c}) - \nabla^2 \psi(\mathbf{c})(\mathbb{E}[\mathbf{X}] - \mathbf{c}) + \nabla \psi(\mathbf{c}) = -\nabla^2 \psi(\mathbf{c})(\mathbb{E}[\mathbf{X}] - \mathbf{c})
+\end{equation}
+}
+Since $\psi$ is strictly convex, the Hessian $\nabla^2 \psi(\mathbf{c})$ is strictly positive definite. Setting the gradient to zero:
+{\boldmath
+\begin{equation}
+-\nabla^2 \psi(\mathbf{c})(\mathbb{E}[\mathbf{X}] - \mathbf{c}) = \mathbf{0} \iff \mathbf{c}^* = \mathbb{E}[\mathbf{X}]
+\end{equation}
+}
+Since squared Euclidean distance is the Bregman divergence generated by $\psi(\mathbf{x}) = \|\mathbf{x}\|_2^2$, the arithmetic mean $\mathbf{c}_k = \frac{1}{|\mathcal{S}_k|}\sum_{\mathbf{x} \in \mathcal{S}_k} f_\phi(\mathbf{x})$ is the globally optimal representative prototype.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Euclidean Distance vs Cosine Similarity}
+\textbf{Question:} Why do Prototypical Networks perform substantially better with Euclidean distance than with cosine similarity?\\
+\textbf{Answer:} Cosine similarity normalizes vectors to the unit sphere $\mathbb{S}^{D-1}$. On the sphere, the arithmetic mean is not a valid Bregman centroid. In Euclidean space, distance satisfies the Bregman property, allowing prototypes to represent both directional semantic orientation and cluster variance scale naturally.
+
+\textbf{Meta-Question:} Can cosine distance be adapted to work effectively?\\
+\textbf{Answer:} Yes, but it requires projecting prototypes back onto the sphere $\mathbf{c}_k \gets \mathbf{c}_k / \|\mathbf{c}_k\|_2$ and learning a temperature scale parameter $\tau$, transforming the model into Cosine Classifiers (Matching Networks).
+
+\subsection{Architectural Question 2: Episode Shot Discrepancy}
+\textbf{Question:} Should Prototypical Networks be trained with the same number of shots (e.g. 1-shot) as expected at test time?\\
+\textbf{Answer:} Snell et al. demonstrated that training with a higher number of shots (e.g. 5-shot) or a higher number of classes (e.g. 20-way training for a 5-way test task) yields superior test accuracy. Larger training episodes produce smoother gradient landscapes and prevent overfitting to individual support samples.
+
+\textbf{Meta-Question:} Does higher-way episodic training increase memory linearly?\\
+\textbf{Answer:} Yes. Memory scales as $\mathcal{O}(N_{\text{way}} \cdot K_{\text{shot}} \cdot D)$. For large-way tasks, memory-efficient feature extractors or cached embeddings are recommended.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Prototypical Networks Prototype Aggregation and Query Softmax}
+\begin{algorithmic}[1]
+\Require Support embeddings $\mathbf{S} \in \mathbb{R}^{N_s \times D}$, labels $\mathbf{y}_s \in \{0, \dots, K-1\}^{N_s}$, queries $\mathbf{Q} \in \mathbb{R}^{N_q \times D}$, class count $K$
+\Ensure Prototypes $\mathbf{C} \in \mathbb{R}^{K \times D}$, log-probabilities $\mathbf{L} \in \mathbb{R}^{N_q \times K}$, predictions $\hat{\mathbf{y}} \in \{0, \dots, K-1\}^{N_q}$
+\State Initialize $\mathbf{C}$ of shape $K \times D$ to zero, counts array of size $K$ to zero
+\For{$i = 0$ \textbf{to} $N_s - 1$}
+    \State $k \gets \mathbf{y}_s[i]$
+    \State $counts[k] \gets counts[k] + 1$
+    \For{$d = 0$ \textbf{to} $D - 1$}
+        \State $\mathbf{C}[k][d] \gets \mathbf{C}[k][d] + \mathbf{S}[i][d]$
+    \EndFor
+\EndFor
+\For{$k = 0$ \textbf{to} $K - 1$}
+    \For{$d = 0$ \textbf{to} $D - 1$} \State $\mathbf{C}[k][d] \gets \mathbf{C}[k][d] / counts[k]$ \EndFor
+\EndFor
+\State Initialize log-probabilities array $\mathbf{L}$ of shape $N_q \times K$
+\For{$q = 0$ \textbf{to} $N_q - 1$}
+    \State neg\_dists $\gets$ array of length $K$
+    \For{$k = 0$ \textbf{to} $K - 1$}
+        \State $dist \gets \sum_{d=0}^{D-1} (\mathbf{Q}[q][d] - \mathbf{C}[k][d])^2$
+        \State neg\_dists$[k] \gets -dist$
+    \EndFor
+    \State $lse \gets \max_k(\text{neg\_dists}[k]) + \log \sum_k \exp(\text{neg\_dists}[k] - \max)$
+    \For{$k = 0$ \textbf{to} $K - 1$}
+        \State $\mathbf{L}[q][k] \gets \text{neg\_dists}[k] - lse$
+    \EndFor
+    \State $\hat{\mathbf{y}}[q] \gets \operatorname{argmax}_k(\mathbf{L}[q][k])$
+\EndFor
+\State \Return $(\mathbf{C}, \mathbf{L}, \hat{\mathbf{y}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Prototype Computation Time Complexity}: $\Theta(N_s \cdot D)$ additions and scalings.
+    \item \textbf{Query Evaluation Time Complexity}: $\Theta(N_q \cdot K \cdot D)$ distance calculations and log-sum-exp reductions.
+    \item \textbf{Space Complexity}: $\Theta(K \cdot D + N_q \cdot K)$ memory for prototypes and log-probability outputs.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta((N_s + N_q \cdot K) \cdot D)$; parallel depth across query-prototype pairs is $\mathcal{D} = \Theta(\log D + \log K)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

@@ -1,0 +1,309 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Actor-Critic Architectures and Generalized Advantage Estimation (GAE)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Actor-Critic Duality, Temporal Difference Residuals, and Exponentially Weighted Advantages):}
+In policy gradient optimization, raw Monte Carlo rollouts exhibit high variance, while 1-step bootstrapping introduces approximation bias. \textbf{Actor-Critic architectures} resolve this duality by maintaining two cooperating function approximators:
+\begin{enumerate}
+    \item \textbf{The Actor $\pi_{\boldsymbol{\theta}}(a | s)$}: Parameterizes the policy controlling action execution.
+    \item \textbf{The Critic $V_{\boldsymbol{\phi}}(s)$}: Parameterizes the state-value function estimating expected discounted return.
+\end{enumerate}
+The 1-step temporal difference (TD) residual of the critic is defined by:
+{\boldmath
+\begin{equation}
+\delta_t^V = r_t + \gamma (1 - d_t) V_{\boldsymbol{\phi}}(s_{t+1}) - V_{\boldsymbol{\phi}}(s_t)
+\end{equation}
+}
+where $\gamma \in [0, 1)$ is the discount factor and $d_t \in \{0, 1\}$ is the episode termination indicator.
+
+\textbf{Generalized Advantage Estimation (GAE)} parameterizes a family of advantage estimators $\widehat{A}_t^{\text{GAE}(\gamma, \lambda)}$ by taking the exponentially-decayed average of $k$-step advantage estimators, controlled by parameter $\lambda \in [0, 1]$:
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}} = \sum_{l=0}^\infty (\gamma \lambda)^l (1 - d_{t+l}) \delta_{t+l}^V
+\end{equation}
+}
+which satisfies the exact recursive backward accumulation:
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}} = \delta_t^V + \gamma \lambda (1 - d_t) \widehat{A}_{t+1}^{\text{GAE}}
+\end{equation}
+}
+The critic parameters $\boldsymbol{\phi}$ are trained to fit the target return $R_t = \widehat{A}_t^{\text{GAE}} + V_{\boldsymbol{\phi}}(s_t)$ via mean squared error, while the actor parameters $\boldsymbol{\theta}$ are updated using the estimated advantages:
+{\boldmath
+\begin{align}
+\mathcal{L}_{\text{critic}}(\boldsymbol{\phi}) &= \frac{1}{T}\sum_{t=0}^{T-1} \left( V_{\boldsymbol{\phi}}(s_t) - R_t \right)^2 \\
+\mathcal{L}_{\text{actor}}(\boldsymbol{\theta}) &= - \frac{1}{T}\sum_{t=0}^{T-1} \ln \pi_{\boldsymbol{\theta}}(a_t | s_t) \cdot \widehat{A}_t^{\text{GAE}}
+\end{align}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Actor and the Critic}: An actor stands on a movie stage performing lines ($\pi$). Sitting right in front of the stage is the movie director (Critic $V$), evaluating every subtle expression in real time. Rather than waiting for box office reviews 6 months later (pure REINFORCE), the director provides instant feedback after every line!
+    \item \textbf{The TD Residual ($\delta$)}: The fundamental currency of reinforcement learning: ``Did this step go better or worse than the critic expected?'' If the reward plus future value exceeds expectations, $\delta > 0$ and the actor gets praised.
+    \item \textbf{The $\lambda$ Slider (Dialing Between Bias and Variance)}:
+    \begin{itemize}
+        \item $\lambda = 0$: Only look 1 step ahead. Zero variance, but if the critic's value estimates are wrong, the actor learns bad habits (high bias).
+        \item $\lambda = 1$: Ignore the critic's predictions and wait for the full future trajectory. Completely unbiased, but wildly noisy (high variance).
+        \item $\lambda = 0.95$: The sweet spot! It blends near-term critic accuracy with long-term real reward signals.
+    \end{itemize}
+    \item \textbf{The Engine of Modern RL}: GAE is the universal advantage engine powering Proximal Policy Optimization (PPO), TRPO, and A2C.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine learning to ride a bicycle with two helpers:
+\begin{itemize}
+    \item \textbf{The Rider (The Actor)}: You steer the handlebars and pedal forward ($a_t$).
+    \item \textbf{The Running Coach (The Critic)}: An experienced coach runs alongside you, estimating your balance ($V(s_t)$).
+    \item \textbf{The Instant Correction ($\delta_t$)}: When you hit a small pebble without falling over, the coach shouts: ``Great recovery! That was smoother than expected!''
+    \item \textbf{The Harmonic Memory (GAE)}: You remember both the coach's instant encouragement and the fact that you reached the end of the driveway safely!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{1-Step Temporal Difference Residual}
+{\boldmath
+\begin{equation}
+\delta_t^V = r_t + \gamma (1 - d_t) V(s_{t+1}) - V(s_t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The local Bellman error evaluated with the current value approximation.
+    \item \textbf{What It Means}: Measures whether the immediate transition yielded higher or lower cumulative value than anticipated.
+    \item \textbf{Why It Is Important}: Serves as the fundamental atomic component for all multi-step advantage calculations.
+\end{itemize}
+
+\subsection{Recursive GAE Backward Accumulation}
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}} = \delta_t^V + (\gamma \lambda) (1 - d_t) \widehat{A}_{t+1}^{\text{GAE}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The dynamic programming backward recurrence computing exponentially decayed multi-step advantages.
+    \item \textbf{What It Means}: Combines the current surprise with discounted future surprises weighted by geometric factor $\lambda$.
+    \item \textbf{Why It Is Important}: Evaluates the entire trajectory advantage in linear $\Theta(T)$ time without quadratic unrolling.
+\end{itemize}
+
+\subsection{Critic Fitted Value Target}
+{\boldmath
+\begin{equation}
+R_t = \widehat{A}_t^{\text{GAE}} + V(s_t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The empirical target return used to train the critic value network.
+    \item \textbf{What It Means}: Forms a self-consistent value target that incorporates both observed rewards and multi-step bootstrapped values.
+    \item \textbf{Why It Is Important}: Provides a low-variance regression target for mean squared error critic updates.
+\end{itemize}
+
+\subsection{Composite Actor-Critic Loss Objective}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{actor}}(\boldsymbol{\theta}) + c_1 \mathcal{L}_{\text{critic}}(\boldsymbol{\phi}) - c_2 \mathcal{H}(\pi_{\boldsymbol{\theta}})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The multi-task scalar objective combining policy advantage, critic regression, and entropy regularization.
+    \item \textbf{What It Means}: Simultaneously updates policy action distributions, critic accuracy, and exploration entropy.
+    \item \textbf{Why It Is Important}: Enables stable, joint end-to-end backpropagation through shared neural network representations.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\pi_{\boldsymbol{\theta}}$ (actor), $V_{\boldsymbol{\phi}}$ (critic), $\delta_t^V$ (TD residual), $\widehat{A}_t^{\text{GAE}}$ (advantage estimate), $\gamma$ (discount), $\lambda$ (GAE decay parameter).
+    \item \textbf{Epistemic Status}: Introduced by Schulman et al. (ICLR 2016), foundational state-of-the-art advantage estimator across modern reinforcement learning.
+    \item \textbf{Dependency Graph}: $(s_t, r_t, s_{t+1}) \to \delta_t^V \to \widehat{A}_t^{\text{GAE}} \to (R_t, \mathcal{L}_{\text{actor}}, \mathcal{L}_{\text{critic}})$.
+    \item \textbf{Dimensions}: Trajectory length $T$, scalar rewards $r_t \in \mathbb{R}$, value predictions $V(s_t) \in \mathbb{R}$.
+    \item \textbf{Regimes}: Continuous robotic locomotion (MuJoCo, IsaacGym), game playing, LLM alignment (RLHF PPO).
+    \item \textbf{Invariants}: At terminal step $t=T-1$ with $d_{T-1} = 1$: $\widehat{A}_{T-1}^{\text{GAE}} \equiv \delta_{T-1}^V = r_{T-1} - V(s_{T-1})$.
+    \item \textbf{Isomorphisms}: GAE is isomorphic to TD($\lambda$) eligibility traces applied to advantage functions rather than value functions.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Interpolation Spectrum of Generalized Advantage Estimation]
+Let $\delta_t^V = r_t + \gamma V(s_{t+1}) - V(s_t)$ and let $\widehat{A}_t^{\text{GAE}(\gamma, \lambda)} = \sum_{l=0}^\infty (\gamma \lambda)^l \delta_{t+l}^V$. Then:
+\begin{enumerate}
+    \item For $\lambda = 0$, $\widehat{A}_t^{\text{GAE}}$ collapses to the 1-step TD advantage estimator:
+    {\boldmath
+    \begin{equation}
+    \widehat{A}_t^{\text{GAE}(\gamma, 0)} = \delta_t^V = r_t + \gamma V(s_{t+1}) - V(s_t)
+    \end{equation}
+    }
+    \item For $\lambda = 1$, $\widehat{A}_t^{\text{GAE}}$ collapses to the exact Monte Carlo baseline-subtracted return:
+    {\boldmath
+    \begin{equation}
+    \widehat{A}_t^{\text{GAE}(\gamma, 1)} = \sum_{l=0}^\infty \gamma^l r_{t+l} - V(s_t) = G_t - V(s_t)
+    \end{equation}
+    }
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\textbf{Case 1 ($\lambda = 0$):}
+Evaluating the series at $\lambda = 0$:
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}(\gamma, 0)} = (\gamma \cdot 0)^0 \delta_t^V + \sum_{l=1}^\infty (\gamma \cdot 0)^l \delta_{t+l}^V = 1 \cdot \delta_t^V + 0 = \delta_t^V
+\end{equation}
+}
+which matches the 1-step TD advantage.
+
+\textbf{Case 2 ($\lambda = 1$):}
+Evaluating the series at $\lambda = 1$:
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}(\gamma, 1)} = \sum_{l=0}^\infty \gamma^l \delta_{t+l}^V = \sum_{l=0}^\infty \gamma^l \left( r_{t+l} + \gamma V(s_{t+l+1}) - V(s_{t+l}) \right)
+\end{equation}
+}
+Expanding the summation:
+{\boldmath
+\begin{align}
+\sum_{l=0}^\infty \gamma^l \delta_{t+l}^V &= \sum_{l=0}^\infty \gamma^l r_{t+l} + \sum_{l=0}^\infty \gamma^{l+1} V(s_{t+l+1}) - \sum_{l=0}^\infty \gamma^l V(s_{t+l})
+\end{align}
+}
+Notice that the second and third terms form a telescoping series:
+{\boldmath
+\begin{align}
+\sum_{l=0}^\infty \gamma^{l+1} V(s_{t+l+1}) - \sum_{l=0}^\infty \gamma^l V(s_{t+l}) &= \left( \gamma V(s_{t+1}) + \gamma^2 V(s_{t+2}) + \cdots \right) - \left( V(s_t) + \gamma V(s_{t+1}) + \gamma^2 V(s_{t+2}) + \cdots \right) \\
+&= - V(s_t)
+\end{align}
+}
+assuming $\lim_{l \to \infty} \gamma^l V(s_{t+l}) = 0$.
+Therefore:
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}(\gamma, 1)} = \sum_{l=0}^\infty \gamma^l r_{t+l} - V(s_t) = G_t - V(s_t)
+\end{equation}
+}
+Thus $\lambda$ smoothly bridges between 1-step TD bootstrapping ($\lambda=0$) and full Monte Carlo evaluation ($\lambda=1$).
+\end{proof}
+
+\begin{theorem}[Variance Reduction Bound of GAE]
+Assume that individual TD residuals $\delta_t^V$ have bounded variance $\operatorname{Var}(\delta_t^V) \le \sigma_\delta^2$ and are approximately uncorrelated. The variance of the GAE advantage estimator is bounded by:
+{\boldmath
+\begin{equation}
+\operatorname{Var}\left( \widehat{A}_t^{\text{GAE}} \right) \le \frac{\sigma_\delta^2}{1 - (\gamma \lambda)^2}
+\end{equation}
+}
+which decreases strictly monotonically as $\lambda \to 0$.
+\end{theorem}
+
+\begin{proof}
+By definition of $\widehat{A}_t^{\text{GAE}}$ as an infinite linear combination of $\delta_{t+l}^V$:
+{\boldmath
+\begin{equation}
+\widehat{A}_t^{\text{GAE}} = \sum_{l=0}^\infty (\gamma \lambda)^l \delta_{t+l}^V
+\end{equation}
+}
+Assuming covariance terms $\operatorname{Cov}(\delta_{t+i}^V, \delta_{t+j}^V) \approx 0$ for $i \neq j$:
+{\boldmath
+\begin{equation}
+\operatorname{Var}\left( \widehat{A}_t^{\text{GAE}} \right) = \sum_{l=0}^\infty \operatorname{Var}\left( (\gamma \lambda)^l \delta_{t+l}^V \right) = \sum_{l=0}^\infty (\gamma \lambda)^{2l} \operatorname{Var}(\delta_{t+l}^V)
+\end{equation}
+}
+Since $\operatorname{Var}(\delta_{t+l}^V) \le \sigma_\delta^2$:
+{\boldmath
+\begin{equation}
+\operatorname{Var}\left( \widehat{A}_t^{\text{GAE}} \right) \le \sigma_\delta^2 \sum_{l=0}^\infty \left( (\gamma \lambda)^2 \right)^l
+\end{equation}
+}
+Since $\gamma \in [0, 1)$ and $\lambda \in [0, 1]$, the ratio $(\gamma \lambda)^2 < 1$.
+Using the sum of an infinite geometric series:
+{\boldmath
+\begin{equation}
+\operatorname{Var}\left( \widehat{A}_t^{\text{GAE}} \right) \le \frac{\sigma_\delta^2}{1 - (\gamma \lambda)^2}
+\end{equation}
+}
+For $\lambda = 0$, the variance is minimal: $\sigma_\delta^2$. For $\lambda = 1$, the bound expands to $\frac{\sigma_\delta^2}{1 - \gamma^2}$, proving that smaller $\lambda$ guarantees lower variance.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Parameter Tuning for $\lambda \in [0.90, 0.98]$}
+\textbf{Question:} Why is $\lambda = 0.95$ chosen almost universally across continuous control benchmarks?\\
+\textbf{Answer:} If $\lambda$ is too small (e.g. $0.5$), the critic's value errors cause high bias that misguides early policy exploration. If $\lambda = 1.0$, trajectory variance prevents consistent gradient steps. Empirical analysis by Schulman et al. demonstrated that $\lambda \in [0.92, 0.97]$ provides the optimal Pareto trade-off, suppressing variance by over 70\% while keeping bias negligible.
+
+\textbf{Meta-Question:} Should $\lambda$ be decayed over the course of training?\\
+\textbf{Answer:} Generally no. Because the critic improves alongside the actor, the quality of $\delta_t^V$ naturally increases over time. Keeping $\lambda = 0.95$ fixed allows the system to seamlessly transition from Monte-Carlo-dominated exploration early on to accurate bootstrapped updates near convergence.
+
+\subsection{Architectural Question 2: Synchronous A2C vs Asynchronous A3C}
+\textbf{Question:} Why did synchronous Advantage Actor-Critic (A2C) replace asynchronous A3C in modern deep learning?\\
+\textbf{Answer:} Asynchronous A3C ran multiple CPU worker threads updating shared master parameters asynchronously without locks. While fast on CPUs, asynchronous updates introduce stale gradient noise. Synchronous A2C steps multiple parallel environments simultaneously in lockstep, packaging states into dense tensor batches that fully saturate GPU Tensor Cores, achieving faster wall-clock training with zero stale-gradient degradation.
+
+\textbf{Meta-Question:} How does GAE interface with Proximal Policy Optimization (PPO)?\\
+\textbf{Answer:} GAE computes the advantage scalars $\widehat{A}_t^{\text{GAE}}$ once during the rollout phase. PPO then freezes these advantage scalars and uses them across multiple epochs of mini-batch gradient descent with its clipped probability ratio objective.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Actor-Critic 1-Step TD Residual, GAE Advantage, and Loss Evaluation}
+\begin{algorithmic}[1]
+\Require Action probs $\mathbf{p} \in \mathbb{R}^T$, step rewards $\mathbf{r} \in \mathbb{R}^T$, values $\mathbf{V} \in \mathbb{R}^T$, next values $\mathbf{V}' \in \mathbb{R}^T$, terminal flags $\mathbf{d} \in \{0, 1\}^T$, discount $\gamma$, decay $\lambda$
+\Ensure TD residuals $\boldsymbol{\delta} \in \mathbb{R}^T$, GAE advantages $\mathbf{A} \in \mathbb{R}^T$, value targets $\mathbf{R} \in \mathbb{R}^T$, actor loss $\mathcal{L}_{\text{act}}$, critic loss $\mathcal{L}_{\text{crit}}$
+\State Initialize $\boldsymbol{\delta} \in \mathbb{R}^T$
+\For{$t = 0$ \textbf{to} $T-1$} \Comment{Compute 1-Step TD Residuals}
+    \State $next\_val \gets \mathbf{d}[t] \;?\; 0.0 : \mathbf{V}'[t]$
+    \State $\boldsymbol{\delta}[t] \gets \mathbf{r}[t] + \gamma \cdot next\_val - \mathbf{V}[t]$
+\EndFor
+\State Initialize $\mathbf{A} \in \mathbb{R}^T, \quad running\_a \gets 0.0, \quad decay \gets \gamma \cdot \lambda$
+\For{$t = T-1$ \textbf{downto} $0$} \Comment{Recursive GAE Backward Accumulation}
+    \State $not\_done \gets \mathbf{d}[t] \;?\; 0.0 : 1.0$
+    \State $running\_a \gets \boldsymbol{\delta}[t] + decay \cdot not\_done \cdot running\_a$
+    \State $\mathbf{A}[t] \gets running\_a$
+\EndFor
+\State Initialize $\mathbf{R} \in \mathbb{R}^T$
+\For{$t = 0$ \textbf{to} $T-1$} \Comment{Fitted Value Targets}
+    \State $\mathbf{R}[t] \gets \mathbf{A}[t] + \mathbf{V}[t]$
+\EndFor
+\State $act\_accum \gets 0.0, \quad crit\_accum \gets 0.0$
+\For{$t = 0$ \textbf{to} $T-1$} \Comment{Evaluate Losses}
+    \State $act\_accum \gets act\_accum + \ln(\max(10^{-8}, \mathbf{p}[t])) \cdot \mathbf{A}[t]$
+    \State $diff \gets \mathbf{V}[t] - \mathbf{R}[t]$
+    \State $crit\_accum \gets crit\_accum + diff^2$
+\EndFor
+\State $\mathcal{L}_{\text{act}} \gets - act\_accum / T, \quad \mathcal{L}_{\text{crit}} \gets crit\_accum / T$
+\State \Return $(\boldsymbol{\delta}, \mathbf{A}, \mathbf{R}, \mathcal{L}_{\text{act}}, \mathcal{L}_{\text{crit}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{TD Residual Computation Time Complexity}: $\Theta(T)$ scalar arithmetic operations.
+    \item \textbf{GAE Backward Accumulation Complexity}: $\Theta(T)$ operations via dynamic programming.
+    \item \textbf{Actor and Critic Loss Evaluation}: $\Theta(T)$ scalar operations.
+    \item \textbf{Space Complexity}: $\Theta(T)$ buffers for residuals, advantages, and target returns.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(T)$ sequential backward dependency in advantage recurrence.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

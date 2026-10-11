@@ -1,0 +1,296 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Consistency Models and Trajectory Distillation}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Self-Consistency Property and Boundary Parameterization):}
+Let $\{\mathbf{x}_t\}_{t \in [\epsilon, T]}$ denote a continuous trajectory governed by the deterministic Probability Flow ODE of a diffusion process terminating at origin $\mathbf{x}_\epsilon$. A \textbf{Consistency Model} is a function $\mathbf{f}_\theta: \mathbb{R}^D \times [\epsilon, T] \to \mathbb{R}^D$ that satisfies the \textbf{Self-Consistency Condition}:
+{\boldmath
+\begin{equation}
+\mathbf{f}_\theta(\mathbf{x}_t, t) = \mathbf{f}_\theta(\mathbf{x}_{t'}, t') = \mathbf{x}_\epsilon, \quad \forall \, t, t' \in [\epsilon, T]
+\end{equation}
+}
+and the deterministic \textbf{Boundary Condition}:
+{\boldmath
+\begin{equation}
+\mathbf{f}_\theta(\mathbf{x}, \epsilon) = \mathbf{x}, \quad \forall \, \mathbf{x} \in \mathbb{R}^D
+\end{equation}
+}
+To enforce this boundary condition for any arbitrary unconstrained neural network $F_\theta(\mathbf{x}, t)$, the consistency function is reparameterized via differentiable skip and output scaling functions:
+{\boldmath
+\begin{equation}
+\mathbf{f}_\theta(\mathbf{x}_t, t) = c_{\text{skip}}(t)\mathbf{x}_t + c_{\text{out}}(t) F_\theta(\mathbf{x}_t, t)
+\end{equation}
+}
+where the scalar schedule functions satisfy $c_{\text{skip}}(\epsilon) = 1$ and $c_{\text{out}}(\epsilon) = 0$:
+{\boldmath
+\begin{equation}
+c_{\text{skip}}(t) = \frac{\sigma_{\text{data}}^2}{(t - \epsilon)^2 + \sigma_{\text{data}}^2}, \quad c_{\text{out}}(t) = \frac{\sigma_{\text{data}}(t - \epsilon)}{\sqrt{\sigma_{\text{data}}^2 + t^2}}
+\end{equation}
+}
+In \textbf{Consistency Distillation (CD)}, $\theta$ is trained by minimizing the discrepancy between $\mathbf{f}_\theta(\mathbf{x}_{t_{n+1}}, t_{n+1})$ and the target $\mathbf{f}_{\theta^-}(\hat{\mathbf{x}}_{t_n}, t_n)$ produced by an exponential moving average (EMA) teacher model, where $\hat{\mathbf{x}}_{t_n}$ is updated from $\mathbf{x}_{t_{n+1}}$ using a single numerical ODE step.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The River of Time}: Imagine an entire river that flows from noisy mountain clouds ($t = T$) all the way down to a crystal-clear mountain lake ($t = 0$).
+    \item \textbf{Diffusion Solvers Must Walk the River}: Standard diffusion models must walk along the river bank step-by-step, checking their map at every meter so they don't fall into the rapids.
+    \item \textbf{The Consistency Telescope}: A Consistency Model is a telescope. No matter where you stand along the river—whether you are high up in the foggy clouds, midway through the rapids, or close to the bottom—looking through the telescope shows you the exact same view: the clear mountain lake at the finish line!
+    \item \textbf{One-Step Generation}: Because you can jump straight to the finish line from anywhere, you don't walk the river at all. You draw random static noise at $t = T$, look through the consistency telescope once, and boom: the final high-definition image appears in a single instantaneous step!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine bowling a ball down a smooth wooden lane:
+\begin{itemize}
+    \item \textbf{Diffusion Steps}: Taking a photograph of the ball every inch it rolls down the lane until it knocks down the pins.
+    \item \textbf{Consistency Model}: You look at where the ball is released, and your magic computer instantly predicts the exact final strike setup! If you want to make it even more perfect, you take two quick looks instead of waiting for 1,000 frames.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Exact Boundary Parameterization Mapping}
+{\boldmath
+\begin{equation}
+\mathbf{f}_\theta(\mathbf{x}_t, t) = c_{\text{skip}}(t)\mathbf{x}_t + c_{\text{out}}(t) F_\theta(\mathbf{x}_t, t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The convex-like differentiable combination enforcing the boundary condition $\mathbf{f}_\theta(\mathbf{x}, \epsilon) = \mathbf{x}$.
+    \item \textbf{What It Means}: When $t \to \epsilon$, $c_{\text{skip}} \to 1$ and $c_{\text{out}} \to 0$, forcing the network output to fade out and leaving only the identity mapping $\mathbf{x}$.
+    \item \textbf{Why It Is Important}: Guarantees that the boundary condition holds everywhere analytically without requiring penalty loss terms.
+\end{itemize}
+
+\subsection{Boundary Multiplier Scaling Schedules}
+{\boldmath
+\begin{equation}
+c_{\text{skip}}(t) = \frac{\sigma_{\text{data}}^2}{(t - \epsilon)^2 + \sigma_{\text{data}}^2}, \quad c_{\text{out}}(t) = \frac{\sigma_{\text{data}}(t - \epsilon)}{\sqrt{\sigma_{\text{data}}^2 + t^2}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Rational decay functions parameterized by data dispersion standard deviation $\sigma_{\text{data}}$ and terminal cutoff $\epsilon$.
+    \item \textbf{What It Means}: Normalizes the variance of neural network gradients across the entire temporal dynamic range from $\epsilon = 0.002$ to $T = 80$.
+    \item \textbf{Why It Is Important}: Prevents catastrophic gradient exploding when computing losses across orders of magnitude of noise scales.
+\end{itemize}
+
+\subsection{Consistency Distillation Loss Objective}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{CD}}(\theta, \theta^-) = \mathbb{E}\left[ d\left( \mathbf{f}_\theta(\mathbf{x}_{t_{n+1}}, t_{n+1}), \, \mathbf{f}_{\theta^-}(\hat{\mathbf{x}}_{t_n}^{\phi}, t_n) \right) \right]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The expectation of metric distance $d(\cdot, \cdot)$ between the student model output and the stop-gradient EMA target evaluated on an ODE-stepped state $\hat{\mathbf{x}}_{t_n}^\phi$.
+    \item \textbf{What It Means}: Penalizes any inconsistency between two consecutive points along the same probability flow trajectory.
+    \item \textbf{Why It Is Important}: Allows distilling teacher diffusion models that require 50 steps into students that generate high quality in 1 or 2 steps.
+\end{itemize}
+
+\subsection{Two-Step Alternating Sampling Operator}
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}}_0 = \mathbf{f}_\theta(\mathbf{x}_T, T), \quad \mathbf{x}_{\tau} = \hat{\mathbf{x}}_0 + \sqrt{\tau^2 - \epsilon^2}\mathbf{z}, \quad \mathbf{x}_{\text{final}} = \mathbf{f}_\theta(\mathbf{x}_{\tau}, \tau)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The multi-step predictor-corrector sequence injecting fresh noise and re-evaluating the consistency function.
+    \item \textbf{What It Means}: Runs 1-step generation to get a coarse image, injects a controlled dose of noise to escape off-manifold errors, and runs a second consistency projection to refine details.
+    \item \textbf{Why It Is Important}: Bridges the gap between 1-step speed and 50-step photorealism in just 2 model evaluations.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{x}_t \in \mathbb{R}^D$: State vector at continuous noise scale $t$.
+    \item $F_\theta(\mathbf{x}_t, t) \in \mathbb{R}^D$: Unconstrained neural network output.
+    \item $\mathbf{f}_\theta(\mathbf{x}_t, t) \in \mathbb{R}^D$: Boundary-constrained consistency projection.
+    \item $\epsilon > 0$: Smallest terminal integration time ($\epsilon = 0.002$).
+    \item $\sigma_{\text{data}} > 0$: Dataset variance scale ($\sigma_{\text{data}} \approx 0.5$).
+    \item $c_{\text{skip}}(t), c_{\text{out}}(t) \in \mathbb{R}$: Analytical boundary multipliers.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Unconstrained Network & $F_\theta$ & Learnable Deep Function & Parameterizes non-linear trajectory manifold \\
+Skip Multiplier & $c_{\text{skip}}$ & Differentiable Schedule & Enforces identity at $t = \epsilon$ \\
+Output Multiplier & $c_{\text{out}}$ & Differentiable Schedule & Enforces zero residual at $t = \epsilon$ \\
+Target Teacher & $\mathbf{f}_{\theta^-}$ & EMA Stop-Gradient Target & Stabilizes bootstrap distillation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{x}_t, t\} \longrightarrow \{c_{\text{skip}}(t), c_{\text{out}}(t), F_\theta(\mathbf{x}_t, t)\} \longrightarrow \mathbf{f}_\theta(\mathbf{x}_t, t) \longrightarrow \text{Discrepancy Loss} \longrightarrow \nabla_\theta$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All states $\mathbf{x}_t, F_\theta, \mathbf{f}_\theta \in \mathbb{R}^D$. All scaling functions $c_{\text{skip}}, c_{\text{out}}$ are dimensionless scalars.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{At $t = \epsilon$}: $c_{\text{skip}} = 1, c_{\text{out}} = 0 \implies \mathbf{f}_\theta(\mathbf{x}_\epsilon, \epsilon) = \mathbf{x}_\epsilon$; identity is exact.
+    \item \textbf{As $t \to \infty$}: $c_{\text{skip}} \to 0, c_{\text{out}} \to \sigma_{\text{data}}/t$; model acts as a pure denoising reconstructor.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Strict Boundary Invariance}: For all parameter configurations $\theta$ and inputs $\mathbf{x}$, $\mathbf{f}_\theta(\mathbf{x}, \epsilon) \equiv \mathbf{x}$ identically.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+Consistency Models are structurally isomorphic to Deep Equilibrium Models (DEQs) and Bellman dynamic programming operators where self-consistency defines fixed points of the flow operator.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Analytical Guarantee of Boundary Condition Satisfaction]
+Let $c_{\text{skip}}(t)$ and $c_{\text{out}}(t)$ be defined as in Definition 1.1. Then for any neural network architecture $F_\theta$ and any input state $\mathbf{x}$, the parameterization $\mathbf{f}_\theta(\mathbf{x}_t, t) = c_{\text{skip}}(t)\mathbf{x}_t + c_{\text{out}}(t)F_\theta(\mathbf{x}_t, t)$ strictly satisfies $\mathbf{f}_\theta(\mathbf{x}, \epsilon) = \mathbf{x}$.
+\end{theorem}
+
+\begin{proof}
+Evaluate $c_{\text{skip}}(t)$ at boundary point $t = \epsilon$:
+{\boldmath
+\begin{equation}
+c_{\text{skip}}(\epsilon) = \frac{\sigma_{\text{data}}^2}{(\epsilon - \epsilon)^2 + \sigma_{\text{data}}^2} = \frac{\sigma_{\text{data}}^2}{0 + \sigma_{\text{data}}^2} = 1
+\end{equation}
+}
+Similarly, evaluate $c_{\text{out}}(t)$ at boundary point $t = \epsilon$:
+{\boldmath
+\begin{equation}
+c_{\text{out}}(\epsilon) = \frac{\sigma_{\text{data}}(\epsilon - \epsilon)}{\sqrt{\sigma_{\text{data}}^2 + \epsilon^2}} = \frac{0}{\sqrt{\sigma_{\text{data}}^2 + \epsilon^2}} = 0
+\end{equation}
+}
+Substituting these evaluated scalar coefficients into the parameterization formula:
+{\boldmath
+\begin{equation}
+\mathbf{f}_\theta(\mathbf{x}, \epsilon) = c_{\text{skip}}(\epsilon)\mathbf{x} + c_{\text{out}}(\epsilon) F_\theta(\mathbf{x}, \epsilon) = 1 \cdot \mathbf{x} + 0 \cdot F_\theta(\mathbf{x}, \epsilon) = \mathbf{x}
+\end{equation}
+}
+Since this identity holds independently of the value of $F_\theta(\mathbf{x}, \epsilon)$, the boundary condition is satisfied identically everywhere in $\mathbb{R}^D$ without error.
+\end{proof}
+
+\begin{theorem}[Convergence of Consistency Distillation to the Continuous ODE Trajectory]
+Assume the teacher ODE solver has local discretization error $\mathcal{O}((\Delta t)^{p+1})$, and the network $F_\theta$ has sufficient capacity. In the limit of infinite discretization subdivisions $\max_n |t_{n+1} - t_n| \to 0$ and vanishing loss $\mathcal{L}_{\text{CD}} \to 0$, the function $\mathbf{f}_\theta(\mathbf{x}_t, t)$ converges uniformly to the exact trajectory mapping of the probability flow ODE.
+\end{theorem}
+
+\begin{proof}
+Let $\Phi_{t, s}(\mathbf{x})$ denote the exact flow map of the Probability Flow ODE transporting state $\mathbf{x}$ at time $t$ backward to time $s$.
+By definition, the trajectory origin is $\mathbf{x}_\epsilon = \Phi_{t, \epsilon}(\mathbf{x}_t)$.
+The discrete teacher update is an order-$p$ approximation:
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}}_{t_n} = \Phi_{t_{n+1}, t_n}(\mathbf{x}_{t_{n+1}}) + \mathcal{O}((t_{n+1} - t_n)^{p+1})
+\end{equation}
+}
+At global optimum $\mathcal{L}_{\text{CD}} = 0$, the trained model satisfies:
+{\boldmath
+\begin{equation}
+\mathbf{f}_\theta(\mathbf{x}_{t_{n+1}}, t_{n+1}) = \mathbf{f}_\theta(\hat{\mathbf{x}}_{t_n}, t_n) = \mathbf{f}_\theta\left( \Phi_{t_{n+1}, t_n}(\mathbf{x}_{t_{n+1}}) + \mathcal{O}(\Delta t^{p+1}), t_n \right)
+\end{equation}
+}
+Assuming $\mathbf{f}_\theta$ is $L$-Lipschitz continuous in spatial coordinates:
+{\boldmath
+\begin{equation}
+\|\mathbf{f}_\theta(\mathbf{x}_{t_{n+1}}, t_{n+1}) - \mathbf{f}_\theta(\Phi_{t_{n+1}, t_n}(\mathbf{x}_{t_{n+1}}), t_n)\|_2 \le L \cdot \mathcal{O}(\Delta t^{p+1})
+\end{equation}
+}
+Summing along a trajectory of $N$ steps from $T$ down to $\epsilon$ with $\Delta t = (T - \epsilon)/N$:
+{\boldmath
+\begin{equation}
+\|\mathbf{f}_\theta(\mathbf{x}_T, T) - \mathbf{f}_\theta(\mathbf{x}_\epsilon, \epsilon)\|_2 \le \sum_{n=1}^N \mathcal{O}(\Delta t^{p+1}) = N \cdot \mathcal{O}\left( \frac{1}{N^{p+1}} \right) = \mathcal{O}\left( \frac{1}{N^p} \right)
+\end{equation}
+}
+Since $\mathbf{f}_\theta(\mathbf{x}_\epsilon, \epsilon) = \mathbf{x}_\epsilon = \Phi_{T, \epsilon}(\mathbf{x}_T)$ by Theorem 4.1, as $N \to \infty$:
+{\boldmath
+\begin{equation}
+\lim_{N \to \infty} \|\mathbf{f}_\theta(\mathbf{x}_T, T) - \Phi_{T, \epsilon}(\mathbf{x}_T)\|_2 = 0
+\end{equation}
+}
+Thus $\mathbf{f}_\theta$ converges uniformly to the exact integral curve of the Probability Flow ODE.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Consistency Distillation vs Consistency Training}
+\textbf{Question:} What is the difference between Consistency Distillation (CD) and Consistency Training (CT)?\\
+\textbf{Answer:} Consistency Distillation uses a pre-trained diffusion model as a teacher to generate intermediate states $\hat{\mathbf{x}}_{t_n}$ via an ODE solver. Consistency Training trains directly on data from scratch without any pre-trained teacher, computing intermediate targets using unbiased Monte Carlo score estimators.
+
+\textbf{Meta-Question:} Why does Consistency Distillation achieve higher FID than Consistency Training?\\
+\textbf{Answer:} The pre-trained teacher provides a smooth, globally converged vector field with low variance. In CT, estimating score gradients on noisy intermediate states introduces high Monte Carlo variance, slowing convergence and requiring larger batch sizes.
+
+\subsection{Architectural Question 2: Trade-off Between 1-Step and Multi-Step Sampling}
+\textbf{Question:} Why does adding a second step improve consistency model generation so drastically?\\
+\textbf{Answer:} In a single step from $T$, small accumulated network approximation errors project the sample slightly off the true data manifold. By injecting a small amount of noise $\tau$ and running a second consistency projection, the model self-corrects manifold drift, recovering fine high-frequency details.
+
+\textbf{Meta-Question:} Does adding 50 steps make consistency models better than 50-step diffusion?\\
+\textbf{Answer:} No. Consistency models plateau rapidly between 2 and 4 steps. For 50 or more steps, dedicated high-order ODE integrators (like DPM-Solver) are mathematically optimal because they do not suffer from distillation truncation artifacts.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Consistency Model Boundary Parameterization and Distillation Loss}
+\begin{algorithmic}[1]
+\Require State $\mathbf{x}_t \in \mathbb{R}^D$, raw model output $\mathbf{F}_\theta \in \mathbb{R}^D$, time $t \ge \epsilon$, teacher target $\mathbf{y}_{\text{target}} \in \mathbb{R}^D$, parameters $\epsilon, \sigma_{\text{data}} > 0$
+\Ensure Consistency projection $\mathbf{f}_\theta \in \mathbb{R}^D$, skip scale $c_{\text{skip}}$, output scale $c_{\text{out}}$, distillation loss $\mathcal{L}_{\text{CD}}$
+\State $\sigma^2 \gets \sigma_{\text{data}}^2$
+\State $\Delta t \gets t - \epsilon$
+\State $c_{\text{skip}} \gets \sigma^2 / (\Delta t^2 + \sigma^2)$
+\State $c_{\text{out}} \gets (\sigma_{\text{data}} \cdot \Delta t) / \sqrt{\sigma^2 + t^2}$
+\State Initialize empty array $\mathbf{f}_\theta$ of length $D$
+\For{$i = 0$ \textbf{to} $D - 1$}
+    \State $\mathbf{f}_\theta[i] \gets c_{\text{skip}} \cdot \mathbf{x}_t[i] + c_{\text{out}} \cdot \mathbf{F}_\theta[i]$
+\EndFor
+\State $\mathcal{L}_{\text{CD}} \gets 0.0$
+\If{$\mathbf{y}_{\text{target}}$ is provided}
+    \State $\text{sum\_sq} \gets 0.0$
+    \For{$i = 0$ \textbf{to} $D - 1$}
+        \State $d \gets \mathbf{f}_\theta[i] - \mathbf{y}_{\text{target}}[i]$
+        \State $\text{sum\_sq} \gets \text{sum\_sq} + d \cdot d$
+    \EndFor
+    \State $\mathcal{L}_{\text{CD}} \gets \text{sum\_sq} / D$
+\EndIf
+\State \Return $(\mathbf{f}_\theta, c_{\text{skip}}, c_{\text{out}}, \mathcal{L}_{\text{CD}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Boundary Mapping Time Complexity}: $\Theta(D)$ vector-scalar multiplications and additions.
+    \item \textbf{Single-Step Generation Time Complexity}: $\Theta(D + \mathcal{C}_{\text{NN}})$ for exactly 1 neural network evaluation, yielding a $50\times$ acceleration over standard 50-step diffusion.
+    \item \textbf{Space Complexity}: $\Theta(D)$ buffer allocation for intermediate trajectory states.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(D)$; parallel depth across spatial coordinates is $\mathcal{D} = \Theta(\log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

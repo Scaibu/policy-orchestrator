@@ -1,0 +1,281 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Differentiable Architecture Search}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Continuous Architecture Relaxation and Bilevel Optimization):}
+Let a neural network cell be represented as a directed acyclic graph (DAG) of $N$ ordered nodes $\{x_0, x_1, \dots, x_{N-1}\}$, where each directed edge $(i, j)$ represents an information flow and transformation from node $x_i$ to node $x_j$. Let $\mathcal{O}$ denote a discrete candidate set of candidate operations (e.g. $3\times3$ separable convolution, $5\times5$ dilated convolution, max pooling, identity skip, zero operation).
+
+To make the categorical choice of operation continuous and differentiable, \textbf{Differentiable Architecture Search (DARTS)} relaxes the categorical choice into a continuous softmax mixture over all operations $o \in \mathcal{O}$:
+{\boldmath
+\begin{equation}
+\bar{o}^{(i, j)}(x_i) = \sum_{o \in \mathcal{O}} p_o^{(i, j)} \cdot o(x_i)
+\end{equation}
+}
+where architecture mixing probabilities are parameterized by continuous logits $\boldsymbol{\alpha}^{(i, j)} \in \mathbb{R}^{|\mathcal{O}|}$:
+{\boldmath
+\begin{equation}
+p_o^{(i, j)} = \frac{\exp\left( \alpha_o^{(i, j)} / \tau \right)}{\sum_{o' \in \mathcal{O}} \exp\left( \alpha_{o'}^{(i, j)} / \tau \right)}
+\end{equation}
+}
+with temperature $\tau > 0$. An intermediate node aggregates all incoming mixed edges: $x_j = \sum_{i < j} \bar{o}^{(i, j)}(x_i)$.
+
+The search is formulated as a \textbf{Bilevel Optimization Problem}:
+{\boldmath
+\begin{equation}
+\min_{\boldsymbol{\alpha}} \mathcal{L}_{\text{val}}\left( \mathbf{w}^*(\boldsymbol{\alpha}), \boldsymbol{\alpha} \right) \quad \text{subject to} \quad \mathbf{w}^*(\boldsymbol{\alpha}) = \arg\min_{\mathbf{w}} \mathcal{L}_{\text{train}}(\mathbf{w}, \boldsymbol{\alpha})
+\end{equation}
+}
+Upon search completion, the continuous supernet is pruned to a discrete DAG by selecting the operation with maximum architectural probability on each edge: $o^*(i, j) = \arg\max_{o \in \mathcal{O}} \alpha_o^{(i, j)}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Replacing Human Guesswork with Machine Search}: Deciding how many convolution layers, skip connections, or pooling layers a deep network needs used to require months of trial-and-error by top PhD researchers. Neural Architecture Search (NAS) lets the computer design its own brain.
+    \item \textbf{From 40,000 GPU Hours to 4 Hours}: Early NAS algorithms used reinforcement learning or genetic mutations: they trained thousands of complete networks from scratch to test tiny changes, burning hundreds of thousands of dollars in electricity.
+    \item \textbf{The Supernet Hall of Mirrors}: DARTS builds one giant ``supernet'' containing every possible candidate operation stacked on top of each other. Instead of choosing one operation, it runs all of them simultaneously with a volume slider (the $\alpha$ weights).
+    \item \textbf{Gradual Volume Tuning}: Using standard calculus (gradient descent), the optimizer turns up the volume on operations that improve validation accuracy and turns down useless operations. At the end, you simply keep the loudest operation!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine an obstacle race with five possible bridge materials across a river:
+\begin{itemize}
+    \item \textbf{The Ghost Bridges}: Instead of building just a wooden bridge or a rope bridge, DARTS spawns 5 ghost holographic bridges (Wood, Rope, Iron, Stone, Rubber) overlapping in the exact same spot.
+    \item \textbf{The Solidity Dial}: Each ghost bridge has a dial ($\alpha$). At first, all five bridges are equally see-through (20\% solid each).
+    \item \textbf{Testing with Runners}: Runners race across the blended bridge. If the Iron bridge carries the runners the fastest without wobbling, the system turns its dial up to 90\% solid.
+    \item \textbf{The Final Solid Bridge}: When the race ends, the hologram disappears and you pour real concrete over the winning bridge, leaving one rock-solid custom bridge!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Softmax Architecture Relaxation}
+{\boldmath
+\begin{equation}
+p_o = \frac{\exp(\alpha_o / \tau)}{\sum_{k=0}^{K-1} \exp(\alpha_k / \tau)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The temperature-controlled probability distribution over the discrete set of candidate operations.
+    \item \textbf{What It Means}: Normalizes raw unbounded architecture logits $\boldsymbol{\alpha}$ onto the probability simplex $\Delta^{K-1}$.
+    \item \textbf{Why It Is Important}: Allows continuous gradients $\frac{\partial \mathcal{L}}{\partial \alpha_o}$ to backpropagate through the architecture selection mechanism.
+\end{itemize}
+
+\subsection{Continuously Relaxed Edge Mixture}
+{\boldmath
+\begin{equation}
+\bar{y} = \sum_{o=0}^{K-1} p_o \cdot \mathbf{u}_o
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The convex combination of candidate operation output tensors $\mathbf{u}_o = o(\mathbf{x})$.
+    \item \textbf{What It Means}: Evaluates a blended supernet feature vector combining all candidate functional transformations.
+    \item \textbf{Why It Is Important}: Retains end-to-end differentiability across all candidate computational paths simultaneously.
+\end{itemize}
+
+\subsection{Discrete Architecture Selection (Pruning Rule)}
+{\boldmath
+\begin{equation}
+o^* = \arg\max_{0 \le o < K} \alpha_o = \arg\max_{0 \le o < K} p_o
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The deterministic discrete operation selection induced by maximum architecture weight.
+    \item \textbf{What It Means}: Converts the continuous supernet into a compact, deployable, discrete neural architecture.
+    \item \textbf{Why It Is Important}: Discards sub-optimal operations to produce an efficient standalone network for inference.
+\end{itemize}
+
+\subsection{Architecture Selection Uncertainty (Shannon Entropy)}
+{\boldmath
+\begin{equation}
+\mathcal{H}(\mathbf{p}) = - \sum_{o=0}^{K-1} p_o \ln(p_o)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Shannon entropy of the architecture probability distribution on an edge.
+    \item \textbf{What It Means}: Quantifies search certainty: $\mathcal{H} \to \ln(K)$ indicates total uncertainty, while $\mathcal{H} \to 0$ signifies confident convergence to a single operation.
+    \item \textbf{Why It Is Important}: Serves as a diagnostic metric to detect architecture search collapse or indecision.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\mathcal{O}$ (candidate operation set of size $K$), $\boldsymbol{\alpha}$ (architecture mixing logits), $\mathbf{p}$ (simplex probabilities), $\tau$ (temperature), $\mathcal{H}$ (entropy), $\mathbf{w}$ (network weights).
+    \item \textbf{Epistemic Status}: Proposed by Liu, Simonyan, and Yang (2018), widely validated across vision and language architecture search benchmarks.
+    \item \textbf{Dependency Graph}: $\boldsymbol{\alpha} \to \mathbf{p} \to \bar{\mathbf{y}} = \sum p_o \mathbf{u}_o \to \mathcal{L}_{\text{val}} \to \nabla_{\boldsymbol{\alpha}} \mathcal{L}_{\text{val}} \to \text{Update } \boldsymbol{\alpha}$.
+    \item \textbf{Dimensions}: Operation count $K = |\mathcal{O}|$, feature vector dimension $D$, logits $\boldsymbol{\alpha} \in \mathbb{R}^K$.
+    \item \textbf{Regimes}: Differentiable neural architecture search, hardware-aware edge device optimization, multi-branch routing.
+    \item \textbf{Invariants}: Probability conservation $\sum_{o=0}^{K-1} p_o = 1$, $p_o > 0$.
+    \item \textbf{Isomorphisms}: Closely related to mixture-of-experts gating networks where each expert is a candidate layer type.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Convexity of the Relaxed Output Space]
+Let $\mathcal{U} = \{\mathbf{u}_0, \mathbf{u}_1, \dots, \mathbf{u}_{K-1}\} \subset \mathbb{R}^D$ be the set of activation vectors generated by candidate operations on input $\mathbf{x}$. For any architecture logits $\boldsymbol{\alpha} \in \mathbb{R}^K$ and temperature $\tau > 0$, the relaxed edge output $\bar{\mathbf{y}}$ lies strictly within the relative interior of the convex hull $\operatorname{conv}(\mathcal{U})$:
+{\boldmath
+\begin{equation}
+\bar{\mathbf{y}} \in \operatorname{relint}(\operatorname{conv}(\mathcal{U}))
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition, for any finite temperature $\tau > 0$ and any real vector $\boldsymbol{\alpha} \in \mathbb{R}^K$:
+{\boldmath
+\begin{equation}
+p_o = \frac{\exp(\alpha_o / \tau)}{\sum_{k=0}^{K-1} \exp(\alpha_k / \tau)} > 0, \quad \forall o \in \{0, \dots, K-1\}
+\end{equation}
+}
+Furthermore, the denominator ensures:
+{\boldmath
+\begin{equation}
+\sum_{o=0}^{K-1} p_o = 1
+\end{equation}
+}
+Thus $\mathbf{p} \in \operatorname{int}(\Delta^{K-1})$.
+The output vector is defined as:
+{\boldmath
+\begin{equation}
+\bar{\mathbf{y}} = \sum_{o=0}^{K-1} p_o \mathbf{u}_o
+\end{equation}
+}
+Since all coefficients $p_o$ are strictly positive and sum to 1, $\bar{\mathbf{y}}$ is a strict convex combination of the points in $\mathcal{U}$, which places $\bar{\mathbf{y}}$ in the relative interior of the convex hull $\operatorname{conv}(\mathcal{U})$.
+\end{proof}
+
+\begin{theorem}[Zero-Entropy Convergence in the Low-Temperature Limit]
+Let $\boldsymbol{\alpha} \in \mathbb{R}^K$ have a unique maximum element $\alpha_{o^*} > \alpha_o$ for all $o \neq o^*$. Then as the softmax temperature parameter $\tau \to 0^+$:
+{\boldmath
+\begin{align}
+\lim_{\tau \to 0^+} p_{o^*} &= 1, \quad \lim_{\tau \to 0^+} p_o = 0 \quad (\forall o \neq o^*) \\
+\lim_{\tau \to 0^+} \mathcal{H}(\mathbf{p}) &= 0
+\end{align}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\Delta_o = \alpha_o - \alpha_{o^*} < 0$ for all $o \neq o^*$.
+Rewriting the softmax probability for the maximal operation $o^*$:
+{\boldmath
+\begin{equation}
+p_{o^*} = \frac{1}{1 + \sum_{o \neq o^*} \exp\left( \frac{\alpha_o - \alpha_{o^*}}{\tau} \right)} = \frac{1}{1 + \sum_{o \neq o^*} \exp\left( \frac{\Delta_o}{\tau} \right)}
+\end{equation}
+}
+Since $\Delta_o < 0$, as $\tau \to 0^+$, we have $\frac{\Delta_o}{\tau} \to -\infty$, hence $\lim_{\tau \to 0^+} \exp(\Delta_o / \tau) = 0$.
+Therefore:
+{\boldmath
+\begin{equation}
+\lim_{\tau \to 0^+} p_{o^*} = \frac{1}{1 + 0} = 1
+\end{equation}
+}
+For any non-maximal operation $o \neq o^*$:
+{\boldmath
+\begin{equation}
+p_o = \frac{\exp(\Delta_o / \tau)}{1 + \sum_{k \neq o^*} \exp(\Delta_k / \tau)} \xrightarrow{\tau \to 0^+} \frac{0}{1} = 0
+\end{equation}
+}
+Now consider the Shannon entropy:
+{\boldmath
+\begin{equation}
+\mathcal{H}(\mathbf{p}) = - p_{o^*} \ln(p_{o^*}) - \sum_{o \neq o^*} p_o \ln(p_o)
+\end{equation}
+}
+Since $\lim_{x \to 0^+} x \ln(x) = 0$ and $\lim_{x \to 1} x \ln(x) = 0$, both terms vanish:
+{\boldmath
+\begin{equation}
+\lim_{\tau \to 0^+} \mathcal{H}(\mathbf{p}) = - 1 \ln(1) - \sum_{o \neq o^*} 0 = 0
+\end{equation}
+}
+Thus the continuous architecture relaxation recovers the deterministic discrete architecture with zero entropy.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Performance Collapse towards Skip Connections}
+\textbf{Question:} Why does DARTS frequently fail by selecting exclusively parameter-free skip connections?\\
+\textbf{Answer:} Skip connections provide rapid gradient highways without learnable weights, so they yield faster training loss reduction early in search. Standard DARTS suffers from a high-curvature Hessian eigenvalue explosion along skip directions, tricking the first-order approximation into choosing trivial identity connections.
+
+\textbf{Meta-Question:} How is skip-connection collapse resolved in modern NAS?\\
+\textbf{Answer:} Using early stopping based on Hessian eigenvalues (DARTS+), operation-level dropout (DropNAS), or auxiliary regularization that caps the maximum allowable identity operations per cell.
+
+\subsection{Architectural Question 2: First-Order vs Second-Order Bilevel Approximation}
+\textbf{Question:} What is the mathematical difference between first-order and second-order DARTS?\\
+\textbf{Answer:} First-order DARTS approximates $\mathbf{w}^*(\boldsymbol{\alpha})$ with current weights $\mathbf{w}$, evaluating $\nabla_{\boldsymbol{\alpha}} \mathcal{L}_{\text{val}}(\mathbf{w}, \boldsymbol{\alpha})$. Second-order DARTS unrolls one virtual gradient step $\mathbf{w}' = \mathbf{w} - \xi \nabla_{\mathbf{w}} \mathcal{L}_{\text{train}}$, requiring a vector-Hessian product $\nabla^2_{\boldsymbol{\alpha}, \mathbf{w}} \mathcal{L}_{\text{train}} \nabla_{\mathbf{w}'} \mathcal{L}_{\text{val}}$.
+
+\textbf{Meta-Question:} Does second-order DARTS deliver significantly superior architectures?\\
+\textbf{Answer:} Empirically, second-order DARTS provides only marginal gains ($+0.2\%$ on CIFAR-10) while doubling search time and memory consumption. Most industrial deployments use first-order DARTS with gradient clipping and architectural regularization.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Differentiable Architecture Search Edge Relaxation and Discretization}
+\begin{algorithmic}[1]
+\Require Architecture logits $\boldsymbol{\alpha} \in \mathbb{R}^K$, candidate outputs $\mathbf{U} \in \mathbb{R}^{K \times D}$, temperature $\tau > 0$
+\Ensure Relaxed edge output $\bar{\mathbf{y}} \in \mathbb{R}^D$, operation probabilities $\mathbf{p} \in \mathbb{R}^K$, winning index $o^*$, entropy $\mathcal{H}$
+\State $\alpha_{\max} \gets \max_{0 \le k < K} (\boldsymbol{\alpha}[k] / \tau)$
+\State $sum\_exp \gets 0.0$
+\State Initialize array $\mathbf{e} \in \mathbb{R}^K$
+\For{$k = 0$ \textbf{to} $K-1$}
+    \State $\mathbf{e}[k] \gets \exp\left( (\boldsymbol{\alpha}[k] / \tau) - \alpha_{\max} \right)$
+    \State $sum\_exp \gets sum\_exp + \mathbf{e}[k]$
+\EndFor
+\State Initialize array $\mathbf{p} \in \mathbb{R}^K, \quad o^* \gets 0, \quad \alpha_{\text{best}} \gets -\infty$
+\For{$k = 0$ \textbf{to} $K-1$}
+    \State $\mathbf{p}[k] \gets \mathbf{e}[k] / sum\_exp$
+    \If{$\boldsymbol{\alpha}[k] > \alpha_{\text{best}}$}
+        \State $\alpha_{\text{best}} \gets \boldsymbol{\alpha}[k], \quad o^* \gets k$
+    \EndIf
+\EndFor
+\State Initialize $\bar{\mathbf{y}} \in \mathbb{R}^D$ to zeros
+\For{$o = 0$ \textbf{to} $K-1$} \Comment{Convex Combination of Edge Features}
+    \State $prob \gets \mathbf{p}[o]$
+    \For{$d = 0$ \textbf{to} $D-1$}
+        \State $\bar{\mathbf{y}}[d] \gets \bar{\mathbf{y}}[d] + prob \cdot \mathbf{U}[o][d]$
+    \EndFor
+\EndFor
+\State $\mathcal{H} \gets 0.0, \quad \epsilon \gets 10^{-12}$
+\For{$k = 0$ \textbf{to} $K-1$} \Comment{Compute Shannon Entropy}
+    \If{$\mathbf{p}[k] > \epsilon$}
+        \State $\mathcal{H} \gets \mathcal{H} - \mathbf{p}[k] \cdot \ln(\mathbf{p}[k])$
+    \EndIf
+\EndFor
+\State \Return $(\bar{\mathbf{y}}, \mathbf{p}, o^*, \mathcal{H})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Softmax Relaxation Complexity}: $\Theta(K)$ scalar operations over candidate operations.
+    \item \textbf{Convex Feature Mixture Complexity}: $\Theta(K \cdot D)$ scalar multiply-accumulate operations.
+    \item \textbf{Entropy Evaluation Complexity}: $\Theta(K)$ log operations.
+    \item \textbf{Space Complexity}: $\Theta(K + D)$ working memory buffers per DAG edge.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log K + \log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

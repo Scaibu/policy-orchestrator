@@ -1,0 +1,300 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Autoregressive PixelCNN}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Autoregressive Image Density Operator):}
+Let $\mathbf{x} = (x_1, x_2, \dots, x_N) \in \{0, 1, \dots, V - 1\}^N$ denote an image serialized as an ordered sequence of $N = H \times W$ discrete pixel values in raster-scan order (top-to-bottom, left-to-right). By the probability chain rule, the joint distribution factors exactly without independence assumptions:
+{\boldmath
+\begin{equation}
+p(\mathbf{x}) = \prod_{i=1}^N p(x_i \mid \mathbf{x}_{<i}) = \prod_{i=1}^N p(x_i \mid x_1, x_2, \dots, x_{i-1})
+\end{equation}
+}
+The \textbf{PixelCNN} operator parameterizes these conditional distributions using masked convolutional neural networks:
+{\boldmath
+\begin{equation}
+\mathbf{h}^{(l)} = f\left( \left(\mathbf{W}^{(l)} \odot \mathbf{M}\right) * \mathbf{h}^{(l-1)} + \mathbf{b}^{(l)} \right)
+\end{equation}
+}
+where $\mathbf{M}$ is a causal mask matrix zeroing out weights corresponding to the future pixels ($j \ge i$ in Mask Type A for input layer, $j > i$ in Mask Type B for hidden layers). The training loss evaluates the total empirical negative log-likelihood (NLL):
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{NLL}}(\mathbf{x}) = -\sum_{i=1}^N \log p_\theta(x_i \mid \mathbf{x}_{<i})
+\end{equation}
+}
+and the standard image compression metric, \textbf{bits per dimension} (bpd), is defined as $\text{bpd} = \frac{\mathcal{L}_{\text{NLL}}}{N \ln(2)}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Think of how you read a book: you read word by word, from left to right, line by line. As you read, each new word makes sense only because of the words that came before it. If you see the words \emph{``The knight drew his shiny...''}, your brain easily predicts that the next word is likely \emph{``sword''} or \emph{``shield''}, but almost certainly not \emph{``banana''}.
+
+PixelCNN does the exact same thing, but for pictures:
+\begin{enumerate}
+    \item \textbf{Pixel Reading}: It starts at the top-left corner and reads the image pixel by pixel like a book.
+    \item \textbf{Causal Blindfold (Masking)}: To prevent the AI from cheating, we put virtual blindfolds on it so that when it tries to predict pixel \#50, it is strictly forbidden from seeing pixel \#50 or any pixels after it. It can only look at the pixels it has already read.
+    \item \textbf{Parallel Training}: During training, because all past pixels are already known, we can compute predictions for every pixel in the entire image simultaneously!
+    \item \textbf{Sequential Painting}: When generating a brand-new image, it paints one pixel at a time, picks a color, and uses that new pixel to help decide the color of the next one.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Coloring Robot with a Blindfold}:
+Imagine a little robot painter sitting with a giant canvas of grid squares:
+\begin{itemize}
+    \item \textbf{The Grid Canvas ($N$ Pixels)}:
+    The grid has 1,000 tiny squares numbered 1 to 1,000.
+    
+    \item \textbf{The Cardboard Shield (Causal Mask)}:
+    The robot holds a cardboard shield in front of its eyes. When its paintbrush is hovering over square \#10, the shield covers squares \#10 through \#1,000! It can only peek at squares \#1 through \#9.
+    
+    \item \textbf{The Paint Clues}:
+    If squares \#1 through \#9 are all blue, the robot whispers: \emph{``Aha! This looks like the sky! Square \#10 is probably blue too!''}
+    
+    \item \textbf{The Step-by-Step Canvas}:
+    The robot paints square \#10 blue. Then it slides its paintbrush to square \#11, slides its shield, and uses square \#10 to guess square \#11!
+    
+    \item \textbf{The Perfect Guess Meter (Bits per Dimension)}:
+    If the robot's guesses are always right, its score is low, meaning it understands exactly how real pictures are drawn!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Autoregressive Joint Probability Chain Rule}}
+{\boldmath
+\begin{equation}
+p(\mathbf{x}) = \prod_{i=1}^N p(x_i \mid x_1, \dots, x_{i-1}) \quad \Longleftrightarrow \quad \log p(\mathbf{x}) = \sum_{i=1}^N \log p(x_i \mid \mathbf{x}_{<i})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The exact conditional factorized representation of a discrete joint probability distribution over $N$ random variables.
+    \item \textbf{What It Means}:
+    Expresses the probability of an entire image as the cumulative product of predicting each single pixel given all previous pixels.
+    \item \textbf{Why It Is Important}:
+    Provides a completely exact probability density with zero independence assumptions, eliminating the approximations of VAEs and GANs.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Causal Masking Convolution Operator}}
+{\boldmath
+\begin{equation}
+M_{i, j} = \begin{cases} 1, & \text{\textbf{if key position }} j < i \quad (\text{Mask A}) \\ 1, & \text{\textbf{if key position }} j \le i \quad (\text{Mask B}) \\ 0, & \text{\textbf{if key position }} j > i \end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The binary structured sparsity mask applied elementwise to convolution kernels to enforce causal upper triangular directional information flow.
+    \item \textbf{What It Means}:
+    Zeroes out weights that would allow a pixel to look at future pixels or (in Mask A) at itself.
+    \item \textbf{Why It Is Important}:
+    Enables fully parallelized convolutional training over the entire image grid on GPU/TPU tensor cores while strictly preventing information leakage.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Categorical Pixel Softmax Distribution}}
+{\boldmath
+\begin{equation}
+p(x_i = v \mid \mathbf{x}_{<i}) = \frac{\exp(z_{i, v})}{\sum_{v'=0}^{V-1} \exp(z_{i, v'})}, \qquad \mathbf{z}_i = \mathbf{W}_{\text{causal}} \mathbf{x}_{<i} + \mathbf{b}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The row-wise normalized exponential mapping from unconstrained context logits $\mathbf{z}_i \in \mathbb{R}^V$ to the discrete categorical simplex $\boldsymbol{\Delta}^{V-1}$.
+    \item \textbf{What It Means}:
+    Assigns a distinct probability to each of the $V$ discrete color/intensity levels (typically 256 for 8-bit channels).
+    \item \textbf{Why It Is Important}:
+    Treating pixel values as discrete categorical choices rather than continuous scalars allows the model to predict multimodal distributions (e.g., a pixel could be dark brown or white, but not muddy gray).
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Information Metric: Bits Per Dimension}}
+{\boldmath
+\begin{equation}
+\text{bpd} = \frac{\mathcal{L}_{\text{NLL}}}{N \cdot \ln(2)} = \frac{-\sum_{i=1}^N \log_2 p(x_i \mid \mathbf{x}_{<i})}{N}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The normalized cross-entropy in base-2 representing the average number of binary bits required to encode each pixel under Shannon optimal entropy coding.
+    \item \textbf{What It Means}:
+    Measures the lossless compression efficiency achieved by the generative model on the image dataset.
+    \item \textbf{Why It Is Important}:
+    Serves as the universally accepted, scale-invariant benchmark metric for generative visual density modeling.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $N \in \mathbb{N}_{\ge 1}$: Total pixel sequence length ($H \times W$).
+    \item $V \in \mathbb{N}_{\ge 2}$: Alphabet size (quantization bins, typically 256).
+    \item $\mathbf{x} \in \{0, \dots, V-1\}^N$: Discrete pixel sequence.
+    \item $\mathbf{z}_i \in \mathbb{R}^V$: Unnormalized conditional logit scores.
+    \item $\mathbf{M}$: Causal binary mask matrix.
+    \item $\mathcal{L}_{\text{NLL}}$: Negative log-likelihood in nats.
+    \item $\text{bpd}$: Compression performance in bits per dimension.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of PixelCNN Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$N, V$ & \textbf{Defined} (Image and alphabet dimension) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\mathbf{M}$ & \textbf{Defined} (Structural causal topology) & Binary matrix $\{0, 1\}^{V \times N}$ \\
+$\mathbf{W}_{\text{causal}}, \mathbf{b}$ & \textbf{Learned} (Network parameters) & Continuous weights and biases \\
+$\mathbf{z}_i, p(x_i \mid \mathbf{x}_{<i})$ & \textbf{Calculated} (Conditional probabilities) & Vectors on standard simplex $\boldsymbol{\Delta}^{V-1}$ \\
+$\text{bpd}$ & \textbf{Calculated} (Compression metric) & Non-negative scalar $\mathbb{R}_{\ge 0}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+\mathbf{x} \xrightarrow{\mathbf{M} \odot \mathbf{W}} \mathbf{z} \xrightarrow{\text{Softmax}} \mathbf{P} \xrightarrow{\text{Cross-Entropy}} \mathcal{L}_{\text{NLL}} \xrightarrow{/ (N \ln 2)} \text{bpd}
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item Pixel sequence: Rank-1 integer tensor of shape $(N)$.
+    \item Probability tensor: Rank-2 tensor of shape $(N, V)$.
+    \item $\mathcal{L}_{\text{NLL}}$: Information entropy measured in nats.
+    \item $\text{bpd}$: Information entropy measured in bits/subpixel.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Uniform Guessing Baseline}: If the model predicts uniform probabilities $p = 1/V$, then $\text{bpd} = \log_2(V)$. For $V = 256$, baseline is exactly $8.0$ bits/pixel.
+    \item \textbf{Deterministic Memorization}: If the model predicts target pixels with probability $1.0$, then $\text{bpd} = 0.0$.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Sequential Inference Latency}: While training is fully parallelized across all $N$ pixels, autoregressive sampling requires $N$ sequential forward passes, creating high generation latency.
+    \item \textbf{Blind Spot Problem}: Standard causal convolutional filters have an asymmetric triangular receptive field that leaves a portion of the upper-right context unobserved. (Solved by Gated PixelCNN dual horizontal and vertical stacks).
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Causal Independence}: The output distribution at step $i$ has strictly zero Jacobian with respect to future input pixels: $\frac{\partial p(x_i \mid \mathbf{x}_{<i})}{\partial x_j} = \mathbf{0}$ for all $j \ge i$.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Autoregressive Language Modeling (GPT)}: PixelCNN is mathematically identical to a causal Transformer language model, differing only in convolutional vs self-attentive contextual aggregation.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Shannon Entropy Bound on Bits Per Dimension}]
+Let $\mathbf{X}$ be an image generated from true distribution $P(\mathbf{X})$ with alphabet size $V$ per pixel. For any autoregressive model $Q_\theta(\mathbf{X}) = \prod_{i=1}^N Q(X_i \mid \mathbf{X}_{<i})$, the expected bits per dimension is lower-bounded by the per-pixel entropy of the true data generating process:
+{\boldmath
+\begin{equation}
+\mathbb{E}_{\mathbf{X} \sim P}\left[ \text{bpd}(Q_\theta) \right] = \frac{H(P) + D_{\text{KL}}(P \parallel Q_\theta)}{N \log_2(2)} \ge \frac{H(P)}{N}
+\end{equation}
+}
+with equality if and only if $Q_\theta(X_i \mid \mathbf{X}_{<i}) = P(X_i \mid \mathbf{X}_{<i})$ almost everywhere.
+\end{theorem}
+
+\begin{proof}
+By definition of cross-entropy in base 2:
+{\boldmath
+\begin{align}
+\mathbb{E}_{\mathbf{X} \sim P}\left[ \text{bpd}(Q_\theta) \right] &= \frac{1}{N} \mathbb{E}_{\mathbf{X} \sim P}\left[ -\log_2 Q_\theta(\mathbf{X}) \right] \\
+&= -\frac{1}{N} \sum_{\mathbf{x}} P(\mathbf{x}) \log_2 Q_\theta(\mathbf{x}) \\
+&= -\frac{1}{N} \sum_{\mathbf{x}} P(\mathbf{x}) \left[ \log_2 P(\mathbf{x}) - \log_2 \frac{P(\mathbf{x})}{Q_\theta(\mathbf{x})} \right] \\
+&= \frac{1}{N} H_2(P) + \frac{1}{N} D_{\text{KL}, 2}(P \parallel Q_\theta)
+\end{align}
+}
+By Gibbs' inequality, the Kullback-Leibler divergence is non-negative ($D_{\text{KL}} \ge 0$), with equality if and only if $P \equiv Q_\theta$.
+Therefore:
+{\boldmath
+\begin{equation}
+\mathbb{E}[\text{bpd}(Q_\theta)] \ge \frac{H_2(P)}{N}
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Why Is Discrete Categorical Loss Preferred Over Continuous Gaussian Loss for Pixels?}
+\textbf{Question}: Pixels are continuous light measurements. Why does PixelCNN treat pixel values as discrete categories $\{0, \dots, 255\}$ instead of predicting a continuous Gaussian mean and variance?
+
+\textbf{Meta-Question}: Does continuous parametric modeling impose restrictive distributional assumptions?
+
+\textbf{Answer}: Real pixel distributions are complex, non-smooth, and intensely multimodal. For example, a pixel along the edge of a black text character on white paper is either 0 or 255. A Gaussian or continuous distribution would predict the mean (128, gray) with high variance, penalizing realistic crisp borders and generating blurry images. A 256-way categorical softmax has the expressive freedom to assign 50\% probability to 0 and 50\% probability to 255 while assigning 0\% to gray, producing sharp, photorealistic transitions.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{Autoregressive PixelCNN Causal Forward Pass}
+\label{alg:pixelcnn}
+\begin{algorithmic}[1]
+\Require Pixel sequence $\mathbf{x} \in \{0, \dots, V-1\}^N$, Causal weights $\mathbf{W} \in \mathbb{R}^{V \times N}$, Bias $\mathbf{b} \in \mathbb{R}^V$, Alphabet $V$
+\Ensure Total NLL $\mathcal{L}_{\text{total}}$, Mean NLL $\bar{\mathcal{L}}$, Bits per dimension $\text{bpd}$, Probabilities $\mathbf{P} \in \mathbb{R}^{N \times V}$
+\State $\mathcal{L}_{\text{total}} \gets 0.0, \quad \epsilon \gets 10^{-12}$
+\State $\mathbf{P} \gets \text{empty list}$
+\For{$i \gets 1 \textbf{ to } N$}
+    \State $\mathbf{z} \gets \text{zeros}(V)$
+    \For{$v \gets 1 \textbf{ to } V$}
+        \State $z_v \gets b_v$
+        \For{$j \gets 1 \textbf{ to } i-1$} \Comment{Strict causal context prior to $i$}
+            \State $z_v \gets z_v + W_{v, j} \cdot x_j$
+        \EndFor
+    \EndFor
+    \State $m \gets \max_{1 \le v \le V} z_v$
+    \State $\text{sum\_exp} \gets \sum_{v=1}^V \exp(z_v - m)$
+    \State $\mathbf{p} \gets [\exp(z_v - m) / \text{sum\_exp} \textbf{ for } v \in \{1, \dots, V\}]$
+    \State Append $\mathbf{p}$ to $\mathbf{P}$
+    \State $\text{target\_p} \gets \max(\epsilon, p[x_i])$
+    \State $\mathcal{L}_{\text{total}} \gets \mathcal{L}_{\text{total}} - \ln(\text{target\_p})$
+\EndFor
+\State $\bar{\mathcal{L}} \gets \mathcal{L}_{\text{total}} / N$
+\State $\text{bpd} \gets \bar{\mathcal{L}} / \ln(2.0)$
+\State \Return $\{\text{total\_nll}: \mathcal{L}_{\text{total}}, \text{mean\_nll}: \bar{\mathcal{L}}, \text{bpd}: \text{bpd}, \text{probs}: \mathbf{P}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Causal logit projection: For each step $i$, computing $V$ logits over $i-1$ elements takes $\sum_{i=1}^N V(i-1) = \frac{1}{2} V N^2$ operations ($\Theta(N^2 V)$ FLOPs).
+        \item Softmax normalization: $N \times V$ exponentiations and divisions ($\Theta(N V)$).
+        \item Total Time: $\Theta(N^2 V)$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Probability buffer $\mathbf{P}$: $\Theta(N V)$ floats.
+        \item Total Space: $\Theta(N V)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

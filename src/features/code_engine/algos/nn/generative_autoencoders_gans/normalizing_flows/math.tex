@@ -1,0 +1,319 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Normalizing Flows}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Normalizing Flow Operator):}
+Let $\mathcal{Z} = \mathbb{R}^D$ denote a latent base space equipped with an analytically tractable probability density $p_z(\mathbf{z}) = \mathcal{N}(\mathbf{0}, \mathbf{I}_D)$ and let $\mathcal{X} = \mathbb{R}^D$ denote the observational data space. A \textbf{Normalizing Flow} is a diffeomorphism $f_\theta: \mathcal{Z} \to \mathcal{X}$ formed by the sequential composition of $K$ invertible, continuously differentiable transformations:
+{\boldmath
+\begin{equation}
+\mathbf{x} = f_\theta(\mathbf{z}) = f_K \circ f_{K-1} \circ \dots \circ f_1(\mathbf{z}), \qquad \mathbf{z} = f_\theta^{-1}(\mathbf{x}) = f_1^{-1} \circ \dots \circ f_K^{-1}(\mathbf{x})
+\end{equation}
+}
+By the multivariable \textbf{Change of Variables Theorem}, the exact marginal log-likelihood of observation $\mathbf{x}$ is evaluated without Monte Carlo approximation or lower-bound relaxation:
+{\boldmath
+\begin{equation}
+\log p_\theta(\mathbf{x}) = \log p_z(f_\theta^{-1}(\mathbf{x})) - \log \left| \det \mathbf{J}_{f_\theta}(f_\theta^{-1}(\mathbf{x})) \right| = \log p_z(\mathbf{z}) + \sum_{k=1}^K \log \left| \det \mathbf{J}_{f_k^{-1}}(\mathbf{x}_{k}) \right|
+\end{equation}
+}
+where $\mathbf{J}_f(\mathbf{z}) = \left[ \frac{\partial f_i}{\partial z_j} \right]_{i, j=1}^D$ is the Jacobian matrix. In \textbf{Affine Coupling Layers} (RealNVP), given partition boundary $d < D$:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{1:d} = \mathbf{z}_{1:d}, \qquad \mathbf{x}_{d+1:D} = \mathbf{z}_{d+1:D} \odot \exp(s(\mathbf{z}_{1:d})) + t(\mathbf{z}_{1:d})
+\end{equation}
+}
+where scale $s$ and translation $t$ are arbitrary non-linear neural networks whose Jacobians never need to be computed or inverted.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Most generative models have a major flaw: GANs cannot compute exact probabilities, and VAEs only approximate probabilities using an imprecise lower bound (ELBO).
+
+Normalizing Flows solve this by using purely **two-way invertible mathematical tunnels**:
+\begin{enumerate}
+    \item \textbf{The Invertible Pipe}: Imagine a flexible sheet of rubber. A flow starts with a simple standard bell curve (easy to sample from) and stretches, twists, and bends it into the complex shape of real data.
+    \item \textbf{Exact Reversibility}: Because every stretching step is strictly reversible, you can take any real image and run it backward through the tunnel to find its exact original noise coordinates.
+    \item \textbf{Volume Accounting (The Jacobian)}: Whenever you stretch or squeeze a sheet of rubber, its local thickness changes. The Jacobian determinant acts like a meticulous volume accountant that keeps track of exactly how much the space was stretched at every point.
+    \item \textbf{Exact Density}: By combining the starting probability with the volume change, you compute the exact, 100\% true probability of any image.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Origami Folder and Unfolder}:
+Imagine a crisp, flat sheet of origami paper:
+\begin{itemize}
+    \item \textbf{The Smooth Paper Sheet (Base Distribution $\mathbf{z}$)}:
+    You start with a simple square piece of paper. Anyone can draw a dot on it at random.
+    
+    \item \textbf{The Magic Folds (Flow Steps $f_k$)}:
+    You fold the paper 10 times in very specific ways. Now the paper is a beautiful 3D origami swan ($\mathbf{x}$)!
+    
+    \item \textbf{The Reversible Unfolder ($f^{-1}$)}:
+    Because you know exactly how each fold was made, you can unfold the swan step by step until it is a flat square sheet again—with zero tears or creases lost!
+    
+    \item \textbf{The Folding Magnifier (Jacobian Determinant)}:
+    Some folds make the paper 4 layers thick; some folds unfold it flat. A tiny magnifying glass counts how many layers of paper are stacked under each point.
+    
+    \item \textbf{The Real vs Fake Detector}:
+    If someone hands you a real swan folded with your rules, it unfolds into a clean square. If they hand you a crumpled ball of aluminum foil, the folding rules break down, giving you an impossible shape!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Diffeomorphic Change of Variables Density}}
+{\boldmath
+\begin{equation}
+p_X(\mathbf{x}) = p_Z(f^{-1}(\mathbf{x})) \cdot \left| \det \mathbf{J}_{f^{-1}}(\mathbf{x}) \right| = p_Z(\mathbf{z}) \cdot \left| \det \mathbf{J}_f(\mathbf{z}) \right|^{-1}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The push-forward probability density transformation rule induced by smooth bijection $f$ with non-singular Jacobian.
+    \item \textbf{What It Means}:
+    The likelihood of data point $\mathbf{x}$ equals the prior probability of its pre-image $\mathbf{z}$ scaled by the local volume contraction factor.
+    \item \textbf{Why It Is Important}:
+    Allows exact likelihood computation and optimization without approximations, sampling variance, or intractable partition functions.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Affine Coupling Layer Forward Mapping}}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{1:d} = \mathbf{z}_{1:d}, \qquad \mathbf{x}_{d+1:D} = \mathbf{z}_{d+1:D} \odot \exp(s(\mathbf{z}_{1:d})) + t(\mathbf{z}_{1:d})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The triangular diffeomorphism that acts as the identity on the first $d$ coordinates and applies coordinate-wise affine scaling and translation to the remaining $D - d$ coordinates conditioned on the first $d$.
+    \item \textbf{What It Means}:
+    Transforms half of the vector using complex neural networks $s$ and $t$ while keeping the other half as an immutable conditioning context.
+    \item \textbf{Why It Is Important}:
+    Guarantees that the Jacobian matrix is lower triangular, making its determinant trivial to compute in $\mathcal{O}(D)$ time rather than $\mathcal{O}(D^3)$.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Exact Analytical Inversion}}
+{\boldmath
+\begin{equation}
+\mathbf{z}_{1:d} = \mathbf{x}_{1:d}, \qquad \mathbf{z}_{d+1:D} = (\mathbf{x}_{d+1:D} - t(\mathbf{x}_{1:d})) \odot \exp(-s(\mathbf{x}_{1:d}))
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The exact algebraic inverse of the affine coupling layer.
+    \item \textbf{What It Means}:
+    Inverts the transformation in a single feedforward pass using the exact same networks $s$ and $t$ without needing to invert $s$ or $t$ themselves.
+    \item \textbf{Why It Is Important}:
+    Allows $s$ and $t$ to be arbitrarily complex neural networks (e.g., ResNets, Convolutions, or MLPs) with zero invertibility constraints on their internal architectures.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Triangular Jacobian Log-Determinant}}
+{\boldmath
+\begin{equation}
+\log \left| \det \mathbf{J}_f(\mathbf{z}) \right| = \log \left| \det \begin{bmatrix} \mathbf{I}_d & \mathbf{0} \\ \frac{\partial \mathbf{x}_{d+1:D}}{\partial \mathbf{z}_{1:d}} & \operatorname{diag}(\exp(s(\mathbf{z}_{1:d}))) \end{bmatrix} \right| = \sum_{i=1}^{D-d} s_i(\mathbf{z}_{1:d})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The trace of the logarithm of the diagonal blocks of the triangular Jacobian matrix.
+    \item \textbf{What It Means}:
+    The total log volume expansion factor is simply the sum of the scale outputs of network $s$.
+    \item \textbf{Why It Is Important}:
+    Reduces an $\mathcal{O}(D^3)$ matrix determinant computation to a simple $\mathcal{O}(D)$ scalar sum, enabling real-time scaling to high-dimensional images.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{z} \in \mathbb{R}^D$: Latent base Gaussian sample.
+    \item $\mathbf{x} \in \mathbb{R}^D$: Ambient observation vector.
+    \item $d \in \{1, \dots, D-1\}$: Split partition coordinate boundary.
+    \item $s(\cdot) \in \mathbb{R}^{D-d}$: Scale transformation neural network.
+    \item $t(\cdot) \in \mathbb{R}^{D-d}$: Translation transformation neural network.
+    \item $\mathbf{J}_f$: $D \times D$ Jacobian matrix of partial derivatives.
+    \item $\log p(\mathbf{x})$: Exact log-likelihood of observation $\mathbf{x}$.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Normalizing Flow Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$D, d$ & \textbf{Defined} (Dimension hyperparameters) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\mathbf{W}_s, \mathbf{b}_s, \mathbf{W}_t, \mathbf{b}_t$ & \textbf{Learned} (Coupling network parameters) & Real weight matrices and vectors \\
+$\mathbf{x}, \mathbf{z}$ & \textbf{Calculated} (Invertible representations) & Vectors in $\mathbb{R}^D$ \\
+$\log |\det \mathbf{J}|, \log p(\mathbf{x})$ & \textbf{Calculated} (Exact density evaluations) & Real scalars in $\mathbb{R}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+\mathbf{z} \xrightarrow{\text{Split}} (\mathbf{z}_1, \mathbf{z}_2) \xrightarrow{s(\mathbf{z}_1), t(\mathbf{z}_1)} \mathbf{x}_2 = \mathbf{z}_2 e^s + t \xrightarrow{\text{Concat}} \mathbf{x} \longrightarrow (\log p(\mathbf{z}), \sum s_i) \to \log p(\mathbf{x})
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item Input and output tensors $\mathbf{z}, \mathbf{x}$: Rank-1 tensors of shape $(D)$.
+    \item Jacobian matrix $\mathbf{J}$: Rank-2 tensor of shape $(D, D)$.
+    \item Log-determinant and log-likelihood: Dimensionless real scalars.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Zero Coupling Regime ($s \equiv 0, t \equiv 0$)}: Transformation is exact identity mapping $f(\mathbf{z}) = \mathbf{z}$; $\log |\det \mathbf{J}| = 0$.
+    \item \textbf{Infinite Depth Limit ($K \to \infty$)}: Discrete flow composition converges to a continuous-time Neural Ordinary Differential Equation (Neural ODE).
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Unbounded Scale Instability}: If $s(\mathbf{z}_1) \gg 0$, $\exp(s)$ causes floating-point overflow. Clamping or passing $s$ through bounded activations (e.g., $2 \tanh(s / 2)$) is mathematically mandatory.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Probability Mass Conservation}: $\int_{\mathcal{X}} p_X(\mathbf{x}) d\mathbf{x} = \int_{\mathcal{Z}} p_Z(\mathbf{z}) d\mathbf{z} \equiv 1.0$ holds analytically.
+    \item \textbf{Exact Reversibility Invariant}: $\|f^{-1}(f(\mathbf{z})) - \mathbf{z}\| \le \epsilon_{\text{machine}}$.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Symplectic Integrators in Hamiltonian Mechanics}: Volume-preserving flows preserve phase space volume, strictly mirroring Liouville's theorem in statistical mechanics.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Change of Variables for Probability Density Functions}]
+Let $\mathbf{Z} \in \mathbb{R}^D$ be a random vector with continuous probability density $p_Z(\mathbf{z})$, and let $\mathbf{X} = f(\mathbf{Z})$ where $f: \mathbb{R}^D \to \mathbb{R}^D$ is a diffeomorphism (smooth bijection with smooth inverse). Then the probability density of $\mathbf{X}$ is given by:
+{\boldmath
+\begin{equation}
+p_X(\mathbf{x}) = p_Z(f^{-1}(\mathbf{x})) \cdot \left| \det \left( \frac{\partial f^{-1}(\mathbf{x})}{\partial \mathbf{x}} \right) \right|
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathcal{B} \subset \mathbb{R}^D$ be any arbitrary Borel-measurable set in data space $\mathcal{X}$, and let $f^{-1}(\mathcal{B}) \subset \mathcal{Z}$ denote its pre-image under $f$.
+By probability conservation:
+{\boldmath
+\begin{equation}
+\mathbb{P}(\mathbf{X} \in \mathcal{B}) = \mathbb{P}(\mathbf{Z} \in f^{-1}(\mathcal{B})) = \int_{f^{-1}(\mathcal{B})} p_Z(\mathbf{z}) \, d\mathbf{z}
+\end{equation}
+}
+Apply the multivariable substitution rule of integration $\mathbf{z} = f^{-1}(\mathbf{x})$. The differential volume element transforms according to the Jacobian determinant:
+{\boldmath
+\begin{equation}
+d\mathbf{z} = \left| \det \mathbf{J}_{f^{-1}}(\mathbf{x}) \right| d\mathbf{x}
+\end{equation}
+}
+Substituting this into the integral:
+{\boldmath
+\begin{equation}
+\int_{f^{-1}(\mathcal{B})} p_Z(\mathbf{z}) \, d\mathbf{z} = \int_{\mathcal{B}} p_Z(f^{-1}(\mathbf{x})) \left| \det \mathbf{J}_{f^{-1}}(\mathbf{x}) \right| d\mathbf{x}
+\end{equation}
+}
+By definition of the probability density function $p_X(\mathbf{x})$:
+{\boldmath
+\begin{equation}
+\mathbb{P}(\mathbf{X} \in \mathcal{B}) = \int_{\mathcal{B}} p_X(\mathbf{x}) \, d\mathbf{x}
+\end{equation}
+}
+Since this equality holds for all measurable sets $\mathcal{B}$, the integrands must be equal almost everywhere:
+{\boldmath
+\begin{equation}
+p_X(\mathbf{x}) = p_Z(f^{-1}(\mathbf{x})) \cdot \left| \det \mathbf{J}_{f^{-1}}(\mathbf{x}) \right|
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: How Do Coupling Layers Achieve Non-Linear Invertibility Without Inverting Their Neural Networks?}
+\textbf{Question}: If arbitrary neural networks $s(\cdot)$ and $t(\cdot)$ are non-invertible, how does the overall coupling layer remain strictly invertible?
+
+\textbf{Meta-Question}: Does partitioning a coordinate space allow decoupling functional evaluation from algebraic inversion?
+
+\textbf{Answer}: In an affine coupling layer, the inputs to $s$ and $t$ are $\mathbf{z}_{1:d}$, which are copied unchanged to the output $\mathbf{x}_{1:d} = \mathbf{z}_{1:d}$. During inversion, the exact input $\mathbf{z}_{1:d}$ is already known because $\mathbf{x}_{1:d}$ is directly available. Therefore, the inverse step simply evaluates $s(\mathbf{x}_{1:d})$ and $t(\mathbf{x}_{1:d})$ in the forward direction. Inversion only requires subtracting $t$ and dividing by $\exp(s)$, which are simple scalar operations. Networks $s$ and $t$ never need to be run backward or inverted.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{Affine Coupling Normalizing Flow Forward and Inverse Evaluation}
+\label{alg:norm_flow}
+\begin{algorithmic}[1]
+\Require Vector $\mathbf{u} \in \mathbb{R}^D$, Weights $\mathbf{W}_s, \mathbf{b}_s, \mathbf{W}_t, \mathbf{b}_t$, Split $d$, Mode $\text{inverse} \in \{\text{true}, \text{false}\}$
+\Ensure Output vector $\mathbf{v} \in \mathbb{R}^D$, Log-det Jacobian $\mathcal{J}$, Log-likelihood $\mathcal{L}$
+\State $\mathbf{u}_1 \gets \mathbf{u}[1 \dots d], \quad \mathbf{u}_2 \gets \mathbf{u}[d+1 \dots D]$
+\State $D_{\text{rem}} \gets D - d$
+\State $\mathbf{s} \gets \text{zeros}(D_{\text{rem}}), \quad \mathbf{t} \gets \text{zeros}(D_{\text{rem}})$
+\For{$i \gets 1 \textbf{ to } D_{\text{rem}}$}
+    \State $s_{\text{act}} \gets b_{s, i} + \sum_{j=1}^d W_{s, i, j} \cdot u_{1, j}$
+    \State $t_{\text{act}} \gets b_{t, i} + \sum_{j=1}^d W_{t, i, j} \cdot u_{1, j}$
+    \State $s_i \gets 2.0 \cdot \tanh(0.5 \cdot s_{\text{act}})$ \Comment{Clamped scale}
+    \State $t_i \gets t_{\text{act}}$
+\EndFor
+\State $\mathbf{v} \gets \text{copy}(\mathbf{u}_1)$
+\If{$\text{inverse} = \text{false}$}
+    \For{$i \gets 1 \textbf{ to } D_{\text{rem}}$}
+        \State Append $u_{2, i} \cdot \exp(s_i) + t_i$ to $\mathbf{v}$
+    \EndFor
+    \State $\mathcal{J} \gets \sum_{i=1}^{D_{\text{rem}}} s_i$
+\Else
+    \For{$i \gets 1 \textbf{ to } D_{\text{rem}}$}
+        \State Append $(u_{2, i} - t_i) \cdot \exp(-s_i)$ to $\mathbf{v}$
+    \EndFor
+    \State $\mathcal{J} \gets -\sum_{i=1}^{D_{\text{rem}}} s_i$
+\EndIf
+\State $\mathbf{z}_{\text{eval}} \gets \mathbf{u} \text{ if not inverse else } \mathbf{v}$
+\State $\text{sum\_sq} \gets \sum_{k=1}^D z_{\text{eval}, k}^2$
+\State $\log p_z \gets -0.5 \cdot (D \cdot \ln(2\pi) + \text{sum\_sq})$
+\State $\mathcal{L} \gets \log p_z - \mathcal{J}$
+\State \Return $\{\text{output}: \mathbf{v}, \text{log\_det\_jacobian}: \mathcal{J}, \text{log\_likelihood}: \mathcal{L}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Scale and translation evaluation: $2(D - d) \times d$ operations ($\Theta((D - d)d)$).
+        \item Coordinate affine transformation: $D - d$ operations ($\Theta(D - d)$).
+        \item Total Time: $\Theta((D - d)d)$ FLOPs.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Output vector $\mathbf{v}$: $\Theta(D)$ floats.
+        \item Auxiliary scale and translation buffers: $\Theta(D - d)$ floats.
+        \item Total Space: $\Theta(D)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

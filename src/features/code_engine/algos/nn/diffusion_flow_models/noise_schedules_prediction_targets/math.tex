@@ -1,0 +1,314 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Noise Schedules and Prediction Targets}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Noise Variance Scheduling and Velocity Parameterization):}
+Let $\mathbf{x}_0 \sim q(\mathbf{x}_0)$ denote data on $\mathbb{R}^D$ and $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$. The forward diffusion perturbation is parameterized by cumulative variance $\bar{\alpha}_t \in (0, 1)$ across discretization steps $t \in \{0, \dots, T\}$:
+{\boldmath
+\begin{equation}
+\mathbf{x}_t = \sqrt{\bar{\alpha}_t} \mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}
+\end{equation}
+}
+The \textbf{Cosine Schedule} parameterizes $\bar{\alpha}_t$ to maintain smooth, linear signal decay:
+{\boldmath
+\begin{equation}
+\bar{\alpha}_t = \frac{f(t)}{f(0)}, \quad f(t) = \cos^2\left( \frac{t/T + s}{1 + s} \cdot \frac{\pi}{2} \right)
+\end{equation}
+}
+where $s \approx 0.008$ prevents singularity near $t = 0$. The \textbf{Signal-to-Noise Ratio (SNR)} and log-SNR $\lambda_t$ are defined as:
+{\boldmath
+\begin{equation}
+\operatorname{SNR}(t) = \frac{\bar{\alpha}_t}{1 - \bar{\alpha}_t}, \quad \lambda_t = \log \operatorname{SNR}(t) = \log \bar{\alpha}_t - \log(1 - \bar{\alpha}_t)
+\end{equation}
+}
+Under the angular coordinate representation $\phi_t = \arccos(\sqrt{\bar{\alpha}_t})$, the state is a point on a circle: $\mathbf{x}_t = \cos(\phi_t)\mathbf{x}_0 + \sin(\phi_t)\boldsymbol{\epsilon}$. The \textbf{Velocity Target} $\mathbf{v}$ is defined as the orthogonal angular derivative:
+{\boldmath
+\begin{equation}
+\mathbf{v}_t = \frac{\mathrm{d}\mathbf{x}_t}{\mathrm{d}\phi_t} = \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0
+\end{equation}
+}
+The velocity objective unifies $\boldsymbol{\epsilon}$-prediction and $\mathbf{x}_0$-prediction, eliminating numerical division instabilities across all SNR regimes:
+{\boldmath
+\begin{equation}
+\mathbf{x}_0 = \sqrt{\bar{\alpha}_t}\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\mathbf{v}_t, \quad \boldsymbol{\epsilon} = \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_t + \sqrt{\bar{\alpha}_t}\mathbf{v}_t
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{How Noise Should Fall (The Noise Clock)}: Imagine turning down the brightness of an image while turning up the static on an old television.
+    \item \textbf{The Flaw of Linear Schedules}: The original linear schedule added noise too fast at the beginning. In just a few steps, 80\% of the picture was completely obliterated, wasting dozens of training steps on meaningless static.
+    \item \textbf{The Cosine Ramp}: The cosine schedule adds noise like a gentle, smooth roller coaster. It slowly dissolves fine textures first, then shapes, and finally colors, ensuring every timestep teaches the AI something useful.
+    \item \textbf{What Should the Model Predict? (The Target Dilemma)}:
+    \begin{itemize}
+        \item Predicting pure noise ($\boldsymbol{\epsilon}$) works great in heavy static, but is unstable when there is almost no noise.
+        \item Predicting clean data ($\mathbf{x}_0$) works great near clean photos, but fails completely in pure static.
+        \item \textbf{The Velocity Target ($v$)}: Velocity predicts the smooth rotation from clean image to pure static. It is universally stable everywhere along the entire journey!
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine turning a steering wheel on a car by a quarter turn (90 degrees):
+\begin{itemize}
+    \item \textbf{0 degrees}: Straight ahead (the clean photo).
+    \item \textbf{90 degrees}: Turned all the way right (pure static noise).
+    \item \textbf{Velocity ($v$)}: Instead of guessing whether you are looking straight or looking sideways, you simply measure how fast the steering wheel is turning right now! The wheel turns smoothly at every angle without ever getting stuck.
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{The Improved Cosine Variance Schedule}
+{\boldmath
+\begin{equation}
+\bar{\alpha}_t = \frac{\cos^2\left( \frac{t/T + s}{1 + s} \frac{\pi}{2} \right)}{\cos^2\left( \frac{s}{1 + s} \frac{\pi}{2} \right)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The smooth trigonometric schedule maintaining non-degenerate signal decay across discrete steps $t \in [0, T]$.
+    \item \textbf{What It Means}: Smoothly tapers the noise injection rate so that variance increments $\beta_t$ remain small near both boundaries $t = 0$ and $t = T$.
+    \item \textbf{Why It Is Important}: Prevents abrupt destruction of high-frequency visual details in the first 20\% of diffusion steps.
+\end{itemize}
+
+\subsection{Signal-to-Noise Ratio (SNR) and Log-SNR}
+{\boldmath
+\begin{equation}
+\operatorname{SNR}(t) = \frac{\bar{\alpha}_t}{1 - \bar{\alpha}_t}, \quad \lambda_t = \log \operatorname{SNR}(t) = \log\left(\frac{\bar{\alpha}_t}{1 - \bar{\alpha}_t}\right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The ratio of signal variance to noise variance governing the information-theoretic capacity of state $\mathbf{x}_t$.
+    \item \textbf{What It Means}: Directly measures how many bits of information about clean data $\mathbf{x}_0$ remain intact inside noisy tensor $\mathbf{x}_t$.
+    \item \textbf{Why It Is Important}: Serves as the natural canonical time coordinate for diffusion models, enabling resolution-independent noise scheduling.
+\end{itemize}
+
+\subsection{The Angular Velocity Target ($v$)}
+{\boldmath
+\begin{equation}
+\mathbf{v}_t = \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The orthogonal derivative of state $\mathbf{x}_t$ with respect to the rotation angle $\phi_t = \arccos(\sqrt{\bar{\alpha}_t})$.
+    \item \textbf{What It Means}: Combines noise $\boldsymbol{\epsilon}$ and data $\mathbf{x}_0$ into an orthonormal rotation vector along the unit hypersphere.
+    \item \textbf{Why It Is Important}: Standardizes the target variance to unity across all timesteps: $\operatorname{Var}(\mathbf{v}_t) = \mathbf{I}$, stabilizing loss gradients across the entire training trajectory.
+\end{itemize}
+
+\subsection{Analytical Clean Data Inversion from Velocity}
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}}_0 = \sqrt{\bar{\alpha}_t}\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\mathbf{v}_t
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The closed-form algebraic reconstruction of clean data $\mathbf{x}_0$ given noisy state $\mathbf{x}_t$ and predicted velocity $\mathbf{v}_t$.
+    \item \textbf{What It Means}: Recovers the clean image by subtracting the scaled velocity without dividing by $\sqrt{\bar{\alpha}_t}$.
+    \item \textbf{Why It Is Important}: Eliminates catastrophic division-by-zero numerical explosions that afflict $\boldsymbol{\epsilon}$-prediction models as $t \to T$ ($\bar{\alpha}_t \to 0$).
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $t \in \{0, \dots, T\}$: Discretized diffusion step index.
+    \item $\bar{\alpha}_t \in (0, 1)$: Cumulative variance retention factor.
+    \item $\operatorname{SNR}(t) \in \mathbb{R}^+$: Signal-to-noise ratio.
+    \item $\lambda_t \in \mathbb{R}$: Log-SNR time coordinate.
+    \item $\mathbf{x}_0, \boldsymbol{\epsilon}, \mathbf{x}_t, \mathbf{v}_t \in \mathbb{R}^D$: Clean data, noise, state, and velocity vectors.
+    \item $s \in \mathbb{R}^+$: Cosine schedule offset hyperparameter ($s = 0.008$).
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Cosine Variance & $\bar{\alpha}_t$ & Deterministic Function & Regulates variance injection curve \\
+Log-SNR & $\lambda_t$ & Canonical Information Metric & Measures remaining mutual information \\
+Velocity Target & $\mathbf{v}_t$ & Geodesic Tangent Vector & Normalized training prediction target \\
+Reconstructed Data & $\hat{\mathbf{x}}_0$ & Exact Algebraic Inversion & Denoised estimation for sampling \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{t, T, s\} \longrightarrow \bar{\alpha}_t \longrightarrow \{\operatorname{SNR}, \lambda_t\} \longrightarrow \{\mathbf{x}_0, \boldsymbol{\epsilon}\} \longrightarrow \{\mathbf{x}_t, \mathbf{v}_t\} \longrightarrow \hat{\mathbf{x}}_0$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All vector quantities $\mathbf{x}_0, \boldsymbol{\epsilon}, \mathbf{x}_t, \mathbf{v}_t, \hat{\mathbf{x}}_0 \in \mathbb{R}^D$. All variance and SNR quantities are dimensionless scalars.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{At $t = 0$}: $\bar{\alpha}_0 \to 1 \implies \operatorname{SNR} \to \infty, \mathbf{x}_0 = \mathbf{x}_t, \mathbf{v} = \boldsymbol{\epsilon}$.
+    \item \textbf{At $t = T$}: $\bar{\alpha}_T \to 0 \implies \operatorname{SNR} \to 0, \mathbf{x}_T = \boldsymbol{\epsilon}, \mathbf{v} = -\mathbf{x}_0$.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Energy Conservation}: $\|\mathbf{x}_t\|_2^2 + \|\mathbf{v}_t\|_2^2 = \|\mathbf{x}_0\|_2^2 + \|\boldsymbol{\epsilon}\|_2^2$ holds on average under expectation.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+The $(\mathbf{x}_t, \mathbf{v}_t)$ coordinate system is isomorphic to canonical position and momentum $(q, p)$ in Hamiltonian phase space undergoing harmonic oscillation.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Variance Preservation and Orthogonality of the Velocity Target]
+Let $\mathbf{x}_0 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ and $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ be mutually independent standard normal vectors. Then for any cumulative variance $\bar{\alpha}_t \in (0, 1)$, the velocity vector $\mathbf{v}_t = \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0$ satisfies:
+{\boldmath
+\begin{equation}
+\operatorname{Cov}(\mathbf{v}_t) = \mathbf{I}, \quad \mathbb{E}\left[ \mathbf{x}_t^T \mathbf{v}_t \right] = 0
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Compute the covariance of $\mathbf{v}_t$:
+{\boldmath
+\begin{align}
+\operatorname{Cov}(\mathbf{v}_t) &= \mathbb{E}\left[ \mathbf{v}_t \mathbf{v}_t^T \right] = \mathbb{E}\left[ \left( \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0 \right) \left( \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0 \right)^T \right] \\
+&= \bar{\alpha}_t \mathbb{E}[\boldsymbol{\epsilon}\boldsymbol{\epsilon}^T] + (1 - \bar{\alpha}_t)\mathbb{E}[\mathbf{x}_0\mathbf{x}_0^T] - \sqrt{\bar{\alpha}_t(1 - \bar{\alpha}_t)}\left( \mathbb{E}[\boldsymbol{\epsilon}\mathbf{x}_0^T] + \mathbb{E}[\mathbf{x}_0\boldsymbol{\epsilon}^T] \right)
+\end{align}
+}
+Since $\mathbf{x}_0$ and $\boldsymbol{\epsilon}$ are independent with unit covariance, $\mathbb{E}[\boldsymbol{\epsilon}\mathbf{x}_0^T] = \mathbf{0}$, $\mathbb{E}[\boldsymbol{\epsilon}\boldsymbol{\epsilon}^T] = \mathbf{I}$, and $\mathbb{E}[\mathbf{x}_0\mathbf{x}_0^T] = \mathbf{I}$:
+{\boldmath
+\begin{equation}
+\operatorname{Cov}(\mathbf{v}_t) = \bar{\alpha}_t \mathbf{I} + (1 - \bar{\alpha}_t)\mathbf{I} = \mathbf{I}
+\end{equation}
+}
+Now evaluate the expected inner product between state $\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}$ and velocity $\mathbf{v}_t$:
+{\boldmath
+\begin{align}
+\mathbb{E}\left[ \mathbf{x}_t^T \mathbf{v}_t \right] &= \mathbb{E}\left[ \left( \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon} \right)^T \left( \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0 \right) \right] \\
+&= \bar{\alpha}_t \mathbb{E}[\mathbf{x}_0^T \boldsymbol{\epsilon}] - \sqrt{\bar{\alpha}_t(1 - \bar{\alpha}_t)}\mathbb{E}[\|\mathbf{x}_0\|_2^2] + \sqrt{\bar{\alpha}_t(1 - \bar{\alpha}_t)}\mathbb{E}[\|\boldsymbol{\epsilon}\|_2^2] - (1 - \bar{\alpha}_t)\mathbb{E}[\boldsymbol{\epsilon}^T \mathbf{x}_0]
+\end{align}
+}
+Since $\mathbb{E}[\|\mathbf{x}_0\|_2^2] = D$ and $\mathbb{E}[\|\boldsymbol{\epsilon}\|_2^2] = D$, the cross terms cancel:
+{\boldmath
+\begin{equation}
+\mathbb{E}\left[ \mathbf{x}_t^T \mathbf{v}_t \right] = -\sqrt{\bar{\alpha}_t(1 - \bar{\alpha}_t)} D + \sqrt{\bar{\alpha}_t(1 - \bar{\alpha}_t)} D = 0
+\end{equation}
+}
+Thus $\mathbf{v}_t$ has invariant unit covariance and is statistically orthogonal to the noisy state $\mathbf{x}_t$ for all timesteps $t$.
+\end{proof}
+
+\begin{theorem}[Exact Algebraic Reconstructibility of Clean Data from Velocity]
+For any state $\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}$ and velocity $\mathbf{v}_t = \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0$, the clean state $\mathbf{x}_0$ satisfies the identity:
+{\boldmath
+\begin{equation}
+\mathbf{x}_0 \equiv \sqrt{\bar{\alpha}_t}\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\mathbf{v}_t
+\end{equation}
+}
+without error.
+\end{theorem}
+
+\begin{proof}
+Substitute the definitions of $\mathbf{x}_t$ and $\mathbf{v}_t$ into the right-hand side:
+{\boldmath
+\begin{equation}
+\sqrt{\bar{\alpha}_t}\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t}\mathbf{v}_t = \sqrt{\bar{\alpha}_t}\left( \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon} \right) - \sqrt{1 - \bar{\alpha}_t}\left( \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon} - \sqrt{1 - \bar{\alpha}_t}\mathbf{x}_0 \right)
+\end{equation}
+}
+Distribute the scalar square roots:
+{\boldmath
+\begin{equation}
+= \bar{\alpha}_t \mathbf{x}_0 + \sqrt{\bar{\alpha}_t(1 - \bar{\alpha}_t)}\boldsymbol{\epsilon} - \sqrt{(1 - \bar{\alpha}_t)\bar{\alpha}_t}\boldsymbol{\epsilon} + (1 - \bar{\alpha}_t)\mathbf{x}_0
+\end{equation}
+}
+The cross terms cancel identically:
+{\boldmath
+\begin{equation}
+= \bar{\alpha}_t \mathbf{x}_0 + (1 - \bar{\alpha}_t)\mathbf{x}_0 = (\bar{\alpha}_t + 1 - \bar{\alpha}_t)\mathbf{x}_0 = 1 \cdot \mathbf{x}_0 = \mathbf{x}_0
+\end{equation}
+}
+This algebraic identity holds identically for every point in $\mathbb{R}^D$, proving that velocity prediction yields an exact, numerically non-singular reconstructor of clean data across all timesteps.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Prediction Target Comparison}
+\textbf{Question:} Why is $v$-prediction superior to $\boldsymbol{\epsilon}$-prediction and $\mathbf{x}_0$-prediction in progressive distillation and rectified flows?\\
+\textbf{Answer:} $\boldsymbol{\epsilon}$-prediction becomes unstable at low noise ($t \to 0$) because small errors in $\boldsymbol{\epsilon}$ are multiplied by $\frac{1}{\sqrt{\bar{\alpha}_t}}$. Conversely, $\mathbf{x}_0$-prediction diverges at high noise ($t \to T$). Velocity parameterization $v$ represents smooth angular tangent rotation, maintaining a uniform signal-to-noise ratio across all timesteps and enabling stable few-step distillation.
+
+\textbf{Meta-Question:} Can a model trained on $\boldsymbol{\epsilon}$-prediction be converted to $v$-prediction without retraining?\\
+\textbf{Answer:} Yes. At any timestep $t$, $\mathbf{v}_\theta(\mathbf{x}_t, t) = \sqrt{\bar{\alpha}_t}\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) - \sqrt{1 - \bar{\alpha}_t}\hat{\mathbf{x}}_0$. However, during training, $v$-loss places equal gradient weight on all frequencies, whereas $\boldsymbol{\epsilon}$-loss over-weights high-frequency noise, which explains why native $v$-training yields superior perceptual quality.
+
+\subsection{Architectural Question 2: Zero Terminal SNR and High-Resolution Diffusion}
+\textbf{Question:} Why do diffusion models struggle to generate very bright or dark images unless the noise schedule enforces Zero Terminal SNR?\\
+\textbf{Answer:} Standard schedules do not reach $\bar{\alpha}_T = 0$; at $t = T$, a small fraction of image signal remains ($\bar{\alpha}_T \approx 0.005$). The model relies on this lingering signal as a crutch to predict global image brightness. Enforcing $\bar{\alpha}_T = 0$ (Zero Terminal SNR) forces the model to generate the global luminance entirely from pure Gaussian noise.
+
+\textbf{Meta-Question:} How is Zero Terminal SNR enforced in practice without numerical singularities?\\
+\textbf{Answer:} By shifting the log-SNR curve down $\lambda_t' = \lambda_t - \log(k)$ or adjusting the cosine schedule endpoint such that $\bar{\alpha}_T = 0$ exactly, paired with $v$-prediction so that $\mathbf{v}_T = -\mathbf{x}_0$, which remains fully bounded.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Noise Schedule Calculation and Velocity Target Synthesis}
+\begin{algorithmic}[1]
+\Require Timestep $t \in [0, T]$, total steps $T \ge 1$, clean data $\mathbf{x}_0 \in \mathbb{R}^D$, noise $\boldsymbol{\epsilon} \in \mathbb{R}^D$, schedule type
+\Ensure Cumulative variance $\bar{\alpha}_t$, SNR, log-SNR $\lambda_t$, velocity target $\mathbf{v}_t \in \mathbb{R}^D$, reconstructed $\hat{\mathbf{x}}_0 \in \mathbb{R}^D$
+\If{schedule type is ``linear''}
+    \State $frac \gets t / T$
+    \State $\bar{\alpha}_t \gets \operatorname{clip}((1.0 - frac)^2, 0.0001, 0.9999)$
+\Else
+    \State $s \gets 0.008$
+    \State $f_t \gets \cos\left( \frac{t/T + s}{1 + s} \frac{\pi}{2} \right)^2$
+    \State $f_0 \gets \cos\left( \frac{s}{1 + s} \frac{\pi}{2} \right)^2$
+    \State $\bar{\alpha}_t \gets \operatorname{clip}(f_t / f_0, 0.0001, 0.9999)$
+\EndIf
+\State $\operatorname{SNR} \gets \bar{\alpha}_t / (1 - \bar{\alpha}_t)$
+\State $\lambda_t \gets \log(\bar{\alpha}_t) - \log(1 - \bar{\alpha}_t)$
+\State $c_{\text{sig}} \gets \sqrt{\bar{\alpha}_t}$
+\State $c_{\text{noise}} \gets \sqrt{1 - \bar{\alpha}_t}$
+\State Initialize empty arrays $\mathbf{x}_t, \mathbf{v}_t, \hat{\mathbf{x}}_0$ of length $D$
+\For{$i = 0$ \textbf{to} $D - 1$}
+    \State $\mathbf{x}_t[i] \gets c_{\text{sig}} \cdot \mathbf{x}_0[i] + c_{\text{noise}} \cdot \boldsymbol{\epsilon}[i]$
+    \State $\mathbf{v}_t[i] \gets c_{\text{sig}} \cdot \boldsymbol{\epsilon}[i] - c_{\text{noise}} \cdot \mathbf{x}_0[i]$
+    \State $\hat{\mathbf{x}}_0[i] \gets c_{\text{sig}} \cdot \mathbf{x}_t[i] - c_{\text{noise}} \cdot \mathbf{v}_t[i]$
+\EndFor
+\State \Return $(\bar{\alpha}_t, \operatorname{SNR}, \lambda_t, \mathbf{v}_t, \hat{\mathbf{x}}_0)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Schedule and Target Vector Time Complexity}: $\Theta(D)$ vector arithmetic operations per diffusion step.
+    \item \textbf{Sampling Trajectory Time Complexity}: $\Theta(T \cdot D)$ scalar operations for schedule precomputation.
+    \item \textbf{Space Complexity}: $\Theta(D)$ memory for target and reconstructed state buffers.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(D)$; parallel depth across spatial elements is $\mathcal{D} = \Theta(\log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

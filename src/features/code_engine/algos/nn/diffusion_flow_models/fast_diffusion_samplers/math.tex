@@ -1,0 +1,316 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Fast Diffusion Samplers and High-Order ODE Solvers}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (High-Order Numerical Integration of Probability Flow ODEs):}
+Consider the continuous Probability Flow ODE parameterized by time $t \in [0, T]$:
+{\boldmath
+\begin{equation}
+\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{v}(\mathbf{x}, t)
+\end{equation}
+}
+Integrating backward from $t$ to $s = t - h$ with step size $h > 0$:
+{\boldmath
+\begin{equation}
+\mathbf{x}(t - h) = \mathbf{x}(t) - \int_{t-h}^t \mathbf{v}(\mathbf{x}(\tau), \tau) \mathrm{d}\tau
+\end{equation}
+}
+The \textbf{First-Order Euler Integrator} approximates the integrand by its value at the upper limit $t$:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{Euler}} = \mathbf{x}(t) - h \, \mathbf{v}(\mathbf{x}(t), t)
+\end{equation}
+}
+The \textbf{Second-Order Heun (Predictor-Corrector) Integrator} computes an initial Euler prediction $\tilde{\mathbf{x}}(s) = \mathbf{x}(t) - h \mathbf{v}(\mathbf{x}(t), t)$, evaluates the slope at the predicted state $\mathbf{v}(\tilde{\mathbf{x}}(s), s)$, and applies the trapezoidal quadrature rule:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{Heun}} = \mathbf{x}(t) - \frac{h}{2} \left[ \mathbf{v}(\mathbf{x}(t), t) + \mathbf{v}(\tilde{\mathbf{x}}(s), s) \right]
+\end{equation}
+}
+The local truncation error between the first-order and second-order approximations provides an embedded error estimate:
+{\boldmath
+\begin{equation}
+\mathbf{e}_h = \mathbf{x}_{\text{Heun}} - \mathbf{x}_{\text{Euler}} = \frac{h}{2} \left[ \mathbf{v}(\mathbf{x}(t), t) - \mathbf{v}(\tilde{\mathbf{x}}(s), s) \right]
+\end{equation}
+}
+enabling adaptive step-size selection without supplementary function evaluations.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Driving on a Curving Mountain Road}: Imagine you are driving a car down a winding road at night in dense fog.
+    \item \textbf{First-Order (Euler)}: You look at the road direction right in front of your bumper and drive straight in that direction for 100 meters without turning the steering wheel. If the road bends sharply, you drift off into the gravel before you notice.
+    \item \textbf{Second-Order Predictor-Corrector (Heun)}: You first look where you will end up in 100 meters (Predictor). Then, you check the road direction at that future spot, average the two directions, and steer along that smooth curve (Corrector). You stay perfectly in the center of the lane even on sharp curves.
+    \item \textbf{Ultra-Fast Sampling}: Because second-order solvers hug the curve so accurately, you can take huge 100-meter strides instead of 1-meter baby steps. You generate images in only 10 to 15 model evaluations instead of 1,000.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine drawing a circle using a ruler:
+\begin{itemize}
+    \item \textbf{Euler Method}: You draw a straight line forward, stop, turn slightly, and draw another straight line. If you only draw 10 lines, your circle looks like an ugly, jagged polygon.
+    \item \textbf{Heun Method}: Before drawing each line, you look ahead to see where the curve is bending, tilt your ruler to match the average curve, and draw a smooth line. With just 10 lines, your drawing looks almost like a perfect round circle!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{The Continuous Integral Representation}
+{\boldmath
+\begin{equation}
+\mathbf{x}(s) = \mathbf{x}(t) - \int_s^t \mathbf{v}(\mathbf{x}(\tau), \tau) \mathrm{d}\tau, \quad s = t - h
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The exact solution of the reverse probability flow differential equation across interval $[s, t]$.
+    \item \textbf{What It Means}: Moving from high noise to low noise is mathematically equivalent to accumulating the continuous velocity vector field backwards.
+    \item \textbf{Why It Is Important}: Serves as the ground truth benchmark for establishing numerical convergence orders and bounding global discretization drift.
+\end{itemize}
+
+\subsection{First-Order Forward Euler Discretization}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{t-h}^{\text{Euler}} = \mathbf{x}_t - h \, \mathbf{v}(\mathbf{x}_t, t)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The standard first-order numerical quadrature replacing the integral with a left-endpoint rectangle approximation.
+    \item \textbf{What It Means}: Assumes the velocity vector field is static and unchanging throughout the entire step $h$.
+    \item \textbf{Why It Is Important}: Requires only a single neural network evaluation per step, but exhibits $\mathcal{O}(h^2)$ local error that accumulates rapidly for large step sizes.
+\end{itemize}
+
+\subsection{Second-Order Heun Trapezoidal Integration}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{t-h}^{\text{Heun}} = \mathbf{x}_t - \frac{h}{2} \left[ \mathbf{v}(\mathbf{x}_t, t) + \mathbf{v}(\mathbf{x}_t - h \mathbf{v}(\mathbf{x}_t, t), t - h) \right]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The explicit two-stage Runge-Kutta scheme approximating the integral via trapezoidal quadrature.
+    \item \textbf{What It Means}: Averages the initial velocity with the predicted terminal velocity to cancel out first-order Taylor expansion curvature errors.
+    \item \textbf{Why It Is Important}: Achieves $\mathcal{O}(h^3)$ local truncation error, allowing orders-of-magnitude larger step sizes in practical diffusion generation pipelines.
+\end{itemize}
+
+\subsection{Root Mean Square Local Discrepancy Metric}
+{\boldmath
+\begin{equation}
+\mathcal{E}_{\text{RMS}} = \sqrt{\frac{1}{D} \sum_{i=1}^D \left( \mathbf{x}_{\text{Heun}}[i] - \mathbf{x}_{\text{Euler}}[i] \right)^2}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The normalized spatial $L_2$ norm of the difference vector between the first-order and second-order predictions.
+    \item \textbf{What It Means}: Quantifies how severely the velocity field bends over the current step $h$.
+    \item \textbf{Why It Is Important}: Serves as the feedback signal for adaptive step size controllers (e.g. Proportional-Integral step adaptation) to shrink $h$ in turbulent regions and expand $h$ in flat regions.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{x}_t \in \mathbb{R}^D$: Current latent state at time $t$.
+    \item $\mathbf{v}_t = \mathbf{v}(\mathbf{x}_t, t) \in \mathbb{R}^D$: First-stage velocity vector.
+    \item $\mathbf{v}_s = \mathbf{v}(\tilde{\mathbf{x}}_s, s) \in \mathbb{R}^D$: Second-stage corrector velocity vector.
+    \item $h > 0$: Integration step size $\Delta t$.
+    \item $\mathbf{x}_{\text{Euler}}, \mathbf{x}_{\text{Heun}} \in \mathbb{R}^D$: First- and second-order integrated states.
+    \item $\mathcal{E}_{\text{RMS}} \in \mathbb{R}_{\ge 0}$: Root mean square local truncation error.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Velocity Field & $\mathbf{v}(\mathbf{x}, t)$ & Neural Network Output & Defines instant tangent flow \\
+Euler Step & $\mathbf{x}_{\text{Euler}}$ & Order 1 Approximation & Fast coarse baseline update \\
+Heun Step & $\mathbf{x}_{\text{Heun}}$ & Order 2 Approximation & High-fidelity smoothed update \\
+Local Error & $\mathcal{E}_{\text{RMS}}$ & Observable Discrepancy & Drives adaptive step-size decisions \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{x}_t, \mathbf{v}_t, h\} \longrightarrow \mathbf{x}_{\text{Euler}} \longrightarrow \mathbf{v}_s \longrightarrow \mathbf{x}_{\text{Heun}} \longrightarrow \mathcal{E}_{\text{RMS}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Spatial dimensions are invariant: $\mathbf{x}_t, \mathbf{v}_t, \mathbf{v}_s, \mathbf{x}_{\text{Euler}}, \mathbf{x}_{\text{Heun}} \in \mathbb{R}^D$. Scalars $h, \mathcal{E}_{\text{RMS}} \in \mathbb{R}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{As $h \to 0$}: Local truncation error scales as $\mathcal{O}(h^3)$; $\mathbf{x}_{\text{Heun}}$ converges to the analytical ODE trajectory.
+    \item \textbf{As $h$ increases}: Euler trajectories diverge exponentially, whereas Heun remains stable until reaching the stability boundary of the explicit solver.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Symmetry of Trapezoidal Quadrature}: If $\mathbf{v}(\mathbf{x}, t)$ is affine in $t$, the Heun step evaluates the integral analytically with zero quadrature error.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+The Euler-Heun integration pair is structurally isomorphic to the classic Runge-Kutta Fehlberg (RKF45) embedded solver pair restricted to orders 1 and 2.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Order of Local Truncation Error for Heun's Method]
+Assume the velocity field $\mathbf{v}(\mathbf{x}, t)$ is twice continuously differentiable ($\mathcal{C}^2$) with Lipschitz constant $L$. Then the local truncation error of Heun's method satisfies:
+{\boldmath
+\begin{equation}
+\|\mathbf{x}(t - h) - \mathbf{x}_{\text{Heun}}\|_2 = \mathcal{O}(h^3)
+\end{equation}
+}
+whereas Euler's method satisfies $\|\mathbf{x}(t - h) - \mathbf{x}_{\text{Euler}}\|_2 = \mathcal{O}(h^2)$.
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{x}(t)$ be the exact solution. Applying Taylor expansion backward from $t$:
+{\boldmath
+\begin{equation}
+\mathbf{x}(t - h) = \mathbf{x}(t) - h \dot{\mathbf{x}}(t) + \frac{h^2}{2} \ddot{\mathbf{x}}(t) - \frac{h^3}{6} \dddot{\mathbf{x}}(\xi)
+\end{equation}
+}
+where $\dot{\mathbf{x}}(t) = \mathbf{v}(\mathbf{x}(t), t)$, and by total differentiation:
+{\boldmath
+\begin{equation}
+\ddot{\mathbf{x}}(t) = \frac{\partial \mathbf{v}}{\partial t} + \mathbf{J}_\mathbf{v}(\mathbf{x}(t), t) \mathbf{v}(\mathbf{x}(t), t)
+\end{equation}
+}
+Now consider the Heun predictor-corrector expression:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{Heun}} = \mathbf{x}(t) - \frac{h}{2} \left[ \mathbf{v}(\mathbf{x}(t), t) + \mathbf{v}(\mathbf{x}(t) - h\mathbf{v}(\mathbf{x}(t), t), t - h) \right]
+\end{equation}
+}
+Expanding the second evaluation $\mathbf{v}(\mathbf{x}(t) - h\mathbf{v}_t, t - h)$ around $(\mathbf{x}(t), t)$ via multivariable Taylor series:
+{\boldmath
+\begin{equation}
+\mathbf{v}(\mathbf{x}(t) - h\mathbf{v}_t, t - h) = \mathbf{v}_t - h \frac{\partial \mathbf{v}}{\partial t} - h \mathbf{J}_\mathbf{v}(\mathbf{x}(t), t) \mathbf{v}_t + \mathcal{O}(h^2)
+\end{equation}
+}
+Substituting this expansion back into the Heun formula:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{Heun}} = \mathbf{x}(t) - \frac{h}{2} \left[ \mathbf{v}_t + \mathbf{v}_t - h \left( \frac{\partial \mathbf{v}}{\partial t} + \mathbf{J}_\mathbf{v} \mathbf{v}_t \right) + \mathcal{O}(h^2) \right]
+\end{equation}
+}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{Heun}} = \mathbf{x}(t) - h \mathbf{v}_t + \frac{h^2}{2} \ddot{\mathbf{x}}(t) + \mathcal{O}(h^3)
+\end{equation}
+}
+Subtracting $\mathbf{x}_{\text{Heun}}$ from the exact Taylor expansion of $\mathbf{x}(t - h)$:
+{\boldmath
+\begin{equation}
+\mathbf{x}(t - h) - \mathbf{x}_{\text{Heun}} = \left( -h\dot{\mathbf{x}} + \frac{h^2}{2}\ddot{\mathbf{x}} \right) - \left( -h\mathbf{v}_t + \frac{h^2}{2}\ddot{\mathbf{x}} \right) + \mathcal{O}(h^3) = \mathcal{O}(h^3)
+\end{equation}
+}
+Both the $\mathcal{O}(h)$ and $\mathcal{O}(h^2)$ terms cancel out completely, proving the local truncation error is $\mathcal{O}(h^3)$, yielding a global error of $\mathcal{O}(h^2)$.
+\end{proof}
+
+\begin{theorem}[Asymptotics of the Embedded Error Estimator]
+The difference vector $\mathbf{e}_h = \mathbf{x}_{\text{Heun}} - \mathbf{x}_{\text{Euler}}$ is an asymptotically exact estimator of the principal local truncation error of the Euler step:
+{\boldmath
+\begin{equation}
+\lim_{h \to 0} \frac{\|\mathbf{x}(t - h) - \mathbf{x}_{\text{Euler}}\|_2}{\|\mathbf{x}_{\text{Heun}} - \mathbf{x}_{\text{Euler}}\|_2} = 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+From the Taylor expansion, the true local error of the Euler step is:
+{\boldmath
+\begin{equation}
+\mathbf{x}(t - h) - \mathbf{x}_{\text{Euler}} = \frac{h^2}{2} \ddot{\mathbf{x}}(t) + \mathcal{O}(h^3)
+\end{equation}
+}
+From the embedded difference definition:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{Heun}} - \mathbf{x}_{\text{Euler}} = \left[ \mathbf{x}(t) - h\mathbf{v}_t + \frac{h^2}{2}\ddot{\mathbf{x}}(t) + \mathcal{O}(h^3) \right] - \left[ \mathbf{x}(t) - h\mathbf{v}_t \right] = \frac{h^2}{2}\ddot{\mathbf{x}}(t) + \mathcal{O}(h^3)
+\end{equation}
+}
+Taking the ratio of norms as $h \to 0$:
+{\boldmath
+\begin{equation}
+\lim_{h \to 0} \frac{\left\|\frac{h^2}{2}\ddot{\mathbf{x}}(t) + \mathcal{O}(h^3)\right\|_2}{\left\|\frac{h^2}{2}\ddot{\mathbf{x}}(t) + \mathcal{O}(h^3)\right\|_2} = 1
+\end{equation}
+}
+Thus, the difference between the two computed steps directly reveals the magnitude of discretization error without requiring knowledge of the true analytical solution.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Number of Function Evaluations (NFE) Trade-off}
+\textbf{Question:} Why use Heun's method if it requires two neural network evaluations per step compared to Euler's single evaluation?\\
+\textbf{Answer:} While each Heun step costs 2 NFE, its higher-order convergence allows reducing total steps from 100 to 15. The total computational budget decreases from 100 NFE to 30 NFE while delivering superior image fidelity and avoiding blurriness.
+
+\textbf{Meta-Question:} Is higher order always better for diffusion sampling?\\
+\textbf{Answer:} No. Solvers of order 4 or higher (e.g. RK4) exhibit diminishing returns because neural network predictions contain inherent approximation noise. At order 4, the numerical solver error drops below the neural network's epistemic error, making extra evaluations wasted compute.
+
+\subsection{Architectural Question 2: Specialized Exponential Integrators (DPM-Solver)}
+\textbf{Question:} How does DPM-Solver improve upon standard Runge-Kutta / Heun solvers for diffusion ODEs?\\
+\textbf{Answer:} Diffusion ODEs contain a stiff linear drift term $-\frac{1}{2}\beta(t)\mathbf{x}$ and a non-linear score term. DPM-Solver solves the linear drift analytically using matrix exponentials (integrating factors), applying polynomial quadrature solely to the slowly varying neural network output, allowing 10-step photorealistic generation.
+
+\textbf{Meta-Question:} Does solving the linear part analytically eliminate all stiffness?\\
+\textbf{Answer:} Yes, because the stiffest eigenvalue component of the vector field comes directly from the linear contraction toward the origin. Transforming to the semi-linear interaction picture leaves a smooth, bounded trajectory that low-order polynomial integrators resolve accurately.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Second-Order Predictor-Corrector Heun Integration with Truncation Error Monitoring}
+\begin{algorithmic}[1]
+\Require State $\mathbf{x}_t \in \mathbb{R}^D$, primary velocity $\mathbf{v}_t \in \mathbb{R}^D$, corrector velocity $\mathbf{v}_s \in \mathbb{R}^D$, step size $h > 0$
+\Ensure First-order step $\mathbf{x}_{\text{Euler}}$, second-order step $\mathbf{x}_{\text{Heun}}$, RMS truncation error $\mathcal{E}_{\text{RMS}}$
+\State Initialize empty arrays $\mathbf{x}_{\text{Euler}}, \mathbf{x}_{\text{Heun}}$ of length $D$
+\State $\text{sum\_sq} \gets 0.0$
+\For{$i = 0$ \textbf{to} $D - 1$}
+    \State $\mathbf{x}_{\text{Euler}}[i] \gets \mathbf{x}_t[i] - h \cdot \mathbf{v}_t[i]$
+    \State $v_{\text{avg}} \gets 0.5 \cdot (\mathbf{v}_t[i] + \mathbf{v}_s[i])$
+    \State $val \gets \mathbf{x}_t[i] - h \cdot v_{\text{avg}}$
+    \State $\mathbf{x}_{\text{Heun}}[i] \gets val$
+    \State $diff \gets val - \mathbf{x}_{\text{Euler}}[i]$
+    \State $\text{sum\_sq} \gets \text{sum\_sq} + diff \cdot diff$
+\EndFor
+\State $\mathcal{E}_{\text{RMS}} \gets \sqrt{\text{sum\_sq} / D}$
+\State \Return $(\mathbf{x}_{\text{Euler}}, \mathbf{x}_{\text{Heun}}, \mathcal{E}_{\text{RMS}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Integration Arithmetic Complexity}: $\Theta(D)$ vector addition and scaling operations per integration stage.
+    \item \textbf{Total Sampling Trajectory Time Complexity}: For $S$ sampling intervals, total runtime is $\Theta(S \cdot (D + 2 \mathcal{C}_{\text{NN}}))$.
+    \item \textbf{Space Complexity}: $\Theta(D)$ working memory to store intermediate vectors $\mathbf{x}_{\text{Euler}}$ and $\mathbf{x}_{\text{Heun}}$.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(S \cdot D)$; parallel depth across spatial coordinates is $\mathcal{D} = \Theta(S \cdot \log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

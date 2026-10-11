@@ -1,0 +1,290 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Non-Contrastive Self-Supervised Learning}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Asymmetric Dual-Branch Non-Contrastive Learning):}
+Let $\mathbf{x} \sim p_{\text{data}}$ denote an input sample, and let $t_1, t_2 \sim \mathcal{T}$ denote stochastic data augmentations generating two views $\mathbf{v}_1 = t_1(\mathbf{x})$ and $\mathbf{v}_2 = t_2(\mathbf{x})$. Non-contrastive self-supervised architectures (e.g., BYOL, SimSiam) learn representations without negative pairs by enforcing prediction alignment across asymmetric branches:
+\begin{enumerate}
+    \item \textbf{Online Branch}: An encoder $f_\theta$, projector $g_\theta$, and an additional predictor $q_\theta$:
+    {\boldmath
+    \begin{equation}
+    \mathbf{z}_1 = g_\theta(f_\theta(\mathbf{v}_1)), \quad \mathbf{p}_1 = q_\theta(\mathbf{z}_1)
+    \end{equation}
+    }
+    \item \textbf{Target Branch}: An encoder $f_\xi$ and projector $g_\xi$ without a predictor:
+    {\boldmath
+    \begin{equation}
+    \mathbf{z}'_2 = g_\xi(f_\xi(\mathbf{v}_2))
+    \end{equation}
+    }
+    where $\xi$ is either an Exponential Moving Average (EMA) of online parameters $\xi \gets \tau \xi + (1 - \tau)\theta$ (BYOL) or shares identical weights $\xi = \theta$ with a stop-gradient operator $\operatorname{stopgrad}(\mathbf{z}'_2)$ (SimSiam).
+\end{enumerate}
+The normalized cosine discrepancy between predictor output $\mathbf{p}$ and target projection $\mathbf{z}'$ is defined as:
+{\boldmath
+\begin{equation}
+\mathcal{D}(\mathbf{p}, \mathbf{z}') = 1 - \frac{\mathbf{p} \cdot \mathbf{z}'}{\|\mathbf{p}\|_2 \|\mathbf{z}'\|_2}
+\end{equation}
+}
+The symmetrized objective function is given by:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{sym}}(\theta) = \frac{1}{2} \mathcal{D}(\mathbf{p}_1, \operatorname{stopgrad}(\mathbf{z}'_2)) + \frac{1}{2} \mathcal{D}(\mathbf{p}_2, \operatorname{stopgrad}(\mathbf{z}'_1))
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Old Contrastive Problem}: Traditional AI methods (like SimCLR) learned by comparing pictures to thousands of unrelated ``negative'' photos (dogs vs cars vs boats). This required gigantic computer memories to hold hundreds of negative examples at once.
+    \item \textbf{The Constant Threat of Collapse}: If you simply tell an AI to make two views of the same photo look identical without negative examples, the AI finds a lazy cheat: it outputs the number zero for every single image in the universe (representational collapse).
+    \item \textbf{The Asymmetric Game}: SimSiam and BYOL stop this collapse using an ingenious trick: asymmetry. One branch contains an extra predictor brain ($q_\theta$), while the other branch has a ``freeze'' sign (stop-gradient).
+    \item \textbf{Chasing a Moving Target}: The online network tries to predict what the frozen target network sees. Because the target is frozen on every step, the network cannot coordinate a mutual collapse into a constant zero vector. Instead, it is forced to discover rich, invariant visual features like object shapes, textures, and geometry.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine playing catch against a mirror:
+\begin{itemize}
+    \item \textbf{Symmetric Collapse}: If you and your reflection do the exact same thing simultaneously, both of you can decide to sit completely still on the floor forever.
+    \item \textbf{Asymmetric Teacher}: Now imagine you throw a ball, but your reflection's video feed is delayed by 1 second, and your reflection has a visor on. You have to predict where your reflection will catch the ball. Because the video is delayed and frozen, you cannot cheat by sitting still; you have to keep running and throwing to stay in sync!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Normalized Cosine Discrepancy Operator}
+{\boldmath
+\begin{equation}
+\mathcal{D}(\mathbf{p}, \mathbf{z}) = 1 - \frac{\sum_{i=1}^D p_i z_i}{\sqrt{\sum_{i=1}^D p_i^2} \sqrt{\sum_{i=1}^D z_i^2} + \epsilon}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The scale-invariant angular metric evaluating directional alignment between two high-dimensional vectors on the unit hypersphere $\mathbb{S}^{D-1}$.
+    \item \textbf{What It Means}: Equals 0 when $\mathbf{p}$ and $\mathbf{z}$ point in the exact same direction, 1 when orthogonal, and 2 when pointing in opposite directions.
+    \item \textbf{Why It Is Important}: Decouples representation magnitude from orientation, ensuring feature learning is purely geometric.
+\end{itemize}
+
+\subsection{Symmetrized Dual-View Objective}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{sym}} = 1 - \frac{1}{2} \left( \frac{\mathbf{p}_1 \cdot \operatorname{stopgrad}(\mathbf{z}_2)}{\|\mathbf{p}_1\|_2 \|\mathbf{z}_2\|_2} + \frac{\mathbf{p}_2 \cdot \operatorname{stopgrad}(\mathbf{z}_1)}{\|\mathbf{p}_2\|_2 \|\mathbf{z}_1\|_2} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The bidirectional average loss evaluating view 1 predicting view 2 and view 2 predicting view 1.
+    \item \textbf{What It Means}: Guarantees symmetric treatment of stochastic augmentation transforms so neither view is privileged.
+    \item \textbf{Why It Is Important}: Improves sample efficiency and stabilizes gradient dynamics across mini-batches.
+\end{itemize}
+
+\subsection{Exponential Moving Average Target Update}
+{\boldmath
+\begin{equation}
+\xi_t = \tau_t \xi_{t-1} + (1 - \tau_t) \theta_t, \quad \tau_t = 1 - (1 - \tau_0) \cdot \frac{1}{2}\left( 1 + \cos\left( \frac{\pi t}{T} \right) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Polyak-Ruppert averaging rule updating target network parameters slowly over training steps.
+    \item \textbf{What It Means}: Smooths out target representation trajectories, ensuring the target provides stable regression targets for the online predictor.
+    \item \textbf{Why It Is Important}: Essential in BYOL to prevent representation collapse in the absence of negative sample contrast.
+\end{itemize}
+
+\subsection{Empirical Representation Standard Deviation}
+{\boldmath
+\begin{equation}
+\sigma(\mathbf{z}) = \sqrt{\frac{1}{D} \sum_{j=1}^D (z_j - \bar{z})^2}, \quad \bar{z} = \frac{1}{D}\sum_{j=1}^D z_j
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The spatial dispersion metric measuring the spread of feature activations within a single embedding vector.
+    \item \textbf{What It Means}: If representations collapse to a trivial constant across all dimensions, $\sigma(\mathbf{z}) \to 0$.
+    \item \textbf{Why It Is Important}: Provides an instantaneous monitor against complete or dimensional collapse during training.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{v}_1, \mathbf{v}_2$: Stochastic augmented views of input sample $\mathbf{x}$.
+    \item $\mathbf{z}_1, \mathbf{z}_2 \in \mathbb{R}^D$: Projector representations.
+    \item $\mathbf{p}_1, \mathbf{p}_2 \in \mathbb{R}^D$: Predictor output vectors.
+    \item $\theta$: Online network parameters.
+    \item $\xi$: Target network parameters.
+    \item $\mathcal{D}(\cdot, \cdot) \in [0, 2]$: Cosine distance metric.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Online Predictor & $\mathbf{p}_1$ & Feedforward Output & Projects view representation to target space \\
+Target Projector & $\mathbf{z}_2$ & Stop-Gradient Target & Anchors regression target \\
+Cosine Loss & $\mathcal{L}_{\text{sym}}$ & Continuous Objective & Drives gradient descent on online branch \\
+Feature Dispersion & $\sigma(\mathbf{z})$ & Diagnostic Observable & Monitors health against representation collapse \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\mathbf{x} \longrightarrow \{\mathbf{v}_1, \mathbf{v}_2\} \longrightarrow \{\mathbf{z}_1, \mathbf{z}_2\} \longrightarrow \{\mathbf{p}_1, \mathbf{p}_2\} \longrightarrow \{\mathcal{D}(\mathbf{p}_1, \mathbf{z}_2), \mathcal{D}(\mathbf{p}_2, \mathbf{z}_1)\} \longrightarrow \mathcal{L}_{\text{sym}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All vectors $\mathbf{z}_1, \mathbf{z}_2, \mathbf{p}_1, \mathbf{p}_2 \in \mathbb{R}^D$. All losses $\mathcal{D}, \mathcal{L}_{\text{sym}}$ are dimensionless scalars bounded in $[0, 2]$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{Perfect Alignment}: $\mathbf{p}_1 \propto \mathbf{z}_2$ and $\mathbf{p}_2 \propto \mathbf{z}_1 \implies \mathcal{L}_{\text{sym}} \to 0$.
+    \item \textbf{Orthogonal Embeddings}: $\mathbf{p}_1 \perp \mathbf{z}_2 \implies \mathcal{L}_{\text{sym}} = 1$.
+    \item \textbf{Collapsed State}: $\sigma(\mathbf{z}) \to 0$; trivial constant output.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Scale Invariance}: $\mathcal{D}(\alpha \mathbf{p}, \beta \mathbf{z}) = \mathcal{D}(\mathbf{p}, \mathbf{z})$ for any positive scalars $\alpha, \beta > 0$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+Non-contrastive learning with stop-gradient is structurally isomorphic to the Expectation-Maximization (EM) algorithm, where the target branch evaluates the E-step and the online branch executes the M-step.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Expectation-Maximization Interpretation of Stop-Gradient Dynamics]
+SimSiam's loss optimization under stop-gradient is equivalent to an Expectation-Maximization alternating minimization of the joint distance objective:
+{\boldmath
+\begin{equation}
+\min_{\theta, \eta} \mathbb{E}_{\mathbf{x}, \mathcal{T}}\left[ \mathcal{D}\left( q_\theta(g_\theta(f_\theta(\mathbf{v}_1))), \, \eta(\mathbf{x}) \right) \right]
+\end{equation}
+}
+where $\eta(\mathbf{x})$ is an optimal representation assignment vector for image $\mathbf{x}$.
+\end{theorem}
+
+\begin{proof}
+Consider the joint optimization problem over network weights $\theta$ and an auxiliary assignment variable $\eta \in \mathbb{R}^D$:
+{\boldmath
+\begin{equation}
+\mathcal{L}(\theta, \eta) = \mathbb{E}_{\mathbf{x}}\left[ \frac{1}{2} \|\mathbf{p}_{\theta}(\mathbf{v}_1) - \eta(\mathbf{x})\|_2^2 + \frac{1}{2} \|\mathbf{p}_{\theta}(\mathbf{v}_2) - \eta(\mathbf{x})\|_2^2 \right]
+\end{equation}
+}
+Applying coordinate descent:
+\textbf{Step 1 (Fix $\theta$, minimize over $\eta$)}: Differentiating with respect to $\eta(\mathbf{x})$:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \eta} = 2\eta(\mathbf{x}) - (\mathbf{p}_\theta(\mathbf{v}_1) + \mathbf{p}_\theta(\mathbf{v}_2)) = \mathbf{0} \implies \eta^*(\mathbf{x}) = \frac{1}{2} \left( \mathbf{p}_\theta(\mathbf{v}_1) + \mathbf{p}_\theta(\mathbf{v}_2) \right)
+\end{equation}
+}
+In SimSiam, setting $\eta(\mathbf{x}) = \mathbf{z}_\theta(\mathbf{v}_2)$ approximates the optimal assignment.
+\textbf{Step 2 (Fix $\eta$, update $\theta$)}: The gradient with respect to $\theta$ is:
+{\boldmath
+\begin{equation}
+\nabla_\theta \mathcal{L}(\theta, \eta^*) = \nabla_\theta \mathcal{D}(\mathbf{p}_\theta(\mathbf{v}_1), \eta^*)
+\end{equation}
+}
+Because $\eta^*$ is fixed (treated as a constant), no gradient propagates through $\eta^*$. This is exactly the operational definition of $\operatorname{stopgrad}(\mathbf{z}_2)$.
+Therefore, the stop-gradient operator prevents the trivial collapse $\theta \to \mathbf{0}$ by decoupling the representation target assignment from the online predictive parameter gradient.
+\end{proof}
+
+\begin{theorem}[Invariance of Symmetrized Cosine Loss to Augmentation Order]
+Let $\mathcal{L}_{\text{sym}}$ be defined as in Definition 1.1. Then swapping the augmentation assignments $t_1 \leftrightarrow t_2$ leaves the loss and parameter gradients strictly invariant:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{sym}}(\mathbf{v}_1, \mathbf{v}_2) = \mathcal{L}_{\text{sym}}(\mathbf{v}_2, \mathbf{v}_1), \quad \nabla_\theta \mathcal{L}_{\text{sym}}(\mathbf{v}_1, \mathbf{v}_2) = \nabla_\theta \mathcal{L}_{\text{sym}}(\mathbf{v}_2, \mathbf{v}_1)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathcal{L}_{\text{sym}}(\mathbf{v}_1, \mathbf{v}_2) = \frac{1}{2} \mathcal{D}(\mathbf{p}_1, \mathbf{z}_2) + \frac{1}{2} \mathcal{D}(\mathbf{p}_2, \mathbf{z}_1)$.
+Swapping views yields:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{sym}}(\mathbf{v}_2, \mathbf{v}_1) = \frac{1}{2} \mathcal{D}(\mathbf{p}_2, \mathbf{z}_1) + \frac{1}{2} \mathcal{D}(\mathbf{p}_1, \mathbf{z}_2)
+\end{equation}
+}
+By commutativity of real addition:
+{\boldmath
+\begin{equation}
+\frac{1}{2} \mathcal{D}(\mathbf{p}_2, \mathbf{z}_1) + \frac{1}{2} \mathcal{D}(\mathbf{p}_1, \mathbf{z}_2) = \frac{1}{2} \mathcal{D}(\mathbf{p}_1, \mathbf{z}_2) + \frac{1}{2} \mathcal{D}(\mathbf{p}_2, \mathbf{z}_1) = \mathcal{L}_{\text{sym}}(\mathbf{v}_1, \mathbf{v}_2)
+\end{equation}
+}
+Since the objective is identical point-wise, taking the gradient with respect to $\theta$ yields identical gradients $\nabla_\theta \mathcal{L}_{\text{sym}}(\mathbf{v}_1, \mathbf{v}_2) = \nabla_\theta \mathcal{L}_{\text{sym}}(\mathbf{v}_2, \mathbf{v}_1)$.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Necessity of the Predictor MLP}
+\textbf{Question:} Why is the predictor network $q_\theta$ essential in preventing representation collapse in SimSiam?\\
+\textbf{Answer:} If the predictor $q_\theta$ is removed, the architecture becomes completely symmetric: $\mathbf{p} = \mathbf{z}$. Even with stop-gradient, the optimal solution for symmetric cosine alignment is a constant vector $\mathbf{z} = \mathbf{c}$. The non-linear predictor introduces architectural asymmetry, ensuring that $\mathbf{p}_1$ cannot match $\mathbf{z}_2$ through trivial constant scaling.
+
+\textbf{Meta-Question:} Can SimSiam collapse if the predictor is initialized with identity weights?\\
+\textbf{Answer:} Yes. If the predictor is forced to be the identity function throughout training, the network rapidly collapses within 5 epochs. An active, trainable non-linear predictor is mathematically required to maintain rank-preserving gradient updates.
+
+\subsection{Architectural Question 2: Batch Size Dependency}
+\textbf{Question:} Why do BYOL and SimSiam function effectively with small batch sizes (e.g. 64), whereas SimCLR requires batch sizes of 4096?\\
+\textbf{Answer:} SimCLR relies on negative pairs within the mini-batch to repel dissimilar samples; small batch sizes do not provide sufficient negative contrast, leading to catastrophic representation degradation. Non-contrastive methods rely on architectural asymmetry and stop-gradient rather than negative contrast, decoupling training stability from batch size.
+
+\textbf{Meta-Question:} Does increasing batch size provide any benefit to non-contrastive SSL?\\
+\textbf{Answer:} Larger batches slightly improve the stability of Batch Normalization layers in the projector and predictor, but yield negligible gain in linear probe accuracy compared to contrastive architectures.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Non-Contrastive Dual-View Symmetrized Loss Evaluation}
+\begin{algorithmic}[1]
+\Require Online predictions $\mathbf{p}_1, \mathbf{p}_2 \in \mathbb{R}^D$, target projections $\mathbf{z}_1, \mathbf{z}_2 \in \mathbb{R}^D$
+\Ensure Symmetrized loss $\mathcal{L}_{\text{sym}}$, cosine similarities $c_{12}, c_{21}$, representation standard deviation $\sigma_z$
+\Function{CosineSim}{$\mathbf{u}, \mathbf{v}$}
+    \State $\epsilon \gets 10^{-8}$
+    \State $dot \gets \sum_{i=0}^{D-1} \mathbf{u}[i] \cdot \mathbf{v}[i]$
+    \State $norm_u \gets \sqrt{\sum_{i=0}^{D-1} \mathbf{u}[i]^2}$
+    \State $norm_v \gets \sqrt{\sum_{i=0}^{D-1} \mathbf{v}[i]^2}$
+    \State \Return $dot / (norm_u \cdot norm_v + \epsilon)$
+\EndFunction
+\State $c_{12} \gets \Call{CosineSim}{\mathbf{p}_1, \mathbf{z}_2}$
+\State $c_{21} \gets \Call{CosineSim}{\mathbf{p}_2, \mathbf{z}_1}$
+\State $\mathcal{L}_{\text{sym}} \gets 1.0 - 0.5 \cdot (c_{12} + c_{21})$
+\State $\bar{z} \gets \frac{1}{D}\sum_{i=0}^{D-1} \mathbf{z}_1[i]$
+\State $\sigma_z \gets \sqrt{\frac{1}{D}\sum_{i=0}^{D-1} (\mathbf{z}_1[i] - \bar{z})^2}$
+\State \Return $(\mathcal{L}_{\text{sym}}, c_{12}, c_{21}, \sigma_z)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Loss Computation Time Complexity}: $\Theta(D)$ vector dot products and normalization norms per sample pair.
+    \item \textbf{Total Batch Training Time Complexity}: $\Theta(B \cdot (D + \mathcal{C}_{\text{NN}}))$, scaling strictly linearly with batch size $B$.
+    \item \textbf{Space Complexity}: $\Theta(D)$ auxiliary memory per sample.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(D)$; parallel depth across vector dimensions is $\mathcal{D} = \Theta(\log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

@@ -1,0 +1,255 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Deep \& Cross Network v2 (DCN-v2)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Explicit Matrix Cross Layers, Bounded Polynomial Interactions, and Dual-Tower CTR Scoring):}
+Let $\mathbf{x}_0 \in \mathbb{R}^D$ denote a concatenated feature representation combining continuous dense features and categorical embedding lookup vectors. In click-through rate (CTR) and conversion modeling, learning high-order feature interactions (e.g. $\text{UserAge} \times \text{AdCategory} \times \text{Device}$) is essential.
+
+\textbf{Deep \& Cross Network v2 (DCN-v2)} explicitly models multi-order polynomial feature crosses without manual combinatorial feature engineering. The $l$-th \textbf{Matrix Cross Layer} maps feature state $\mathbf{x}_l \in \mathbb{R}^D$ to $\mathbf{x}_{l+1} \in \mathbb{R}^D$ according to:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{l+1} = \mathbf{x}_0 \odot \left( W_l \mathbf{x}_l + \mathbf{b}_l \right) + \mathbf{x}_l
+\end{equation}
+}
+where $W_l \in \mathbb{R}^{D \times D}$ is a learnable full-rank or low-rank interaction matrix, $\mathbf{b}_l \in \mathbb{R}^D$ is a bias vector, $\odot$ denotes the element-wise Hadamard product, and $+\mathbf{x}_l$ provides an explicit identity residual connection.
+
+In parallel with the cross network, a deep feed-forward network captures implicit non-linear representations:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{deep}} = \operatorname{ReLU}\left( W_{\text{deep}} \mathbf{x}_0 + \mathbf{b}_{\text{deep}} \right)
+\end{equation}
+}
+The final prediction probability $\widehat{y} \in [0, 1]$ is obtained by concatenating the cross and deep features:
+{\boldmath
+\begin{equation}
+\widehat{y} = \sigma\left( \mathbf{w}_{\text{out}}^T [\mathbf{x}_L; \; \mathbf{x}_{\text{deep}}] + b_{\text{out}} \right)
+\end{equation}
+}
+where $\sigma(z) = \frac{1}{1 + e^{-z}}$ is the logistic sigmoid activation function.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Combinatorial Explosion of Feature Crosses}: In modern ad recommendation (Google, Meta, Amazon), there are thousands of categorical features (User Country, Time of Day, Item Color, Browser). A click might only happen when all three align: ``Country=Canada AND Hour=8PM AND Item=WinterJacket''. Trying to write rules for every possible combination creates billions of combinations that crash databases.
+    \item \textbf{Explicit Multi-Order Math}: Standard MLPs can approximate combinations, but they do so implicitly and inefficiently through non-linear activations. DCN-v2 multiplies features together directly ($x_0 \odot x_l$), creating true polynomial terms ($x_i x_j, x_i x_j x_k$) explicitly with every layer.
+    \item \textbf{Matrix-Driven Channel Crossings}: While DCN-v1 only scaled vectors, DCN-v2 uses full matrix transformations $W_l$, allowing every feature dimension to mix with every other feature dimension in arbitrary coordinate spaces.
+    \item \textbf{The Best of Both Worlds}: The Cross tower handles precise, explicit combinations, while the Deep MLP tower handles fuzzy, broad generalizations.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine an expert recipe kitchen:
+\begin{itemize}
+    \item \textbf{The Ingredients Table ($\mathbf{x}_0$)}: A line of raw ingredients: Sugar, Cocoa, Milk, Strawberries.
+    \item \textbf{The Cross Blender ($\mathbf{x}_1$)}: The blender takes Cocoa and Sugar, multiplies them together to make Chocolate Syrup, and adds it back to the original counter. In the next spin ($\mathbf{x}_2$), it blends Chocolate Syrup with Milk to make Chocolate Milkshake!
+    \item \textbf{The Deep Oven ($\mathbf{x}_{\text{deep}}$)}: A traditional baker bakes everything into a warm cake.
+    \item \textbf{The Master Feast ($\widehat{y}$)}: The master chef places the customized milkshake next to the cake, giving customers the ultimate delicious pairing!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Matrix Cross Layer Transformation}
+{\boldmath
+\begin{equation}
+x_{l+1, i} = x_{0, i} \cdot \left( \sum_{j=0}^{D-1} W_{l, i, j} x_{l, j} + b_{l, i} \right) + x_{l, i}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The element-wise modulation of the original feature vector $\mathbf{x}_0$ by the linearly mixed previous state $W_l \mathbf{x}_l$.
+    \item \textbf{What It Means}: Synthesizes higher-order monomial combinations of the input features while preserving the current feature state through residual addition.
+    \item \textbf{Why It Is Important}: Increases the degree of feature interactions by exactly 1 at each successive layer without combinatorial explosion.
+\end{itemize}
+
+\subsection{Residual Skip Connection}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{l+1} - \mathbf{x}_l = \mathbf{x}_0 \odot (W_l \mathbf{x}_l + \mathbf{b}_l)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The additive differential update governing cross state evolution.
+    \item \textbf{What It Means}: Ensures that lower-order interaction terms from earlier layers are preserved and propagated directly to the output.
+    \item \textbf{Why It Is Important}: Prevents gradient vanishing across deep cross cascades and allows the model to learn zero residual modifications when higher-order crosses are uninformative.
+\end{itemize}
+
+\subsection{Parallel Deep Representation}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{\text{deep}} = \max\left( \mathbf{0}, \; W_{\text{deep}} \mathbf{x}_0 + \mathbf{b}_{\text{deep}} \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Standard rectified linear transformation capturing implicit feature correlations.
+    \item \textbf{What It Means}: Extracts complex non-linear abstractions that cannot be captured by pure polynomial crosses alone.
+    \item \textbf{Why It Is Important}: Complementary to the cross network; balances memorization of explicit crosses with generalized pattern extraction.
+\end{itemize}
+
+\subsection{Calibrated Probability Prediction}
+{\boldmath
+\begin{equation}
+\widehat{y} = \frac{1}{1 + \exp\left( - \sum_{k=0}^{D + D_{\text{deep}}-1} w_{\text{out}, k} z_k \right)}, \quad \mathbf{z} = [\mathbf{x}_L; \; \mathbf{x}_{\text{deep}}]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The logistic sigmoid transformation mapping stacked latent representations to click probability.
+    \item \textbf{What It Means}: Combines explicit polynomial features and deep embeddings into a strictly bounded probability in $[0, 1]$.
+    \item \textbf{Why It Is Important}: Enables direct training via binary cross-entropy and provides calibrated CTR estimates for ad auction bidding.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $\mathbf{x}_0$ (input feature vector), $W_l \in \mathbb{R}^{D \times D}$ (cross weight matrix), $\mathbf{b}_l$ (cross bias), $\mathbf{x}_{\text{deep}}$ (deep representation), $\widehat{y}$ (predicted probability).
+    \item \textbf{Epistemic Status}: Proposed by Wang et al. (Google Research, 2021), widely adopted in production search and recommendation systems.
+    \item \textbf{Dependency Graph}: $\mathbf{x}_0 \to (\mathbf{x}_1 \to \cdots \to \mathbf{x}_L) \text{ and } (\mathbf{x}_{\text{deep}}) \to [\mathbf{x}_L; \mathbf{x}_{\text{deep}}] \to \text{Sigmoid} \to \widehat{y}$.
+    \item \textbf{Dimensions}: Input dimension $D$, deep layer dimension $D_{\text{deep}}$, output scalar $\widehat{y} \in [0, 1]$.
+    \item \textbf{Regimes}: High-dimensional sparse categorical tabular prediction (CTR, conversion rate, fraud detection).
+    \item \textbf{Invariants}: Identity preservation: if $W_l = \mathbf{0}$ and $\mathbf{b}_l = \mathbf{0}$, $\mathbf{x}_{l+1} \equiv \mathbf{x}_l$.
+    \item \textbf{Isomorphisms}: When $W_l$ is constrained to rank 1 ($W_l = \mathbf{u}_l \mathbf{v}_l^T$), DCN-v2 reduces exactly to the original DCN-v1 vector cross architecture.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Polynomial Degree Growth in Matrix Cross Layers]
+Let $\mathbf{x}_0 \in \mathbb{R}^D$ be a vector of linear monomials (degree 1). An $L$-layer matrix cross network produces a representation $\mathbf{x}_L$ whose elements are multivariate polynomials in the input coordinates with maximum polynomial degree strictly equal to $L + 1$:
+{\boldmath
+\begin{equation}
+\operatorname{deg}(\mathbf{x}_L) = L + 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+We prove this by mathematical induction on layer index $l$.
+\textbf{Base Case ($l = 0$):}
+By definition, $\mathbf{x}_0$ consists of the original input features. Each coordinate $x_{0, i}$ is a polynomial of degree 1. Thus $\operatorname{deg}(\mathbf{x}_0) = 1 = 0 + 1$.
+
+\textbf{Inductive Step:}
+Assume that $\operatorname{deg}(\mathbf{x}_l) = l + 1$ for some $l \ge 0$.
+The update rule for layer $l+1$ is:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{l+1} = \mathbf{x}_0 \odot (W_l \mathbf{x}_l + \mathbf{b}_l) + \mathbf{x}_l
+\end{equation}
+}
+Since $W_l$ is a constant linear transformation, $\operatorname{deg}(W_l \mathbf{x}_l + \mathbf{b}_l) = \operatorname{deg}(\mathbf{x}_l) = l + 1$.
+The Hadamard product $\mathbf{x}_0 \odot (W_l \mathbf{x}_l + \mathbf{b}_l)$ multiplies elements of $\mathbf{x}_0$ (degree 1) with elements of $(W_l \mathbf{x}_l + \mathbf{b}_l)$ (degree $l + 1$).
+By polynomial multiplication rules:
+{\boldmath
+\begin{equation}
+\operatorname{deg}(\mathbf{x}_0 \odot (W_l \mathbf{x}_l + \mathbf{b}_l)) = \operatorname{deg}(\mathbf{x}_0) + \operatorname{deg}(W_l \mathbf{x}_l + \mathbf{b}_l) = 1 + (l + 1) = l + 2
+\end{equation}
+}
+The residual addition adds $\mathbf{x}_l$ (degree $l + 1$), so the maximum degree is $\max(l + 2, l + 1) = l + 2$.
+Therefore, $\operatorname{deg}(\mathbf{x}_{l+1}) = (l + 1) + 1$, completing the induction.
+Thus an $L$-layer cross network explicitly generates degree $L + 1$ feature crosses.
+\end{proof}
+
+\begin{theorem}[Strict Output Probability Calibration via Sigmoid Activation]
+For any input features $\mathbf{x}_0 \in \mathbb{R}^D$ and finite network parameters, the predicted conversion probability $\widehat{y}$ lies strictly within the open unit interval:
+{\boldmath
+\begin{equation}
+\widehat{y} \in (0, 1)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{z} = [\mathbf{x}_L; \mathbf{x}_{\text{deep}}] \in \mathbb{R}^{D + D_{\text{deep}}}$.
+The linear logit is $z_{\text{logit}} = \mathbf{w}_{\text{out}}^T \mathbf{z} + b_{\text{out}}$.
+Since $\mathbf{x}_0$ and all weight matrices contain finite real numbers, $z_{\text{logit}}$ is a finite real number: $-\infty < z_{\text{logit}} < +\infty$.
+The sigmoid activation is defined as:
+{\boldmath
+\begin{equation}
+\sigma(z_{\text{logit}}) = \frac{1}{1 + e^{-z_{\text{logit}}}}
+\end{equation}
+}
+For any finite $z_{\text{logit}} \in \mathbb{R}$, $e^{-z_{\text{logit}}} \in (0, +\infty)$.
+Consequently, $1 + e^{-z_{\text{logit}}} \in (1, +\infty)$, which implies:
+{\boldmath
+\begin{equation}
+\widehat{y} = \frac{1}{1 + e^{-z_{\text{logit}}}} \in (0, 1)
+\end{equation}
+}
+Hence the prediction is strictly bounded on the unit probability interval.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: DCN-v1 vs DCN-v2 Expressive Power}
+\textbf{Question:} Why was DCN-v1 replaced by DCN-v2 in production recommendation engines?\\
+\textbf{Answer:} In DCN-v1, the cross term was $\mathbf{x}_0 \mathbf{x}_l^T \mathbf{w}_l = \mathbf{x}_0 (\mathbf{x}_l^T \mathbf{w}_l)$, meaning the output was strictly a scalar multiple of the original input $\mathbf{x}_0$. This created an information bottleneck where features could not alter their relative dimensional coordinates. DCN-v2 introduces full matrix weights $W_l \mathbf{x}_l$, allowing full rotational and non-scalar cross-dimensional interaction.
+
+\textbf{Meta-Question:} How is parameter count controlled in DCN-v2 when feature dimension $D$ is large?\\
+\textbf{Answer:} In large deployments ($D \ge 1024$), full matrix $W_l \in \mathbb{R}^{D \times D}$ requires millions of parameters per layer. DCN-v2 addresses this by factorizing $W_l$ into low-rank matrices $W_l = U_l V_l^T$ where $U_l, V_l \in \mathbb{R}^{D \times r}$ with rank $r \ll D$, reducing complexity to $\mathcal{O}(D r)$.
+
+\subsection{Architectural Question 2: Parallel vs Stacked DCN Architectures}
+\textbf{Question:} Should the Deep network and Cross network be placed in parallel (side-by-side) or stacked sequentially?\\
+\textbf{Answer:} The parallel structure is almost universally preferred. In parallel mode, the Cross network and Deep network operate independently on the original feature embeddings $\mathbf{x}_0$, preventing noisy non-linear MLP activations from distorting clean polynomial cross terms.
+
+\textbf{Meta-Question:} How does DCN-v2 compare to Factorization Machines (DeepFM)?\\
+\textbf{Answer:} DeepFM only computes 2nd-order pairwise dot products $\langle \mathbf{v}_i, \mathbf{v}_j \rangle$. DCN-v2 naturally scales to arbitrary $k$-th order polynomial interactions ($k = L + 1$) by simply adding cross layers, without manual combinatorial enumeration.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Deep \& Cross Network v2 (DCN-v2) Forward Evaluation}
+\begin{algorithmic}[1]
+\Require Input vector $\mathbf{x}_0 \in \mathbb{R}^D$, cross weights $W_l \in \mathbb{R}^{D \times D}$, cross bias $\mathbf{b}_l \in \mathbb{R}^D$, deep weights $W_{\text{deep}} \in \mathbb{R}^{D_{\text{deep}} \times D}$, deep bias $\mathbf{b}_{\text{deep}} \in \mathbb{R}^{D_{\text{deep}}}$, output weights $\mathbf{w}_{\text{out}} \in \mathbb{R}^{D + D_{\text{deep}}}$
+\Ensure Cross output $\mathbf{x}_{\text{cross}} \in \mathbb{R}^D$, deep output $\mathbf{x}_{\text{deep}} \in \mathbb{R}^{D_{\text{deep}}}$, predicted probability $\widehat{y}$, cross energy $E_{\text{cross}}$
+\State Initialize $\mathbf{u} \in \mathbb{R}^D, \quad \mathbf{x}_{\text{cross}} \in \mathbb{R}^D, \quad E_{\text{sq}} \gets 0.0$
+\For{$i = 0$ \textbf{to} $D-1$} \Comment{Matrix Cross Step}
+    \State $\mathbf{u}[i] \gets \sum_{j=0}^{D-1} W_l[i][j] \cdot \mathbf{x}_0[j] + \mathbf{b}_l[i]$
+    \State $crossed \gets \mathbf{x}_0[i] \cdot \mathbf{u}[i] + \mathbf{x}_0[i]$
+    \State $\mathbf{x}_{\text{cross}}[i] \gets crossed$
+    \State $E_{\text{sq}} \gets E_{\text{sq}} + crossed^2$
+\EndFor
+\State Initialize $\mathbf{x}_{\text{deep}} \in \mathbb{R}^{D_{\text{deep}}}$
+\For{$i = 0$ \textbf{to} $D_{\text{deep}}-1$} \Comment{Deep Non-Linear MLP Branch}
+    \State $val \gets \sum_{j=0}^{D-1} W_{\text{deep}}[i][j] \cdot \mathbf{x}_0[j] + \mathbf{b}_{\text{deep}}[i]$
+    \State $\mathbf{x}_{\text{deep}}[i] \gets \max(0.0, val)$
+\EndFor
+\State $\mathbf{z} \gets [\mathbf{x}_{\text{cross}}; \; \mathbf{x}_{\text{deep}}] \in \mathbb{R}^{D + D_{\text{deep}}}$
+\State $logit \gets \sum_{k=0}^{D + D_{\text{deep}}-1} \mathbf{w}_{\text{out}}[k] \cdot \mathbf{z}[k]$ \Comment{Sigmoid Scoring}
+\State $\widehat{y} \gets (logit \ge 0) \;?\; \frac{1}{1 + \exp(-logit)} : \frac{\exp(logit)}{1 + \exp(logit)}$
+\State \Return $(\mathbf{x}_{\text{cross}}, \mathbf{x}_{\text{deep}}, \widehat{y}, \sqrt{E_{\text{sq}}})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Matrix Cross Evaluation Time Complexity}: $\Theta(D^2)$ scalar multiply-accumulate operations (or $\Theta(D \cdot r)$ using low-rank factorization).
+    \item \textbf{Deep Layer Time Complexity}: $\Theta(D_{\text{deep}} \cdot D)$ operations.
+    \item \textbf{Sigmoid Scoring Complexity}: $\Theta(D + D_{\text{deep}})$ operations.
+    \item \textbf{Space Complexity}: $\Theta(D + D_{\text{deep}})$ for intermediate feature vectors.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log D + \log D_{\text{deep}})$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

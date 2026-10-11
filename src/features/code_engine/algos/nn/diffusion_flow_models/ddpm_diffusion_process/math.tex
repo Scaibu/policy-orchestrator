@@ -1,0 +1,320 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Denoising Diffusion Probabilistic Models}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Diffusion Markov Chain Operators):}
+Let $\mathbf{x}_0 \sim q(\mathbf{x}_0)$ denote clean observations in $\mathbb{R}^D$. The \textbf{Forward Diffusion Process} is a non-trainable fixed Markov chain that adds Gaussian noise according to variance schedule $\{\beta_t \in (0, 1)\}_{t=1}^T$:
+{\boldmath
+\begin{equation}
+q(\mathbf{x}_{1:T} \mid \mathbf{x}_0) = \prod_{t=1}^T q(\mathbf{x}_t \mid \mathbf{x}_{t-1}), \quad q(\mathbf{x}_t \mid \mathbf{x}_{t-1}) = \mathcal{N}\left( \mathbf{x}_t; \sqrt{1 - \beta_t}\mathbf{x}_{t-1}, \beta_t \mathbf{I} \right)
+\end{equation}
+}
+Defining $\alpha_t = 1 - \beta_t$ and cumulative variance $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$, any arbitrary forward step is evaluated analytically without iterative stepping:
+{\boldmath
+\begin{equation}
+q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\left( \mathbf{x}_t; \sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I} \right) \Longleftrightarrow \mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+}
+The \textbf{Reverse Generative Process} is a parameterized Markov chain starting from pure Gaussian noise $p(\mathbf{x}_T) = \mathcal{N}(\mathbf{0}, \mathbf{I})$:
+{\boldmath
+\begin{equation}
+p_\theta(\mathbf{x}_{0:T}) = p(\mathbf{x}_T) \prod_{t=1}^T p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t), \quad p_\theta(\mathbf{x}_{t-1} \mid \mathbf{x}_t) = \mathcal{N}\left( \mathbf{x}_{t-1}; \boldsymbol{\mu}_\theta(\mathbf{x}_t, t), \sigma_t^2 \mathbf{I} \right)
+\end{equation}
+}
+where the mean parameterization utilizes a deep denoising network $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ minimizing the simplified variational bound:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{simple}}(\theta) = \mathbb{E}_{t \sim \mathcal{U}(1, T), \mathbf{x}_0, \boldsymbol{\epsilon}}\left[ \|\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)\|_2^2 \right]
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Imagine taking a drop of dark blue ink and letting it fall into a glass of pure, clear water. 
+\begin{enumerate}
+    \item \textbf{The Forward Ink Dissolution}: At first, the drop is a neat circular dot. Slowly, the water molecules bump into it, diffusing the ink into wisps and clouds. After a few minutes, the water is a completely uniform, hazy light-blue soup. All original shape has vanished into pure entropy.
+    \item \textbf{Reversing the Arrow of Time}: Physics says you cannot put the ink drop back together easily. But imagine filming the process with a high-speed camera, reversing the tape, and learning how to push the ink molecules backward step by step.
+    \item \textbf{Microscopic Denoising}: Instead of trying to invent an entire photo from scratch in a single jump, diffusion models solve a vastly easier problem: given an image that has 1\% extra static noise added, can you predict that 1\% of noise and subtract it?
+    \item \textbf{Generation}: By starting with completely random static noise (a TV screen with no signal) and subtracting tiny estimated crumbs of noise 1,000 times in a row, a crystal-clear, photorealistic image emerges magically out of thin air.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Frosty Window and the Hair Dryer}:
+Imagine looking out your bedroom window on a freezing winter morning:
+\begin{itemize}
+    \item \textbf{The Clear Garden Outside ($\mathbf{x}_0$)}:
+    Outside sits your garden with bright red flowers, a green tree, and a wooden bench.
+    
+    \item \textbf{The 1,000 Layers of Frost ($\mathbf{x}_t$)}:
+    Every minute, Jack Frost blows a tiny icy snowflake onto the glass. After 1 minute ($\mathbf{x}_1$), you can still see the tree clearly. After 500 minutes ($\mathbf{x}_{500}$), everything looks like foggy gray shapes. After 1,000 minutes ($\mathbf{x}_{1000}$), the window is covered in pure white ice. You can't see the garden at all.
+    
+    \item \textbf{The Magic Hair Dryer ($\boldsymbol{\epsilon}_\theta$)}:
+    You have a magical hair dryer. When you blow warm air on the frost for 1 second, it melts away the exact shape of the last snowflake Jack Frost added!
+    
+    \item \textbf{The Step-by-Step Magic}:
+    You start with a window covered in pure white ice. You turn on the hair dryer, melt one layer of frost, and pause. Then melt another layer, and another. Suddenly, the bench appears! Then the flowers appear! And after 1,000 warm puffs of air, you are looking at your beautiful garden!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Closed-Form Forward Marginal Step}}
+{\boldmath
+\begin{equation}
+\mathbf{x}_t = \sqrt{\bar{\alpha}_t} \mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}_D)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The closed-form transition kernel marginalizing over all intermediate states $\mathbf{x}_1, \dots, \mathbf{x}_{t-1}$ under Gaussian Markov chain composition.
+    \item \textbf{What It Means}:
+    Allows sampling a noisy state at timestep $t = 850$ in $\mathcal{O}(1)$ time directly from the clean image $\mathbf{x}_0$ without simulating steps $1$ through $849$.
+    \item \textbf{Why It Is Important}:
+    Enables highly efficient, asynchronous, random timestep training on mini-batches of images.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Simplified Noise-Prediction Loss}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{simple}}(\theta) = \frac{1}{D} \|\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)\|_2^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The re-weighted variational lower bound (ELBO) objective optimizing the parameter vector $\theta$ against the ground-truth standard Gaussian perturbation $\boldsymbol{\epsilon}$.
+    \item \textbf{What It Means}:
+    The network is trained simply to look at noisy image $\mathbf{x}_t$ and guess the noise vector $\boldsymbol{\epsilon}$ that was added to it.
+    \item \textbf{Why It Is Important}:
+    Discarding the formal ELBO variance weighting factors focuses training on perceptually relevant intermediate timesteps, dramatically improving visual sample quality.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Tweedie's Formula for Clean Image Estimation}}
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}}_0 = \frac{\mathbf{x}_t - \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)}{\sqrt{\bar{\alpha}_t}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The posterior mean empirical Bayes estimator $\mathbb{E}[\mathbf{x}_0 \mid \mathbf{x}_t]$ derived from Tweedie's formula for Gaussian models.
+    \item \textbf{What It Means}:
+    Reconstructs the model's instantaneous hallucination of the clean ground-truth image from the current noisy state.
+    \item \textbf{Why It Is Important}:
+    Provides the central mathematical bridge enabling fast non-Markovian sampling jumps (DDIM) and perceptual classifier guidance.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Reverse Markov Transition Posterior Mean}}
+{\boldmath
+\begin{equation}
+\boldsymbol{\mu}_\theta(\mathbf{x}_t, t) = \frac{1}{\sqrt{\alpha_t}} \left( \mathbf{x}_t - \frac{\beta_t}{\sqrt{1 - \bar{\alpha}_t}} \boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The parameterization of the reverse step mean vector matching the tractable true posterior $q(\mathbf{x}_{t-1} \mid \mathbf{x}_t, \mathbf{x}_0)$.
+    \item \textbf{What It Means}:
+    Specifies how to step backward from timestep $t$ to $t - 1$, subtracting a calibrated fraction of the predicted noise.
+    \item \textbf{Why It Is Important}:
+    Guarantees that the reverse trajectory stays on the correct statistical manifold during multi-step ancestral sampling.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{x}_0 \in \mathbb{R}^D$: Clean data state vector.
+    \item $\mathbf{x}_t \in \mathbb{R}^D$: Noisy state vector at timestep $t$.
+    \item $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$: Ground-truth Gaussian perturbation vector.
+    \item $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$: Neural network noise prediction.
+    \item $\beta_t \in (0, 1)$: Variance schedule at step $t$.
+    \item $\alpha_t = 1 - \beta_t$: Retained signal fraction.
+    \item $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$: Cumulative signal retention factor.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of DDPM Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$D, T$ & \textbf{Defined} (Architectural hyperparameter) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\beta_t, \alpha_t, \bar{\alpha}_t$ & \textbf{Defined} (Deterministic schedule constants) & Real scalars in $(0, 1)$ \\
+$\boldsymbol{\epsilon}_\theta$ & \textbf{Learned} (Neural network function) & Differentiable non-linear mapping $\mathbb{R}^D \times \mathbb{N} \to \mathbb{R}^D$ \\
+$\mathbf{x}_t, \hat{\mathbf{x}}_0, \boldsymbol{\mu}_\theta$ & \textbf{Calculated} (Diffused states) & Vectors in $\mathbb{R}^D$ \\
+$\mathcal{L}_{\text{simple}}$ & \textbf{Calculated} (Training loss) & Non-negative scalar $\mathbb{R}_{\ge 0}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{x}_0, \boldsymbol{\epsilon}, t) \xrightarrow{\bar{\alpha}_t} \mathbf{x}_t \xrightarrow{\boldsymbol{\epsilon}_\theta(\cdot, t)} \hat{\boldsymbol{\epsilon}} \longrightarrow (\mathcal{L}_{\text{MSE}}, \hat{\mathbf{x}}_0, \boldsymbol{\mu}_\theta)
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item States $\mathbf{x}_0, \mathbf{x}_t, \boldsymbol{\epsilon}, \hat{\mathbf{x}}_0$: Rank-1 tensors of shape $(D)$.
+    \item Timestep $t$: Discrete integer index in $\{1, \dots, T\}$.
+    \item Variance constants $\alpha_t, \bar{\alpha}_t$: Dimensionless real scalars in $(0, 1)$.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Initial Step ($t = 0$)}: $\bar{\alpha}_0 = 1.0$; $\mathbf{x}_0$ is unperturbed clean data.
+    \item \textbf{Terminal Step ($t = T \to \infty$)}: $\bar{\alpha}_T \to 0$; $\mathbf{x}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ is independent of $\mathbf{x}_0$.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Terminal Variance Leakage ($\bar{\alpha}_T > 0$)}: If the schedule does not reach $\bar{\alpha}_T \approx 0$, the model starts sampling from pure Gaussian noise that does not match the forward terminal distribution, creating severe contrast and color shifts.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Variance Preservation}: If $\operatorname{Var}(\mathbf{x}_0) = 1$, then $\operatorname{Var}(\mathbf{x}_t) = \bar{\alpha}_t \operatorname{Var}(\mathbf{x}_0) + (1 - \bar{\alpha}_t)\operatorname{Var}(\boldsymbol{\epsilon}) = \bar{\alpha}_t + (1 - \bar{\alpha}_t) = 1.0$ is conserved across all timesteps.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Ornstein-Uhlenbeck Diffusion}: Forward DDPM is the discrete-time Euler-Maruyama discretization of a continuous-time Ornstein-Uhlenbeck mean-reverting stochastic process.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Closed-Form Forward Marginal Distribution}]
+Let $q(\mathbf{x}_t \mid \mathbf{x}_{t-1}) = \mathcal{N}(\mathbf{x}_t; \sqrt{\alpha_t}\mathbf{x}_{t-1}, (1 - \alpha_t)\mathbf{I})$ for $t = 1, \dots, T$. Then the marginal distribution of $\mathbf{x}_t$ conditioned on $\mathbf{x}_0$ is given in closed form by:
+{\boldmath
+\begin{equation}
+q(\mathbf{x}_t \mid \mathbf{x}_0) = \mathcal{N}\left( \mathbf{x}_t; \sqrt{\bar{\alpha}_t}\mathbf{x}_0, (1 - \bar{\alpha}_t)\mathbf{I} \right)
+\end{equation}
+}
+where $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$.
+\end{theorem}
+
+\begin{proof}
+We proceed by mathematical induction on $t$.
+\textbf{Base case ($t = 1$)}:
+{\boldmath
+\begin{equation}
+q(\mathbf{x}_1 \mid \mathbf{x}_0) = \mathcal{N}(\mathbf{x}_1; \sqrt{\alpha_1}\mathbf{x}_0, (1 - \alpha_1)\mathbf{I})
+\end{equation}
+}
+Since $\bar{\alpha}_1 = \alpha_1$, the base case holds.
+
+\textbf{Inductive step}: Assume $q(\mathbf{x}_{t-1} \mid \mathbf{x}_0) = \mathcal{N}(\sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0, (1 - \bar{\alpha}_{t-1})\mathbf{I})$. Express $\mathbf{x}_{t-1}$ as:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\boldsymbol{\epsilon}_{t-1}, \quad \boldsymbol{\epsilon}_{t-1} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+}
+By the definition of the forward Markov step:
+{\boldmath
+\begin{equation}
+\mathbf{x}_t = \sqrt{\alpha_t}\mathbf{x}_{t-1} + \sqrt{1 - \alpha_t}\boldsymbol{\epsilon}_t, \quad \boldsymbol{\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+}
+Substituting $\mathbf{x}_{t-1}$ into this expression:
+{\boldmath
+\begin{align}
+\mathbf{x}_t &= \sqrt{\alpha_t}\left( \sqrt{\bar{\alpha}_{t-1}}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_{t-1}}\boldsymbol{\epsilon}_{t-1} \right) + \sqrt{1 - \alpha_t}\boldsymbol{\epsilon}_t \\
+&= \sqrt{\alpha_t \bar{\alpha}_{t-1}}\mathbf{x}_0 + \sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})}\boldsymbol{\epsilon}_{t-1} + \sqrt{1 - \alpha_t}\boldsymbol{\epsilon}_t \\
+&= \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \mathbf{y}
+\end{align}
+}
+where $\mathbf{y} = \sqrt{\alpha_t(1 - \bar{\alpha}_{t-1})}\boldsymbol{\epsilon}_{t-1} + \sqrt{1 - \alpha_t}\boldsymbol{\epsilon}_t$. Because $\boldsymbol{\epsilon}_{t-1}$ and $\boldsymbol{\epsilon}_t$ are independent zero-mean Gaussians, their sum $\mathbf{y}$ is a zero-mean Gaussian with variance:
+{\boldmath
+\begin{equation}
+\operatorname{Var}(\mathbf{y}) = \alpha_t(1 - \bar{\alpha}_{t-1})\mathbf{I} + (1 - \alpha_t)\mathbf{I} = (\alpha_t - \alpha_t \bar{\alpha}_{t-1} + 1 - \alpha_t)\mathbf{I} = (1 - \bar{\alpha}_t)\mathbf{I}
+\end{equation}
+}
+Thus, $\mathbf{y} = \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}$ with $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$, giving:
+{\boldmath
+\begin{equation}
+\mathbf{x}_t = \sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1 - \bar{\alpha}_t}\boldsymbol{\epsilon}
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Why Is Noise Prediction ($\boldsymbol{\epsilon}$) Superior to Direct Clean Sample Prediction ($\mathbf{x}_0$)?}
+\textbf{Question}: Why does predicting the added noise $\boldsymbol{\epsilon}_\theta(\mathbf{x}_t, t)$ yield better generative fidelity than training the network to directly predict clean data $\mathbf{x}_0$?
+
+\textbf{Meta-Question}: Does target parameterization affect the numerical conditioning of loss landscapes?
+
+\textbf{Answer}: When $t$ is large and the image is mostly noise ($\bar{\alpha}_t \to 0$), clean data $\mathbf{x}_0$ carries near-zero signal. Asking the network to predict $\mathbf{x}_0$ forces it to output the blurry dataset mean with high variance. Predicting $\boldsymbol{\epsilon}$ is statistically well-behaved because $\boldsymbol{\epsilon}$ has constant unit variance $\mathcal{N}(\mathbf{0}, \mathbf{I})$ across all timesteps. Furthermore, Tweedie's formula reveals that $\boldsymbol{\epsilon}_\theta$ directly parameterizes the score $\nabla_{\mathbf{x}} \log p_t(\mathbf{x}_t) = -\boldsymbol{\epsilon}_\theta / \sqrt{1 - \bar{\alpha}_t}$, tying noise prediction directly to optimal score matching.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{DDPM Forward Diffusion Step and Posterior Mean Calculation}
+\label{alg:ddpm}
+\begin{algorithmic}[1]
+\Require Clean state $\mathbf{x}_0 \in \mathbb{R}^D$, Noise $\boldsymbol{\epsilon} \in \mathbb{R}^D$, Prediction $\hat{\boldsymbol{\epsilon}} \in \mathbb{R}^D$, Schedule $\bar{\alpha}_t \in (0, 1), \beta_t \in (0, 1)$
+\Ensure Diffused $\mathbf{x}_t \in \mathbb{R}^D$, Reconstructed $\hat{\mathbf{x}}_0 \in \mathbb{R}^D$, MSE Loss $\mathcal{L}$, Posterior mean $\boldsymbol{\mu}_\theta \in \mathbb{R}^D$
+\State $s_{\alpha} \gets \sqrt{\bar{\alpha}_t}, \quad s_{\sigma} \gets \sqrt{1.0 - \bar{\alpha}_t}$
+\State $\mathbf{x}_t \gets \text{zeros}(D), \quad \hat{\mathbf{x}}_0 \gets \text{zeros}(D)$
+\State $\text{mse\_sum} \gets 0.0$
+\For{$i \gets 1 \textbf{ to } D$}
+    \State $x_{t, i} \gets s_{\alpha} \cdot x_{0, i} + s_{\sigma} \cdot \epsilon_i$
+    \State $\hat{x}_{0, i} \gets (x_{t, i} - s_{\sigma} \cdot \hat{\epsilon}_i) / s_{\alpha}$
+    \State $\text{diff} \gets \epsilon_i - \hat{\epsilon}_i$
+    \State $\text{mse\_sum} \gets \text{mse\_sum} + \text{diff} \cdot \text{diff}$
+\EndFor
+\State $\mathcal{L} \gets \text{mse\_sum} / D$
+\State $\alpha_t \gets 1.0 - \beta_t, \quad c_{\epsilon} \gets \beta_t / s_{\sigma}$
+\State $\boldsymbol{\mu}_\theta \gets \text{zeros}(D)$
+\For{$i \gets 1 \textbf{ to } D$}
+    \State $\mu_{\theta, i} \gets (1.0 / \sqrt{\alpha_t}) \cdot (x_{t, i} - c_{\epsilon} \cdot \hat{\epsilon}_i)$
+\EndFor
+\State \Return $\{\text{noisy}: \mathbf{x}_t, \text{predicted\_x0}: \hat{\mathbf{x}}_0, \text{loss}: \mathcal{L}, \text{posterior\_mean}: \boldsymbol{\mu}_\theta\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Forward diffusion: $D$ multiplications and additions ($\Theta(D)$).
+        \item Tweedie clean estimation: $D$ subtractions and divisions ($\Theta(D)$).
+        \item Posterior transition mean: $D$ scaling operations ($\Theta(D)$).
+        \item Total Time: $\Theta(D)$ FLOPs.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item State buffers: $\Theta(D)$ auxiliary floats.
+        \item Total Space: $\Theta(D)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

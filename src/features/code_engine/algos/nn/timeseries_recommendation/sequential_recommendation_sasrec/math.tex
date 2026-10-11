@@ -1,0 +1,282 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Self-Attentive Sequential Recommendation (SASRec)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Causal Multi-Step Self-Attention and Sequential Ranking Dynamics):}
+Let $\mathcal{S} = (i_1, i_2, \dots, i_T)$ denote an ordered sequence of user interactions over time, where each item index is embedded into a dense vector $\mathbf{e}_t \in \mathbb{R}^D$ yielding sequence matrix $E = [\mathbf{e}_1, \dots, \mathbf{e}_T]^T \in \mathbb{R}^{T \times D}$. Let $P = [\mathbf{p}_1, \dots, \mathbf{p}_T]^T \in \mathbb{R}^{T \times D}$ denote a learnable positional embedding matrix.
+
+The unified input sequence is defined by the element-wise sum:
+{\boldmath
+\begin{equation}
+X = E + P \in \mathbb{R}^{T \times D}
+\end{equation}
+}
+\textbf{Self-Attentive Sequential Recommendation (SASRec)} models long-range item dependencies across user histories using causal self-attention. For each query position $i \in \{1, \dots, T\}$ and key position $j \in \{1, \dots, T\}$, the attention score is computed with scaled dot-products and an explicit lower-triangular causal mask:
+{\boldmath
+\begin{equation}
+A_{i, j} = 
+\begin{cases}
+\frac{\mathbf{x}_i \cdot \mathbf{x}_j}{\sqrt{D}}, & \text{if } j \le i \\
+-\infty, & \text{if } j > i
+\end{cases}
+\end{equation}
+}
+The causal attention distribution $\mathbf{w}_i \in \Delta^{i-1}$ across historical items is given by the softmax function:
+{\boldmath
+\begin{equation}
+w_{i, j} = \frac{\exp\left( A_{i, j} \right)}{\sum_{k=1}^i \exp\left( A_{i, k} \right)}, \quad \forall j \le i
+\end{equation}
+}
+The resulting context representation $\mathbf{c}_i \in \mathbb{R}^D$ at step $i$ is the convex combination:
+{\boldmath
+\begin{equation}
+\mathbf{c}_i = \sum_{j=1}^i w_{i, j} \mathbf{x}_j
+\end{equation}
+}
+To rank a set of candidate items $\{\mathbf{v}_1, \dots, \mathbf{v}_M\} \subset \mathbb{R}^D$ for the next interaction at step $T+1$, the system evaluates the inner product against the latest context state $\mathbf{c}_T$:
+{\boldmath
+\begin{equation}
+s_m = \mathbf{c}_T \cdot \mathbf{v}_m, \quad m \in \{1, \dots, M\}
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Sequence Order Matters}: If a user buys a Smartphone on Monday, recommending another Smartphone on Tuesday is useless! But recommending a protective case, wireless earbuds, or charging cables is highly relevant. Older recommendation systems treated user history as an unordered bag of items; SASRec respects the exact timeline.
+    \item \textbf{Causal Attention (No Peeking into the Future)}: When predicting what someone buys at Step 5, the model is strictly forbidden from looking at Steps 6, 7, and 8. The causal mask ensures the model only reasons about what happened in the past.
+    \item \textbf{Adaptive Memory Span}: Unlike Markov chains that only remember the single most recent item, or RNNs that forget items from last month, self-attention can assign high importance to an item bought 50 steps ago if it aligns with the user's current intent.
+    \item \textbf{Fast Dot-Product Candidate Scoring}: SASRec summarizes the user's complete history into a single vector $\mathbf{c}_T$. Scoring 100,000 products in a catalog takes milliseconds via fast inner products.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine packing a backpack for a hiking adventure:
+\begin{itemize}
+    \item \textbf{The Diary of Actions}: Your diary records what you packed: Step 1: Boots; Step 2: Tent; Step 3: Camp stove.
+    \item \textbf{The Assistant's Flashlight}: The assistant shines a flashlight back across your diary. It sees you packed a Camp stove, but notices you haven't packed Matches or Cooking fuel yet!
+    \item \textbf{The Next Essential Item}: It hands you a pack of waterproof matches with a big smile: ``You need this next!''
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Positional History Encoding}
+{\boldmath
+\begin{equation}
+\mathbf{x}_t = \mathbf{e}_t + \mathbf{p}_t, \quad t \in \{1, \dots, T\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The element-wise addition of categorical item embeddings and temporal sequence order coordinates.
+    \item \textbf{What It Means}: Informs the attention mechanism of both item identity and its relative recency in the interaction sequence.
+    \item \textbf{Why It Is Important}: Because self-attention is permutation-invariant, positional encodings are required to distinguish chronological order.
+\end{itemize}
+
+\subsection{Causal Scaled Attention Kernel}
+{\boldmath
+\begin{equation}
+w_{i, j} = \frac{\exp\left( \frac{\mathbf{x}_i \cdot \mathbf{x}_j}{\sqrt{D}} \right)}{\sum_{k=1}^i \exp\left( \frac{\mathbf{x}_i \cdot \mathbf{x}_k}{\sqrt{D}} \right)}, \quad 1 \le j \le i
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The lower-triangular normalized attention weight assigning relevance from historical item $j$ to target item $i$.
+    \item \textbf{What It Means}: Quantifies how strongly the user's interaction at step $j$ influences their decision at step $i$.
+    \item \textbf{Why It Is Important}: Dynamically weights past items without fixed decay windows, capturing both short-term bursts and long-term habits.
+\end{itemize}
+
+\subsection{Causal History Aggregation}
+{\boldmath
+\begin{equation}
+\mathbf{c}_i = \sum_{j=1}^i w_{i, j} \mathbf{x}_j
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The convex combination of historical feature vectors under causal attention.
+    \item \textbf{What It Means}: Compresses the entire prefix history $(i_1, \dots, i_i)$ into a single contextual state vector.
+    \item \textbf{Why It Is Important}: Serves as a compact query embedding for downstream candidate retrieval and ranking.
+\end{itemize}
+
+\subsection{Inner-Product Candidate Scoring}
+{\boldmath
+\begin{equation}
+s(\mathcal{S}, v_{\text{cand}}) = \sum_{d=0}^{D-1} c_{T, d} \cdot v_{\text{cand}, d}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The dot product between the latest sequence context vector and candidate item embeddings.
+    \item \textbf{What It Means}: Measures geometric cosine/magnitude alignment between user intent and candidate item features.
+    \item \textbf{Why It Is Important}: Enables sub-millisecond approximate nearest neighbor (ANN) retrieval using HNSW or ScaNN vector databases.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $T$ (history sequence length), $D$ (embedding dimension), $M$ (candidate item count), $E$ (item embeddings), $P$ (position embeddings), $\mathbf{c}_T$ (final context vector).
+    \item \textbf{Epistemic Status}: Proposed by Kang and McAuley (ICDM 2018), foundational baseline for modern transformer-based recommender architectures.
+    \item \textbf{Dependency Graph}: $(E, P) \to X = E + P \to \text{Causal Attention } W \to C \to s_m = \mathbf{c}_T \cdot \mathbf{v}_m \to \text{Top-1 Ranking}$.
+    \item \textbf{Dimensions}: Sequence length $T$, item dimension $D$, candidate count $M$, attention matrix $W \in \mathbb{R}^{T \times T}$.
+    \item \textbf{Regimes}: E-commerce purchase journeys, streaming media play sequences, next-token command prediction.
+    \item \textbf{Invariants}: Lower-triangular causality: $W_{i, j} = 0$ for all $j > i$; simplex conservation: $\sum_{j=1}^i W_{i, j} = 1$.
+    \item \textbf{Isomorphisms}: SASRec is mathematically isomorphic to a single-layer GPT decoder block evaluated without feed-forward MLPs.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Strict Causal Independence of Prefix Representations]
+Let $\mathcal{S} = (i_1, \dots, i_T)$ be an interaction sequence. For any step $k < T$, the context vector $\mathbf{c}_k$ and attention weights $W_{k, :}$ are strictly invariant to any future items $(i_{k+1}, \dots, i_T)$ appended to the sequence:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathbf{c}_k}{\partial \mathbf{x}_m} = \mathbf{0}, \quad \forall m > k
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition of the causal attention matrix, for any row $k$ and column $m > k$, the masked score is $A_{k, m} = -\infty$.
+The softmax probability for column $m > k$ is:
+{\boldmath
+\begin{equation}
+W_{k, m} = \lim_{A_{k, m} \to -\infty} \frac{\exp(A_{k, m})}{\sum_{j=1}^k \exp(A_{k, j}) + \sum_{j=k+1}^T \exp(A_{k, j})} = \frac{0}{\sum_{j=1}^k \exp(A_{k, j}) + 0} = 0
+\end{equation}
+}
+Now evaluating the context representation $\mathbf{c}_k$:
+{\boldmath
+\begin{equation}
+\mathbf{c}_k = \sum_{j=1}^T W_{k, j} \mathbf{x}_j = \sum_{j=1}^k W_{k, j} \mathbf{x}_j + \sum_{j=k+1}^T 0 \cdot \mathbf{x}_j = \sum_{j=1}^k W_{k, j} \mathbf{x}_j
+\end{equation}
+}
+Since the summation over $j \in \{1, \dots, k\}$ depends exclusively on $\{\mathbf{x}_1, \dots, \mathbf{x}_k\}$:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathbf{c}_k}{\partial \mathbf{x}_m} = \mathbf{0}, \quad \forall m > k
+\end{equation}
+}
+Thus future interactions have zero mathematical influence on historical prefix representations, verifying strict temporal causality.
+\end{proof}
+
+\begin{theorem}[Convex Hull Containment of Historical Context Vectors]
+For every sequence position $i \in \{1, \dots, T\}$, the context representation $\mathbf{c}_i$ lies strictly inside the convex hull of the prefix input tokens:
+{\boldmath
+\begin{equation}
+\mathbf{c}_i \in \operatorname{conv}(\{\mathbf{x}_1, \mathbf{x}_2, \dots, \mathbf{x}_i\})
+\end{equation}
+}
+Consequently, $\|\mathbf{c}_i\|_2 \le \max_{1 \le j \le i} \|\mathbf{x}_j\|_2$.
+\end{theorem}
+
+\begin{proof}
+For any $i \in \{1, \dots, T\}$, the weights $W_{i, j}$ are defined for $j \in \{1, \dots, i\}$ via the softmax function:
+{\boldmath
+\begin{equation}
+W_{i, j} = \frac{\exp(A_{i, j})}{\sum_{k=1}^i \exp(A_{i, k})}
+\end{equation}
+}
+Since $\exp(A_{i, j}) > 0$ for all finite real scores, $W_{i, j} > 0$ for all $1 \le j \le i$.
+Furthermore, $\sum_{j=1}^i W_{i, j} = 1$.
+The vector $\mathbf{c}_i$ is defined as $\mathbf{c}_i = \sum_{j=1}^i W_{i, j} \mathbf{x}_j$.
+By definition of a convex combination, any point expressed with non-negative coefficients summing to 1 belongs to the convex hull $\operatorname{conv}(\{\mathbf{x}_1, \dots, \mathbf{x}_i\})$.
+By Jensen's inequality and convexity of norms:
+{\boldmath
+\begin{equation}
+\|\mathbf{c}_i\|_2 = \left\| \sum_{j=1}^i W_{i, j} \mathbf{x}_j \right\|_2 \le \sum_{j=1}^i W_{i, j} \|\mathbf{x}_j\|_2 \le \max_{1 \le j \le i} \|\mathbf{x}_j\|_2 \sum_{j=1}^i W_{i, j} = \max_{1 \le j \le i} \|\mathbf{x}_j\|_2
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Causal SASRec vs Bidirectional BERT4Rec}
+\textbf{Question:} Why is causal attention (SASRec) preferred over bidirectional masked attention (BERT4Rec) for production recommendation inference?\\
+\textbf{Answer:} In bidirectional models (BERT4Rec), adding a new interaction requires re-running self-attention over the entire sequence because past representations change when future tokens are added. In causal SASRec, past prefix representations are immutable, allowing constant-time incremental updates ($O(1)$) using standard key-value (KV) caching.
+
+\textbf{Meta-Question:} Does BERT4Rec achieve higher offline ranking metrics than SASRec?\\
+\textbf{Answer:} Offline, bidirectional masking can achieve slightly higher NDCG because it sees context from both sides during training. However, at test time, the mask must be placed artificially at the end of the sequence, re-introducing unidirectional causality and creating a train-test discrepancy.
+
+\subsection{Architectural Question 2: Negative Sampling Strategies in Large Catalogs}
+\textbf{Question:} How is SASRec trained effectively when the item catalog contains millions of products ($|\mathcal{I}| > 10^7$)?\\
+\textbf{Answer:} Evaluating full softmax cross-entropy over $10^7$ items per step is computationally intractable. SASRec uses sampled negative cross-entropy or Binary Cross-Entropy (BCE): for each ground-truth next item $i_{t+1}$, the loss samples one or a few negative items $j \notin \mathcal{S}$ and optimizes $-\ln \sigma(s(i_{t+1})) - \ln \sigma(-s(j))$.
+
+\textbf{Meta-Question:} Does random negative sampling produce false negatives?\\
+\textbf{Answer:} Yes. Random sampling often selects popular items that the user would love but hasn't discovered yet (false negatives). Industrial systems combine random negatives with in-batch negatives and hard negatives retrieved from earlier search steps.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{SASRec Causal Self-Attention and Candidate Item Scoring}
+\begin{algorithmic}[1]
+\Require Item embeddings $E \in \mathbb{R}^{T \times D}$, position embeddings $P \in \mathbb{R}^{T \times D}$, candidate embeddings $V \in \mathbb{R}^{M \times D}$
+\Ensure Context sequence $C \in \mathbb{R}^{T \times D}$, candidate scores $\mathbf{s} \in \mathbb{R}^M$, causal attention matrix $W \in \mathbb{R}^{T \times T}$, top candidate $m^*$
+\State Initialize $X \in \mathbb{R}^{T \times D}$
+\For{$t = 0$ \textbf{to} $T-1$} \Comment{Combine Item and Position Embeddings}
+    \For{$d = 0$ \textbf{to} $D-1$}
+        \State $X[t][d] \gets E[t][d] + P[t][d]$
+    \EndFor
+\EndFor
+\State $scale \gets 1.0 / \sqrt{D}$
+\State Initialize $W \in \mathbb{R}^{T \times T}$ to zeros, $C \in \mathbb{R}^{T \times D}$ to zeros
+\For{$i = 0$ \textbf{to} $T-1$} \Comment{Evaluate Causal Attention Rows}
+    \State Initialize scores array $\mathbf{a} \in \mathbb{R}^{i+1}$
+    \For{$j = 0$ \textbf{to} $i$}
+        \State $dot \gets \sum_{d=0}^{D-1} X[i][d] \cdot X[j][d]$
+        \State $\mathbf{a}[j] \gets dot \cdot scale$
+    \EndFor
+    \State $a_{\max} \gets \max_{0 \le j \le i} \mathbf{a}[j]$
+    \State $sum\_exp \gets \sum_{j=0}^i \exp(\mathbf{a}[j] - a_{\max})$
+    \For{$j = 0$ \textbf{to} $i$}
+        \State $prob \gets \exp(\mathbf{a}[j] - a_{\max}) / sum\_exp$
+        \State $W[i][j] \gets prob$
+        \For{$d = 0$ \textbf{to} $D-1$}
+            \State $C[i][d] \gets C[i][d] + prob \cdot X[j][d]$
+        \EndFor
+    \EndFor
+\EndFor
+\State Initialize $\mathbf{s} \in \mathbb{R}^M, \quad m^* \gets 0, \quad s_{\max} \gets -\infty$
+\For{$m = 0$ \textbf{to} $M-1$} \Comment{Score Candidates with Last Context}
+    \State $score \gets \sum_{d=0}^{D-1} C[T-1][d] \cdot V[m][d]$
+    \State $\mathbf{s}[m] \gets score$
+    \If{$score > s_{\max}$}
+        \State $s_{\max} \gets score, \quad m^* \gets m$
+    \EndIf
+\EndFor
+\State \Return $(C, \mathbf{s}, W, m^*)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Causal Attention Matrix Time Complexity}: $\Theta(T^2 \cdot D)$ scalar multiply-accumulate operations.
+    \item \textbf{Candidate Scoring Time Complexity}: $\Theta(M \cdot D)$ scalar operations against the catalog.
+    \item \textbf{Space Complexity}: $\Theta(T^2 + T \cdot D + M)$ for causal attention masks and candidate scores.
+    \item \textbf{Inference with KV Caching}: Drops new-token step complexity from $\Theta(T^2 D)$ to $\Theta(T D)$.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log T + \log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

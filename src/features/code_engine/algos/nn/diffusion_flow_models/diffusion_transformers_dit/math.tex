@@ -1,0 +1,303 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Diffusion Transformers}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Diffusion Transformer and adaLN-Zero Conditioning):}
+Let $\mathbf{z} \in \mathbb{R}^{h \times w \times c}$ denote a spatial latent tensor. The \textbf{Diffusion Transformer (DiT)} partitions the spatial grid into non-overlapping patches of spatial size $p \times p$, producing a sequence of $N = (h/p) \times (w/p)$ tokens projected into embedding dimension $d$:
+{\boldmath
+\begin{equation}
+\mathbf{X}_0 = \operatorname{Patchify}(\mathbf{z}) + \mathbf{E}_{\text{pos}} \in \mathbb{R}^{N \times d}
+\end{equation}
+}
+where $\mathbf{E}_{\text{pos}}$ denotes 2D sinusoidal or learnable positional embeddings.
+
+Conditioning on diffusion timestep $t$ and class/text context $c$ is mediated by an adaptive multi-layer perceptron $\operatorname{MLP}(t, c)$ regressing six vector modulation parameters per Transformer block:
+{\boldmath
+\begin{equation}
+(\boldsymbol{\gamma}_1, \boldsymbol{\beta}_1, \boldsymbol{\alpha}_1, \boldsymbol{\gamma}_2, \boldsymbol{\beta}_2, \boldsymbol{\alpha}_2) = \operatorname{MLP}(\mathbf{e}_t + \mathbf{e}_c) \in \mathbb{R}^{6d}
+\end{equation}
+}
+The \textbf{adaLN-Zero} block operator modulates self-attention and point-wise feed-forward sublayers via scale $\boldsymbol{\gamma}$, shift $\boldsymbol{\beta}$, and residual gate $\boldsymbol{\alpha}$:
+{\boldmath
+\begin{align}
+\mathbf{X}' &= \mathbf{X} + \boldsymbol{\alpha}_1 \odot \operatorname{MultiHeadAttention}\left( (1 + \boldsymbol{\gamma}_1) \odot \operatorname{LayerNorm}(\mathbf{X}) + \boldsymbol{\beta}_1 \right) \\
+\mathbf{X}_{\text{out}} &= \mathbf{X}' + \boldsymbol{\alpha}_2 \odot \operatorname{FeedForward}\left( (1 + \boldsymbol{\gamma}_2) \odot \operatorname{LayerNorm}(\mathbf{X}') + \boldsymbol{\beta}_2 \right)
+\end{align}
+}
+By initializing the final linear projection layer of $\operatorname{MLP}(t, c)$ with strictly zero weights and biases, $\boldsymbol{\alpha}_1 = \boldsymbol{\alpha}_2 = \mathbf{0}$ and $\boldsymbol{\gamma} = \boldsymbol{\beta} = \mathbf{0}$ at step zero. Consequently, every Transformer layer initializes as the exact identity map $\mathbf{X}_{\text{out}} = \mathbf{X}$, guaranteeing stable gradient flow through hundreds of layers.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Replacing the Old U-Net}: For years, image generators used U-Nets, which process pictures like a pyramid of shrinking and expanding cookie cutters (convolutions). But language AI like ChatGPT uses Transformers, which scale up smoothly to trillions of parameters.
+    \item \textbf{Treating Pixels Like Words}: DiT cuts the latent blueprint into small square puzzle tiles (tokens). An image becomes a sequence of words in a sentence, allowing standard Transformer self-attention to connect every corner of the image to every other corner.
+    \item \textbf{The Steering Knobs (adaLN)}: How does the Transformer know what time it is and what picture to draw? A small brain stem reads the prompt and noise clock, generating custom volume knobs ($\boldsymbol{\gamma}$), tuning sliders ($\boldsymbol{\beta}$), and master switches ($\boldsymbol{\alpha}$) that modulate every single layer.
+    \item \textbf{The Zero Trick (adaLN-Zero)}: Deep neural networks can explode or crash during the first seconds of training. DiT sets all master switches ($\boldsymbol{\alpha}$) to exactly zero at birth. The whole network behaves like a clear sheet of glass; light passes right through without breaking, allowing deep networks to learn smoothly from day one.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a team of 30 art students sitting in a line passing a sketchpad:
+\begin{itemize}
+    \item \textbf{Without Zero Initialization}: Each student wildly adds random scribbles to the sketchpad before passing it to the next. By the 30th student, the paper is shredded and soaked in black ink.
+    \item \textbf{With adaLN-Zero}: At the beginning, the teacher instructs every student: ``Keep your hands completely off the pad and just pass it along.'' The sketchpad arrives at the end untouched. Then, as students learn what to draw, they gently touch the pad with increasing confidence, building a masterpiece layer by layer!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Spatial Latent Patchification}
+{\boldmath
+\begin{equation}
+N = \frac{h \cdot w}{p^2}, \quad \mathbf{x}_i = \operatorname{LinearProj}\left( \mathbf{z}\left[ \mathcal{P}_i \right] \right) + \mathbf{e}_{\text{pos}}^{(i)} \in \mathbb{R}^d
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The linear mapping projecting localized spatial patches $\mathcal{P}_i$ of size $p \times p \times c$ into $d$-dimensional token embeddings.
+    \item \textbf{What It Means}: Converts a continuous 2D spatial coordinate plane into a sequence of discrete visual tokens amenable to standard Transformer attention.
+    \item \textbf{Why It Is Important}: Allows the model to scale cleanly with parameter counts and compute budgets following standard Transformer scaling laws.
+\end{itemize}
+
+\subsection{Modulated Layer Normalization Mapping}
+{\boldmath
+\begin{equation}
+\operatorname{adaLN}(\mathbf{x}, \boldsymbol{\gamma}, \boldsymbol{\beta}) = (1 + \boldsymbol{\gamma}) \odot \left( \frac{\mathbf{x} - \mu(\mathbf{x})}{\sqrt{\sigma^2(\mathbf{x}) + \epsilon}} \right) + \boldsymbol{\beta}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The channel-wise affine transformation applied to normalized token activations parameterized by condition-dependent vectors.
+    \item \textbf{What It Means}: Replaces static learnable LayerNorm parameters with dynamic scales and shifts generated on-the-fly based on timestep $t$ and context $c$.
+    \item \textbf{Why It Is Important}: Injects conditioning globally across every single channel without requiring costly cross-attention key-value caching in every block.
+\end{itemize}
+
+\subsection{Residual Zero-Gated Transition}
+{\boldmath
+\begin{equation}
+\mathbf{y} = \mathbf{x} + \boldsymbol{\alpha} \odot \mathcal{F}_{\text{sublayer}}(\operatorname{adaLN}(\mathbf{x}, \boldsymbol{\gamma}, \boldsymbol{\beta}))
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The residual integration gate scaling the sublayer output by vector $\boldsymbol{\alpha} \in \mathbb{R}^d$.
+    \item \textbf{What It Means}: Modulates the contribution of each Transformer sublayer (attention or MLP) to the main residual highway.
+    \item \textbf{Why It Is Important}: Ensures that when $\boldsymbol{\alpha} = \mathbf{0}$, $\mathbf{y} = \mathbf{x}$, guaranteeing identical output pass-through at initialization.
+\end{itemize}
+
+\subsection{Parameter Scaling Flop Law}
+{\boldmath
+\begin{equation}
+\text{GFLOPs} \approx 24 \cdot L \cdot d^2 + 4 \cdot L \cdot N \cdot d + 2 \cdot L \cdot N^2 \cdot d
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The analytical FLOP count of a DiT model with $L$ layers, hidden dimension $d$, and token length $N$.
+    \item \textbf{What It Means}: Demonstrates that reducing patch size $p$ increases $N$, shifting compute toward self-attention while keeping parameter count constant.
+    \item \textbf{Why It Is Important}: Establishes that generative visual fidelity scales predictably with training compute (compute-optimal scaling).
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{X} \in \mathbb{R}^{N \times d}$: Sequence of token representations.
+    \item $N \in \mathbb{N}$: Number of visual tokens.
+    \item $d \in \mathbb{N}$: Transformer model embedding dimension.
+    \item $\boldsymbol{\gamma}, \boldsymbol{\beta}, \boldsymbol{\alpha} \in \mathbb{R}^d$: Adaptive scale, shift, and gate modulation vectors.
+    \item $p \in \mathbb{N}$: Patch size stride ($p \in \{2, 4, 8\}$).
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Patch Embedding & $\mathbf{X}_0$ & Linear Projection & Ingests spatial latent tokens into sequence \\
+Scale Vector & $\boldsymbol{\gamma}$ & Conditioned Output & Modulates feature amplification per channel \\
+Shift Vector & $\boldsymbol{\beta}$ & Conditioned Output & Translates feature operating point \\
+Gate Vector & $\boldsymbol{\alpha}$ & Zero-Initialized Gate & Controls residual injection magnitude \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{t, c\} \longrightarrow \operatorname{MLP} \longrightarrow \{\boldsymbol{\gamma}, \boldsymbol{\beta}, \boldsymbol{\alpha}\} \longrightarrow \operatorname{adaLN}(\mathbf{X}) \longrightarrow \operatorname{SubLayer} \longrightarrow \boldsymbol{\alpha} \odot \text{SubLayer} \longrightarrow \mathbf{X} + \text{Gated}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Token matrices have shape $N \times d$; modulation parameters $\boldsymbol{\gamma}, \boldsymbol{\beta}, \boldsymbol{\alpha}$ have shape $d$; broadcast operations apply elementwise across tokens.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{At Step 0 of Training}: $\boldsymbol{\alpha} = \mathbf{0} \implies \mathbf{X}_{\text{out}} = \mathbf{X}$; network depth has zero impact on gradient attenuation.
+    \item \textbf{As $p \to 1$}: Sequence length $N \to h \cdot w$; attention becomes fine-grained pixel-level routing with quadratic memory complexity.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Identity Initialization Invariant}: For any arbitrary input tensor $\mathbf{X}$, $\lim_{\boldsymbol{\alpha} \to \mathbf{0}} \mathbf{X}_{\text{out}} = \mathbf{X}$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+The DiT block is structurally isomorphic to a standard Vision Transformer (ViT) block augmented with FiLM (Feature-wise Linear Modulation) conditioning and ReZero gating.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Identity Initialization Invariance of adaLN-Zero]
+Let an $L$-layer Diffusion Transformer be parameterized such that the terminal linear projection of the conditioning MLP is initialized with weights $\mathbf{W}_{\text{gate}} = \mathbf{0}$ and bias $\mathbf{b}_{\text{gate}} = \mathbf{0}$. Then the composite forward map $\mathcal{M}(\mathbf{X}_0; t, c)$ is the exact identity function $\mathcal{M}(\mathbf{X}_0) = \mathbf{X}_0$ for all inputs $\mathbf{X}_0 \in \mathbb{R}^{N \times d}$, and the initial Jacobian is the identity matrix:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathbf{X}_L}{\partial \mathbf{X}_0} = \mathbf{I}_{N \cdot d}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{X}_l$ denote the activation tensor entering block $l \in \{1, \dots, L\}$.
+The conditioning MLP produces modulation vectors via:
+{\boldmath
+\begin{equation}
+\boldsymbol{\alpha}_l = \mathbf{W}_{\text{gate}}^{(l)} \mathbf{h}(t, c) + \mathbf{b}_{\text{gate}}^{(l)}
+\end{equation}
+}
+Since $\mathbf{W}_{\text{gate}}^{(l)} = \mathbf{0}$ and $\mathbf{b}_{\text{gate}}^{(l)} = \mathbf{0}$ by initialization:
+{\boldmath
+\begin{equation}
+\boldsymbol{\alpha}_l = \mathbf{0} \in \mathbb{R}^d
+\end{equation}
+}
+The residual update for the attention sublayer is:
+{\boldmath
+\begin{equation}
+\mathbf{X}_l' = \mathbf{X}_l + \boldsymbol{\alpha}_{l, 1} \odot \operatorname{MHA}(\hat{\mathbf{X}}_l) = \mathbf{X}_l + \mathbf{0} \odot \operatorname{MHA}(\hat{\mathbf{X}}_l) = \mathbf{X}_l
+\end{equation}
+}
+Similarly, for the feed-forward sublayer:
+{\boldmath
+\begin{equation}
+\mathbf{X}_{l+1} = \mathbf{X}_l' + \boldsymbol{\alpha}_{l, 2} \odot \operatorname{FFN}(\hat{\mathbf{X}}_l') = \mathbf{X}_l' + \mathbf{0} = \mathbf{X}_l' = \mathbf{X}_l
+\end{equation}
+}
+By induction over $l \in \{1, \dots, L\}$:
+{\boldmath
+\begin{equation}
+\mathbf{X}_L = \mathbf{X}_{L-1} = \cdots = \mathbf{X}_0
+\end{equation}
+}
+Taking the total derivative with respect to $\mathbf{X}_0$:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathbf{X}_L}{\partial \mathbf{X}_0} = \prod_{l=1}^L \frac{\partial \mathbf{X}_l}{\partial \mathbf{X}_{l-1}} = \prod_{l=1}^L \mathbf{I}_{N \cdot d} = \mathbf{I}_{N \cdot d}
+\end{equation}
+}
+Consequently, gradients propagate backward through arbitrarily deep stacks of Transformer layers without vanishing ($\lambda_{\max} = 1$) or exploding ($\lambda_{\min} = 1$) at the onset of training.
+\end{proof}
+
+\begin{theorem}[Computational Efficiency of adaLN vs Cross-Attention]
+Let a Transformer have hidden dimension $d$, visual sequence length $N$, and conditioning sequence length $M$. Replacing cross-attention conditioning with adaLN conditioning reduces conditioning FLOP complexity from $\Theta(N \cdot M \cdot d)$ to $\Theta(N \cdot d)$.
+\end{theorem}
+
+\begin{proof}
+In cross-attention conditioning, each visual token attends to all $M$ conditioning tokens (e.g. text prompt tokens).
+The projection of queries, keys, and values requires $3 N d^2 + 2 M d^2$ FLOPs.
+Computing the attention matrix $\mathbf{Q}\mathbf{K}^T$ requires $2 N M d$ operations.
+Multiplying by $\mathbf{V}$ requires $2 N M d$ operations.
+Thus the cross-attention conditioning cost contains a bilinear interaction term:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{CrossAttn}} = 4 N M d + \mathcal{O}((N + M)d^2)
+\end{equation}
+}
+In adaLN conditioning, a single MLP evaluates on the pooled condition vector once per batch item, requiring $\mathcal{O}(d^2)$ compute.
+The application of adaLN to the visual tokens requires channel-wise scaling and shifting:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{adaLN}} = 2 N d + \mathcal{O}(d^2)
+\end{equation}
+}
+Since $M \ge 77$ in standard CLIP conditioning, the ratio of conditioning computation is:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{CrossAttn}}}{\mathcal{C}_{\text{adaLN}}} \approx \frac{4 N M d}{2 N d} = 2M
+\end{equation}
+}
+For $M = 77$, adaLN is approximately $154\times$ more computationally efficient than cross-attention for conditioning injection.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Patch Size and Scaling Dynamics}
+\textbf{Question:} Why is patch size $p = 2$ superior to $p = 8$ in Diffusion Transformers?\\
+\textbf{Answer:} Smaller patch size quadruples token resolution ($N \propto 1/p^2$). Higher token counts enable fine-grained spatial modeling of localized boundaries and textures. Peebles \& Xie demonstrated that reducing $p$ from $8$ to $2$ produces dramatic FID improvements equivalent to doubling model parameter count.
+
+\textbf{Meta-Question:} Doesn't quadratic attention complexity make $p = 2$ prohibitive for large images?\\
+\textbf{Answer:} Yes for large images, which is why DiT is applied strictly inside the $8\times$ downsampled latent space of an autoencoder. A $512 \times 512$ image becomes a $64 \times 64$ latent; with $p = 2$, sequence length is $N = 32 \times 32 = 1,024$, easily within FlashAttention capability.
+
+\subsection{Architectural Question 2: DiT vs U-Net Convolutional Inductive Bias}
+\textbf{Question:} How does DiT overcome the lack of spatial translation equivariance present in convolutional U-Nets?\\
+\textbf{Answer:} Transformers lack hard-coded shift equivariance. However, with massive pre-training data and 2D positional embeddings, self-attention discovers dynamic, content-dependent spatial routing that outperforms static local convolutions across all compute budgets.
+
+\textbf{Meta-Question:} Why did diffusion U-Nets plateau while DiT continues to improve?\\
+\textbf{Answer:} U-Nets suffer from architectural bottlenecks: downsampling and upsampling channels require manual heuristic tuning. Standard Transformer architectures have demonstrated universal empirical scaling laws; allocating more compute directly translates into lower loss.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Diffusion Transformer adaLN-Zero Modulation and Residual Gating}
+\begin{algorithmic}[1]
+\Require Token activations $\mathbf{X} \in \mathbb{R}^{N \times D}$, scale $\boldsymbol{\gamma} \in \mathbb{R}^D$, shift $\boldsymbol{\beta} \in \mathbb{R}^D$, gate $\boldsymbol{\alpha} \in \mathbb{R}^D$, sublayer output $\mathbf{S} \in \mathbb{R}^{N \times D}$
+\Ensure Modulated normalized tokens $\hat{\mathbf{X}} \in \mathbb{R}^{N \times D}$, gated output $\mathbf{Y} \in \mathbb{R}^{N \times D}$, gate $L_2$ norm $\|\boldsymbol{\alpha}\|_2$
+\State Initialize empty arrays $\hat{\mathbf{X}}, \mathbf{Y}$ of shape $N \times D$
+\State $\epsilon \gets 10^{-6}$
+\For{$i = 0$ \textbf{to} $N - 1$}
+    \State $\mu_i \gets \frac{1}{D}\sum_{j=0}^{D-1} \mathbf{X}[i][j]$
+    \State $\sigma^2_i \gets \frac{1}{D}\sum_{j=0}^{D-1} (\mathbf{X}[i][j] - \mu_i)^2$
+    \State $\text{std}_i \gets \sqrt{\sigma^2_i + \epsilon}$
+    \For{$j = 0$ \textbf{to} $D - 1$}
+        \State $x_{\text{norm}} \gets (\mathbf{X}[i][j] - \mu_i) / \text{std}_i$
+        \State $\hat{\mathbf{X}}[i][j] \gets x_{\text{norm}} \cdot (1.0 + \boldsymbol{\gamma}[j]) + \boldsymbol{\beta}[j]$
+        \State $\mathbf{Y}[i][j] \gets \mathbf{X}[i][j] + \boldsymbol{\alpha}[j] \cdot \mathbf{S}[i][j]$
+    \EndFor
+\EndFor
+\State $\|\boldsymbol{\alpha}\|_2 \gets \sqrt{\sum_{j=0}^{D-1} \boldsymbol{\alpha}[j]^2}$
+\State \Return $(\hat{\mathbf{X}}, \mathbf{Y}, \|\boldsymbol{\alpha}\|_2)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Modulation and Gating Time Complexity}: $\Theta(N \cdot D)$ scalar operations per Transformer sublayer.
+    \item \textbf{Total Block Time Complexity}: $\Theta(N \cdot D^2 + N^2 \cdot D)$ including self-attention and MLP blocks.
+    \item \textbf{Space Complexity}: $\Theta(N \cdot D)$ auxiliary activation memory per block.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(N \cdot D)$; parallel depth across hidden dimensions is $\mathcal{D} = \Theta(\log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

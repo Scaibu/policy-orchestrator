@@ -1,0 +1,320 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Masked Autoencoders for Vision}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Asymmetric Masked Autoencoder Architecture):}
+Let $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ denote an image divided into $N = (H/p) \times (W/p)$ non-overlapping patches $\mathbf{P} \in \mathbb{R}^{N \times d_p}$ where $d_p = p^2 C$. The patch index set $\mathcal{I} = \{1, \dots, N\}$ is partitioned via uniform random sampling into visible indices $\mathcal{V} \subset \mathcal{I}$ and masked indices $\mathcal{M} = \mathcal{I} \setminus \mathcal{V}$ according to masking ratio $\rho = |\mathcal{M}| / N \approx 0.75$:
+\begin{enumerate}
+    \item \textbf{Asymmetric Encoder}: A deep Vision Transformer (ViT) $\mathcal{E}_{\text{enc}}$ operates strictly and exclusively on the visible subset $\mathbf{P}_{\mathcal{V}} \in \mathbb{R}^{|\mathcal{V}| \times d_p}$:
+    {\boldmath
+    \begin{equation}
+    \mathbf{Z}_{\mathcal{V}} = \mathcal{E}_{\text{enc}}\left( \mathbf{P}_{\mathcal{V}} \mathbf{W}_{\text{patch}} + \mathbf{E}_{\text{pos},\mathcal{V}} \right) \in \mathbb{R}^{|\mathcal{V}| \times d_{\text{enc}}}
+    \end{equation}
+    }
+    \item \textbf{Lightweight Decoder}: A shallow Transformer $\mathcal{D}_{\text{dec}}$ receives the encoded visible representations $\mathbf{Z}_{\mathcal{V}}$ projected to decoder dimension $d_{\text{dec}}$, concatenated with learnable shared mask tokens $\mathbf{e}_{\text{mask}} \in \mathbb{R}^{d_{\text{dec}}}$ placed at masked positions $\mathcal{M}$, with full 2D positional embeddings added to all $N$ tokens:
+    {\boldmath
+    \begin{equation}
+    \hat{\mathbf{P}} = \mathcal{D}_{\text{dec}}\left( \operatorname{Unshuffle}\left( \mathbf{Z}_{\mathcal{V}} \mathbf{W}_{\text{proj}}, \, \{\mathbf{e}_{\text{mask}}\}_{i \in \mathcal{M}} \right) + \mathbf{E}_{\text{pos}} \right) \in \mathbb{R}^{N \times d_p}
+    \end{equation}
+    }
+\end{enumerate}
+The model is trained by minimizing the Mean Squared Error (MSE) computed strictly on the masked patches:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{MAE}} = \frac{1}{|\mathcal{M}|} \sum_{i \in \mathcal{M}} \frac{1}{d_p} \left\| \hat{\mathbf{P}}_i - \tilde{\mathbf{P}}_i \right\|_2^2
+\end{equation}
+}
+where $\tilde{\mathbf{P}}_i = \frac{\mathbf{P}_i - \mu(\mathbf{P}_i)}{\sigma(\mathbf{P}_i) + \epsilon}$ denotes per-patch normalized pixels.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Language vs Vision Riddle}: In language models (like BERT), words are dense information. If you hide 80\% of a sentence, it becomes impossible gibberish. That's why BERT masks only 15\% of words.
+    \item \textbf{Pictures are Flooded with Redundancy}: Images are completely different. If you see a photo of a dog, thousands of pixels just repeat the same brown fur or green grass. If you hide 15\% of an image, the AI easily guesses the missing pixels by just copying the pixel right next door. The AI learns nothing about objects or semantic meaning!
+    \item \textbf{The 75\% Blank Canvas}: MAE takes an image and erases a massive 75\% of it—three out of every four puzzle pieces are thrown into the trash!
+    \item \textbf{The Master Detective (Asymmetric Speed)}:
+    \begin{itemize}
+        \item The heavy main brain (Encoder) looks ONLY at the remaining 25\% puzzle pieces. Because it only looks at a tiny fraction of tokens, it runs 3 to 4 times faster and consumes vastly less electricity.
+        \item A tiny assistant brain (Decoder) takes the clues from the encoder, fills in the 75\% blanks with blank puzzle pieces, and paints the missing dog face.
+    \end{itemize}
+    \item \textbf{Deep Understanding}: To paint a dog's missing eye, nose, and ear out of thin air from only a tiny patch of fur, the AI must truly understand anatomy, lighting, and 3D geometry!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a jigsaw puzzle of a giant castle:
+\begin{itemize}
+    \item \textbf{Easy Puzzle}: You remove 1 piece from the middle of the sky. Anyone can fill it in by just looking at the blue pieces touching it.
+    \item \textbf{MAE Puzzle}: You smash the puzzle and throw away 75 out of 100 pieces. You only keep 25 random pieces.
+    \item \textbf{The True Artist}: You are asked to paint the entire rest of the castle using only those 25 scattered pieces! You can't just blur the colors; you have to understand where castles have towers, flags, windows, and moats. Once you master this challenge, you can recognize any castle in the world!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Per-Patch Pixel Normalization}
+{\boldmath
+\begin{equation}
+\tilde{\mathbf{P}}_i = \frac{\mathbf{P}_i - \mu_i \mathbf{1}}{\sqrt{\sigma_i^2 + \epsilon}}, \quad \mu_i = \frac{1}{d_p}\sum_{j=1}^{d_p} P_{ij}, \quad \sigma_i^2 = \frac{1}{d_p}\sum_{j=1}^{d_p} (P_{ij} - \mu_i)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: Local z-score standardization applied independently to each raw patch vector $\mathbf{P}_i \in \mathbb{R}^{d_p}$.
+    \item \textbf{What It Means}: Normalizes each patch to zero mean and unit variance prior to computing reconstruction loss.
+    \item \textbf{Why It Is Important}: Prevents the model from wasting capacity predicting trivial uniform background lighting or mean brightness, forcing it to reconstruct high-frequency textural contrasts.
+\end{itemize}
+
+\subsection{Masked-Only Reconstruction Objective}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{masked}} = \frac{1}{|\mathcal{M}| \cdot d_p} \sum_{i \in \mathcal{M}} \sum_{j=1}^{d_p} (\hat{P}_{ij} - \tilde{P}_{ij})^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The mean squared error loss evaluated solely on patches belonging to the masked set $\mathcal{M}$.
+    \item \textbf{What It Means}: Completely ignores reconstruction errors on visible patches $\mathcal{V}$ that the encoder already processed directly.
+    \item \textbf{Why It Is Important}: Avoids trivial identity shortcut learning and focuses 100\% of gradient backpropagation on unseen predictive completion.
+\end{itemize}
+
+\subsection{Quadratic Complexity Reduction in Encoder Attention}
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{enc}} \propto |\mathcal{V}|^2 = \left( (1 - \rho) N \right)^2 = (1 - \rho)^2 N^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The self-attention quadratic complexity evaluated on the unmasked patch subset of length $|\mathcal{V}|$.
+    \item \textbf{What It Means}: For masking ratio $\rho = 0.75$, the token length is reduced by $4\times$, which slashes encoder self-attention FLOPs by $(0.25)^2 = \frac{1}{16} \approx 6.25\%$.
+    \item \textbf{Why It Is Important}: Transforms heavy ViT-Huge and ViT-Giant pre-training into computationally efficient regimes that train smoothly on commodity hardware.
+\end{itemize}
+
+\subsection{Decoder Token Unshuffling Operator}
+{\boldmath
+\begin{equation}
+\mathbf{T}_i = \begin{cases} \mathbf{Z}_{\mathcal{V}, k} \mathbf{W}_{\text{proj}} & \text{if } i = \mathcal{V}[k] \in \mathcal{V} \\ \mathbf{e}_{\text{mask}} & \text{if } i \in \mathcal{M} \end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The deterministic index routing restoring the original spatial raster sequence order before entering the decoder.
+    \item \textbf{What It Means}: Combines visible feature embeddings with shared placeholder mask vectors according to original grid coordinates.
+    \item \textbf{Why It Is Important}: Allows the lightweight decoder to utilize standard 2D positional embeddings to reconstruct global spatial structure.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $N \in \mathbb{N}$: Total number of image patches.
+    \item $d_p = p^2 C$: Flattened patch pixel dimension.
+    \item $\rho \in (0, 1)$: Masking ratio ($\rho \approx 0.75$).
+    \item $\mathcal{V}, \mathcal{M}$: Visible and masked patch index sets.
+    \item $\mathbf{e}_{\text{mask}} \in \mathbb{R}^{d_{\text{dec}}}$: Learnable shared mask embedding.
+    \item $\mathbf{P}_i, \hat{\mathbf{P}}_i \in \mathbb{R}^{d_p}$: Original and reconstructed patch vectors.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Visible Patches & $\mathbf{P}_{\mathcal{V}}$ & Subsampled Ground Truth & Direct input to heavy encoder \\
+Mask Token & $\mathbf{e}_{\text{mask}}$ & Learnable Query Vector & Fills missing spatial slots in decoder \\
+Reconstructed Patches & $\hat{\mathbf{P}}$ & Decoder Output & Pixel predictions for masked regions \\
+Normalized Target & $\tilde{\mathbf{P}}_i$ & Locally Standardized Target & Prevents trivial brightness matching \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\mathbf{P} \longrightarrow \{\text{Partition } \mathcal{V}, \mathcal{M}\} \longrightarrow \mathbf{P}_{\mathcal{V}} \longrightarrow \mathcal{E}_{\text{enc}} \longrightarrow \mathbf{Z}_{\mathcal{V}} \longrightarrow \text{Unshuffle with } \mathbf{e}_{\text{mask}} \longrightarrow \mathcal{D}_{\text{dec}} \longrightarrow \hat{\mathbf{P}}_{\mathcal{M}} \longrightarrow \mathcal{L}_{\text{MAE}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Original patches have dimension $N \times d_p$; visible embeddings have dimension $|\mathcal{V}| \times d_{\text{enc}}$; unshuffled decoder input has dimension $N \times d_{\text{dec}}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{As $\rho \to 0$}: Standard autoencoding; encoder suffers full $N^2$ attention cost and learns trivial identity shortcuts.
+    \item \textbf{As $\rho \to 1$}: Information starvation; visible patches lack sufficient context to reconstruct the scene.
+    \item \textbf{Optimal regime $\rho \in [0.75, 0.80]$}: Maximizes non-trivial semantic extrapolation and computational efficiency.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Disjoint Partition Invariant}: $\mathcal{V} \cap \mathcal{M} = \emptyset$ and $\mathcal{V} \cup \mathcal{M} = \{1, \dots, N\}$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+MAE is structurally isomorphic to BERT masked language modeling, adapted to continuous 2D spatial manifolds with high redundancy and asymmetric encoder-decoder capacity.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Computational FLOP Scaling of the Asymmetric Encoder]
+Let an image contain $N$ patches. An asymmetric encoder operating solely on visible patches with masking ratio $\rho = 0.75$ reduces the computational complexity of multi-head self-attention by a factor of 16 compared to a symmetric encoder:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{sym}}(\text{Attention})}{\mathcal{C}_{\text{asym}}(\text{Attention})} = \frac{1}{(1 - \rho)^2} = 16
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+In a standard symmetric vision transformer (or masked language model like BERT), all $N$ tokens (including mask tokens) pass through the deep encoder stack.
+The computational cost of self-attention per layer is:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{sym}} = 4 N d^2 + 2 N^2 d
+\end{equation}
+}
+where the quadratic term $2 N^2 d$ governs pairwise token attention.
+In the asymmetric MAE design, mask tokens are completely omitted from the encoder. The encoder processes strictly the visible subset:
+{\boldmath
+\begin{equation}
+|\mathcal{V}| = (1 - \rho) N
+\end{equation}
+}
+The computational cost of self-attention in the asymmetric encoder is:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{asym}} = 4 |\mathcal{V}| d^2 + 2 |\mathcal{V}|^2 d = 4 (1 - \rho) N d^2 + 2 (1 - \rho)^2 N^2 d
+\end{equation}
+}
+Taking the ratio of the quadratic attention terms:
+{\boldmath
+\begin{equation}
+\frac{2 N^2 d}{2 (1 - \rho)^2 N^2 d} = \frac{1}{(1 - \rho)^2}
+\end{equation}
+}
+For the optimal vision masking ratio $\rho = 0.75$:
+{\boldmath
+\begin{equation}
+1 - \rho = 0.25 = \frac{1}{4} \implies \frac{1}{(1 - \rho)^2} = \frac{1}{(1/4)^2} = 16
+\end{equation}
+}
+Thus, encoder self-attention is $16\times$ faster, and linear projections are $4\times$ faster, yielding an overall encoder speedup of over $3.5\times$ to $4\times$.
+\end{proof}
+
+\begin{theorem}[Per-Patch Normalization Preserves Invariant High-Frequency Mutual Information]
+Let a patch $\mathbf{P} \in \mathbb{R}^{d_p}$ be decomposed into illumination $a \in \mathbb{R}^+$ and structural reflectance $\mathbf{s} \in \mathbb{R}^{d_p}$: $\mathbf{P} = a \mathbf{s} + b \mathbf{1}$. Then per-patch pixel normalization $\tilde{\mathbf{P}}$ is strictly invariant to global affine illumination shifts $(a, b)$:
+{\boldmath
+\begin{equation}
+\operatorname{Normalize}(a \mathbf{s} + b \mathbf{1}) = \operatorname{Normalize}(\mathbf{s})
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{P}' = a \mathbf{s} + b \mathbf{1}$ with $a > 0$.
+Compute the sample mean of $\mathbf{P}'$:
+{\boldmath
+\begin{equation}
+\mu(\mathbf{P}') = \frac{1}{d_p}\sum_{j=1}^{d_p} (a s_j + b) = a \mu(\mathbf{s}) + b
+\end{equation}
+}
+Subtracting the mean from the patch vector:
+{\boldmath
+\begin{equation}
+P'_j - \mu(\mathbf{P}') = (a s_j + b) - (a \mu(\mathbf{s}) + b) = a (s_j - \mu(\mathbf{s}))
+\end{equation}
+}
+Compute the sample variance:
+{\boldmath
+\begin{equation}
+\sigma^2(\mathbf{P}') = \frac{1}{d_p}\sum_{j=1}^{d_p} \left( P'_j - \mu(\mathbf{P}') \right)^2 = \frac{1}{d_p}\sum_{j=1}^{d_p} a^2 (s_j - \mu(\mathbf{s}))^2 = a^2 \sigma^2(\mathbf{s})
+\end{equation}
+}
+Taking the square root: $\sigma(\mathbf{P}') = a \sigma(\mathbf{s})$ (since $a > 0$).
+Evaluating the normalized patch:
+{\boldmath
+\begin{equation}
+\tilde{\mathbf{P}}' = \frac{\mathbf{P}' - \mu(\mathbf{P}')\mathbf{1}}{\sigma(\mathbf{P}')} = \frac{a (\mathbf{s} - \mu(\mathbf{s})\mathbf{1})}{a \sigma(\mathbf{s})} = \frac{\mathbf{s} - \mu(\mathbf{s})\mathbf{1}}{\sigma(\mathbf{s})} = \tilde{\mathbf{s}} = \operatorname{Normalize}(\mathbf{s})
+\end{equation}
+}
+Both the scale factor $a$ and translation $b$ cancel out completely, proving that normalized loss forces the decoder to reconstruct textural reflectance rather than ambient illumination.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Fine-Tuning vs Linear Probing for MAE}
+\textbf{Question:} Why do MAE representations produce mediocre linear probe accuracy ($\approx 68\%$) but achieve state-of-the-art end-to-end fine-tuning accuracy ($\approx 87\%$)?\\
+\textbf{Answer:} Autoencoding pixels is a low-level reconstruction task. The pre-trained features in the final encoder layer contain detailed spatial and textural reconstructions, which are non-linearly entangled. End-to-end fine-tuning unlocks the deep semantic abstractions learned in intermediate layers, whereas linear probes are restricted to linear readouts of the unaligned top layer.
+
+\textbf{Meta-Question:} Is linear probe performance an accurate proxy for self-supervised representation quality?\\
+\textbf{Answer:} No. Linear probing measures linear separability, which favors contrastive models (like SimCLR) that explicitly optimize linear hypersphere metrics. For generative and masked autoencoders, fine-tuning accuracy is the true benchmark of transfer learning capability.
+
+\subsection{Architectural Question 2: Why 75\% Masking Ratio?}
+\textbf{Question:} Why does vision require a 75\% masking ratio, whereas language models (BERT) fail if masking exceeds 20\%?\\
+\textbf{Answer:} Natural language is a human-engineered symbolic code with high semantic density; each word contains discrete meaning, so removing 75\% leaves an unsolvable problem. Images are continuous natural signals with heavy spatial correlation; pixels in adjacent patches share redundant information. A 75\% mask removes local interpolation crutches, forcing holistic semantic reasoning.
+
+\textbf{Meta-Question:} What happens if the masking ratio is increased to 95\%?\\
+\textbf{Answer:} At 95\% masking, the problem becomes informationally ill-posed: the remaining 5\% of patches might contain only background sky or blur, making object reconstruction ambiguous and causing performance to degrade sharply.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Masked Autoencoder Patch Normalization and Masked Reconstruction Loss}
+\begin{algorithmic}[1]
+\Require Original patches $\mathbf{P} \in \mathbb{R}^{N \times D}$, reconstructed patches $\hat{\mathbf{P}} \in \mathbb{R}^{N \times D}$, binary mask $\mathbf{m} \in \{0, 1\}^N$, flag $\text{norm}$
+\Ensure Masked patch loss $\mathcal{L}_{\text{masked}}$, overall loss $\mathcal{L}_{\text{all}}$, counts $n_{\text{mask}}, n_{\text{vis}}$, ratio $\rho$
+\State $\epsilon \gets 10^{-6}$, \quad $n_{\text{mask}} \gets 0$, \quad $n_{\text{vis}} \gets 0$
+\State $err_{\text{mask\_sq}} \gets 0.0$, \quad $err_{\text{all\_sq}} \gets 0.0$
+\For{$i = 0$ \textbf{to} $N - 1$}
+    \State $is\_mask \gets (\mathbf{m}[i] == 1)$
+    \If{$is\_mask$} \State $n_{\text{mask}} \gets n_{\text{mask}} + 1$ \Else \State $n_{\text{vis}} \gets n_{\text{vis}} + 1$ \EndIf
+    \If{$\text{norm}$ is True}
+        \State $\mu \gets \frac{1}{D}\sum_{j=0}^{D-1} \mathbf{P}[i][j]$, \quad $\sigma \gets \sqrt{\frac{1}{D}\sum_{j=0}^{D-1} (\mathbf{P}[i][j] - \mu)^2 + \epsilon}$
+    \EndIf
+    \State $p\_err \gets 0.0$
+    \For{$j = 0$ \textbf{to} $D - 1$}
+        \State $target \gets (\mathbf{P}[i][j] - \mu) / \sigma$ \textbf{if} $\text{norm}$ \textbf{else} $\mathbf{P}[i][j]$
+        \State $d \gets \hat{\mathbf{P}}[i][j] - target$
+        \State $p\_err \gets p\_err + d \cdot d$
+    \EndFor
+    \State $err_{\text{all\_sq}} \gets err_{\text{all\_sq}} + p\_err$
+    \If{$is\_mask$} \State $err_{\text{mask\_sq}} \gets err_{\text{mask\_sq}} + p\_err$ \EndIf
+\EndFor
+\State $\mathcal{L}_{\text{masked}} \gets err_{\text{mask\_sq}} / (n_{\text{mask}} \cdot D)$ \textbf{if} $n_{\text{mask}} > 0$ \textbf{else} $0.0$
+\State $\mathcal{L}_{\text{all}} \gets err_{\text{all\_sq}} / (N \cdot D)$
+\State \Return $(\mathcal{L}_{\text{masked}}, \mathcal{L}_{\text{all}}, n_{\text{mask}}, n_{\text{vis}}, n_{\text{mask}} / N)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Loss Computation Time Complexity}: $\Theta(N \cdot d_p)$ scalar operations over all patches and coordinates.
+    \item \textbf{Total Pre-Training Time Complexity}: $\Theta(|\mathcal{V}|^2 \cdot d_{\text{enc}} + N^2 \cdot d_{\text{dec}})$, dominated by the asymmetric ViT encoder.
+    \item \textbf{Space Complexity}: $\Theta(N \cdot d_p)$ working memory for reconstructed patches.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(N \cdot d_p)$; parallel depth across patches is $\mathcal{D} = \Theta(\log(N \cdot d_p))$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

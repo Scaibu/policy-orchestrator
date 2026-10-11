@@ -1,0 +1,306 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Self-Distillation with No Labels}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Self-Distillation without Labels and Teacher Centering-Sharpening):}
+Let $\mathbf{x} \sim p_{\text{data}}$ denote an input image. Self-distillation (DINO) trains a student neural network $g_{\theta_s}$ to match the probability distribution of an Exponential Moving Average (EMA) teacher network $g_{\theta_t}$ over a $K$-dimensional categorical prototype space:
+\begin{enumerate}
+    \item \textbf{Student Probability Distribution}:
+    {\boldmath
+    \begin{equation}
+    P_s(\mathbf{x})^{(i)} = \frac{\exp\left( g_{\theta_s}(\mathbf{x})^{(i)} / \tau_s \right)}{\sum_{k=1}^K \exp\left( g_{\theta_s}(\mathbf{x})^{(k)} / \tau_s \right)}
+    \end{equation}
+    }
+    where $\tau_s > 0$ is the student temperature.
+    \item \textbf{Teacher Centered and Sharpened Distribution}: To prevent collapse without negative pairs, teacher logits are stabilized via centering vector $\mathbf{c} \in \mathbb{R}^K$ and sharpened with low temperature $\tau_t < \tau_s$:
+    {\boldmath
+    \begin{equation}
+    P_t(\mathbf{x})^{(i)} = \frac{\exp\left( (g_{\theta_t}(\mathbf{x})^{(i)} - c_i) / \tau_t \right)}{\sum_{k=1}^K \exp\left( (g_{\theta_t}(\mathbf{x})^{(k)} - c_k) / \tau_t \right)}
+    \end{equation}
+    }
+    The center vector is updated via moving average momentum $m \in [0.9, 0.99]$:
+    {\boldmath
+    \begin{equation}
+    \mathbf{c} \gets m \mathbf{c} + (1 - m) \frac{1}{B}\sum_{b=1}^B g_{\theta_t}(\mathbf{x}_b)
+    \end{equation}
+    }
+\end{enumerate}
+Given multi-crop augmentations comprising global views $\mathcal{V}_{\text{global}}$ and local views $\mathcal{V}_{\text{local}}$, the self-distillation objective minimizes cross-entropy:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{DINO}}(\theta_s) = -\sum_{\mathbf{x}_t \in \mathcal{V}_{\text{global}}} \sum_{\mathbf{x}_s \in \mathcal{V}_{\text{all}}, \mathbf{x}_s \ne \mathbf{x}_t} \sum_{k=1}^K P_t(\mathbf{x}_t)^{(k)} \log P_s(\mathbf{x}_s)^{(k)}
+\end{equation}
+}
+The teacher weights are updated strictly via Polyak-Ruppert averaging $\theta_t \gets \lambda \theta_t + (1 - \lambda)\theta_s$ without gradient backpropagation.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{A Student Learning from Their Older Self}: Imagine a student who wants to learn art. Instead of a strict human professor grading tests, the student is paired with a slightly older, wiser version of themselves (the Teacher).
+    \item \textbf{The Teacher is an Average of the Past}: The teacher's brain is formed by blending together all the student's past knowledge over the last few days (EMA). Because the teacher changes slowly, it acts as a calm, stable mentor.
+    \item \textbf{The Two Traps of Self-Supervised Collapse}:
+    \begin{itemize}
+        \item \textbf{Trap 1 (The Obsession / One-Hot Collapse)}: The AI decides that every single picture in the world is a ``Category 47.''
+        \item \textbf{Trap 2 (The Total Confusion / Uniform Collapse)}: The AI decides every image has a completely flat, equal 0.001\% chance for all 100,000 categories.
+    \end{itemize}
+    \item \textbf{The Opposing Forces of DINO}:
+    \begin{itemize}
+        \item \textbf{Centering (Anti-Obsession)}: DINO subtracts the average category scores. If Category 47 is getting too popular, it gets docked points. This makes one-hot collapse impossible!
+        \item \textbf{Sharpening (Anti-Confusion)}: DINO divides scores by a tiny temperature ($\tau_t = 0.04$), which creates high contrast and sharp peaks, making uniform collapse impossible!
+    \end{itemize}
+    \item \textbf{Magical Object Segmentation}: Because the model is pushed between these two guardrails, Vision Transformers trained with DINO automatically discover object outlines, segmenting dogs, cars, and people without ever seeing a single human label!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine walking on a narrow wooden plank between two swimming pools:
+\begin{itemize}
+    \item \textbf{Left Pool (The Hot Soup)}: Falling into pure uniform noise where everything looks identical.
+    \item \textbf{Right Pool (The Ice Block)}: Freezing into a single frozen category forever.
+    \item \textbf{The Walking Stick}: Centering pushes you away from the ice block, and Sharpening pushes you away from the hot soup. With the two forces perfectly balanced, you run straight down the middle of the plank, learning to recognize shapes, outlines, and animals effortlessly!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Teacher Centering Logit Adjustment}
+{\boldmath
+\begin{equation}
+\tilde{t}_i = g_{\theta_t}(\mathbf{x})^{(i)} - c_i, \quad \mathbf{c}_{t+1} = m \mathbf{c}_t + (1 - m) \bar{\mathbf{t}}_{\text{batch}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The subtractive translation shifting teacher output logits by their moving average batch center.
+    \item \textbf{What It Means}: Penalizes prototypes that fire too frequently across disparate images.
+    \item \textbf{Why It Is Important}: Mathematically prevents representation collapse to a single dominant prototype dimension.
+\end{itemize}
+
+\subsection{Temperature Sharpening Distribution Mapping}
+{\boldmath
+\begin{equation}
+P_t^{(i)} = \frac{\exp(\tilde{t}_i / \tau_t)}{\sum_{k=1}^K \exp(\tilde{t}_k / \tau_t)}, \quad \tau_t < \tau_s
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The low-temperature Boltzmann distribution converting centered logits into a concentrated probability vector.
+    \item \textbf{What It Means}: Drastically amplifies the highest logit relative to lower logits, lowering the distribution entropy.
+    \item \textbf{Why It Is Important}: Counteracts centering to prevent the output distribution from degenerating into the uniform distribution.
+\end{itemize}
+
+\subsection{Cross-Entropy Distillation Objective}
+{\boldmath
+\begin{equation}
+H(P_t, P_s) = -\sum_{k=1}^K P_t^{(k)} \log P_s^{(k)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The information-theoretic cross-entropy measuring the surprise of student predictions under the teacher distribution.
+    \item \textbf{What It Means}: Equivalent to minimizing the Kullback-Leibler divergence $D_{\text{KL}}(P_t \,||\, P_s)$ plus the teacher entropy $H(P_t)$.
+    \item \textbf{Why It Is Important}: Drives the student network to reproduce the sharp semantic prototype assignments discovered by the teacher.
+\end{itemize}
+
+\subsection{Shannon Entropy Regularization Metric}
+{\boldmath
+\begin{equation}
+\mathcal{H}(P) = -\sum_{k=1}^K P^{(k)} \log P^{(k)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The average information content of the prototype probability distribution.
+    \item \textbf{What It Means}: Bounds the certainty of predictions: $\mathcal{H} = 0$ for a one-hot vector, and $\mathcal{H} = \log K$ for the uniform distribution.
+    \item \textbf{Why It Is Important}: Serves as the primary operational telemetry for verifying that training remains in the non-collapsed equilibrium regime.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $K \in \mathbb{N}$: Prototype vocabulary dimension (e.g. $K \in [4096, 65536]$).
+    \item $\mathbf{s}, \mathbf{t} \in \mathbb{R}^K$: Student and teacher output logit vectors.
+    \item $\mathbf{c} \in \mathbb{R}^K$: Running center vector.
+    \item $\tau_s, \tau_t \in \mathbb{R}^+$: Student and teacher temperatures ($\tau_s \approx 0.1, \tau_t \approx 0.04$).
+    \item $P_s, P_t \in \Delta^{K-1}$: Probability distributions on the probability simplex.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Student Logits & $\mathbf{s}$ & Parameterized Forward Map & Subject of optimization \\
+Teacher Logits & $\mathbf{t}$ & EMA Forward Target & Guides self-distillation \\
+Center Vector & $\mathbf{c}$ & Momentum First Moment & Cancels dimension-wise bias \\
+Teacher Simplex & $P_t$ & Sharpened Centered Target & Ground-truth supervision distribution \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{t}, \mathbf{c}\} \longrightarrow \mathbf{t} - \mathbf{c} \longrightarrow \operatorname{softmax}(\cdot / \tau_t) \longrightarrow P_t \longrightarrow \{P_s(\mathbf{s}/\tau_s)\} \longrightarrow H(P_t, P_s) \longrightarrow \nabla_{\theta_s}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Logits $\mathbf{s}, \mathbf{t}$ and center $\mathbf{c}$ reside in $\mathbb{R}^K$. Probability distributions $P_s, P_t$ reside on the $(K-1)$-simplex with $\sum_{k=1}^K P^{(k)} = 1$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{As $\tau_t \to 0$}: $P_t$ collapses to $\operatorname{argmax}$, behaving like hard k-means clustering.
+    \item \textbf{As $\tau_t \to \infty$}: $P_t \to \frac{1}{K}\mathbf{1}$; uniform distribution with zero information.
+    \item \textbf{Optimal Equilibrium}: $\tau_t \in [0.04, 0.07]$ yields sharp yet soft prototype assignments.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Simplex Invariant}: For all $\tau > 0$, $\sum_{k=1}^K P^{(k)} \equiv 1$ and $P^{(k)} > 0$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+DINO is structurally isomorphic to Online Clustering and Sinkhorn-Knopp Optimal Transport distillation (SwAV), with centering and sharpening serving as an analytical approximation to doubly-stochastic normalization.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Opposite Forces: The Balance of Centering and Sharpening]
+Let $\mathcal{H}(P_t)$ denote the entropy of the teacher distribution. Centering strictly increases the entropy toward the uniform distribution, whereas sharpening strictly decreases the entropy toward a Dirac delta, establishing an interior non-collapsed equilibrium:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{H}}{\partial \tau_t} > 0, \quad \lim_{\mathbf{c} \to \mathbf{t}} \mathcal{H}(P_t) = \log K
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Consider the centered and sharpened distribution $P_t^{(i)} = \frac{\exp(u_i)}{\sum_k \exp(u_k)}$ where $u_i = (t_i - c_i) / \tau_t$.
+The Shannon entropy is:
+{\boldmath
+\begin{equation}
+\mathcal{H}(P_t) = -\sum_{i=1}^K P_t^{(i)} \log P_t^{(i)} = \log\left( \sum_{k=1}^K \exp(u_k) \right) - \sum_{i=1}^K P_t^{(i)} u_i
+\end{equation}
+}
+Differentiating $\mathcal{H}$ with respect to inverse temperature $\beta = 1/\tau_t$:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{H}}{\partial \beta} = -\sum_{i=1}^K P_t^{(i)} (u_i - \bar{u}) (t_i - c_i) = -\frac{1}{\beta} \operatorname{Var}_{P_t}(u) \le 0
+\end{equation}
+}
+Since $\tau_t = 1/\beta$, by the chain rule:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{H}}{\partial \tau_t} = -\frac{1}{\tau_t^2} \frac{\partial \mathcal{H}}{\partial \beta} = \frac{1}{\tau_t^3} \operatorname{Var}_{P_t}(u) \ge 0
+\end{equation}
+}
+Equality holds if and only if all $u_i$ are identical. Thus, decreasing temperature $\tau_t$ strictly reduces entropy, sharpening the distribution toward a single dominant mode (anti-uniform).
+
+Now consider centering. If a single dimension $k$ dominates across the dataset such that $t_k \gg t_j$ for all $j \ne k$, the running center updates to $c_k \gg c_j$.
+Subtracting the center shifts the logit:
+{\boldmath
+\begin{equation}
+\tilde{t}_k = t_k - c_k \approx 0
+\end{equation}
+}
+As $\mathbf{c} \to \bar{\mathbf{t}}$, the centered logits $\tilde{\mathbf{t}} \to \mathbf{0}$, causing:
+{\boldmath
+\begin{equation}
+P_t^{(i)} \to \frac{\exp(0)}{\sum_{k=1}^K \exp(0)} = \frac{1}{K} \implies \mathcal{H}(P_t) \to \log K
+\end{equation}
+}
+Thus, centering actively counteracts dimensional collapse by pushing the distribution toward maximal entropy. The two operators act in strict opposition, creating a stable non-trivial saddle point that prevents both collapse modes simultaneously.
+\end{proof}
+
+\begin{theorem}[Self-Distillation as Implicit Spectral Clustering]
+Minimizing the cross-entropy objective $H(P_t, P_s)$ between global and local views under an EMA teacher is equivalent to finding the principal eigenvectors of the inter-patch affinity graph.
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{A} \in \mathbb{R}^{M \times M}$ denote the continuous patch affinity matrix where $A_{ij}$ denotes the mutual probability that patch $i$ and patch $j$ belong to the same object across stochastic crop intersections.
+Under the softmax prototype parameterization, prototype vectors $\mathbf{W} \in \mathbb{R}^{K \times D}$ form an orthogonal basis for $\mathbb{R}^D$.
+The cross-entropy loss between view representations $\mathbf{z}_i$ and $\mathbf{z}_j$ approximates the trace optimization:
+{\boldmath
+\begin{equation}
+\min_{\theta} \mathcal{L} \equiv \max_{\mathbf{Z}} \operatorname{Tr}\left( \mathbf{Z}^T \mathbf{A} \mathbf{Z} \right) \quad \text{subject to } \mathbf{Z}^T \mathbf{Z} = \mathbf{I}
+\end{equation}
+}
+By the Rayleigh-Ritz theorem, the global minimizer of this objective corresponds to the leading $D$ eigenvectors of the normalized graph Laplacian $\mathbf{L} = \mathbf{I} - \mathbf{D}^{-1/2}\mathbf{A}\mathbf{D}^{-1/2}$.
+Therefore, the self-attention maps learned by the student network converge to the continuous spatial eigenfunctions of the image manifold, directly segmenting semantic objects without external bounding box supervision.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Self-Attention Map Object Segmentation}
+\textbf{Question:} Why do DINO-trained Vision Transformers naturally segment objects in self-attention heads, whereas supervised ViTs do not?\\
+\textbf{Answer:} Supervised classification trains the model to focus strictly on the minimal discriminative feature necessary to name the class (e.g. just the beak of a bird). Self-distillation forces the student to match the teacher across small local crops and global views. To predict global prototype distributions from tiny local crops, the self-attention heads must bind all parts of an object (wings, tail, head) into a coherent, segmented entity.
+
+\textbf{Meta-Question:} Does DINOv2 retain this unsupervised segmentation property at massive scale?\\
+\textbf{Answer:} Yes. DINOv2 scales this framework to 1 billion parameters on curated web datasets (LVD-142M) with register tokens, yielding frozen representations that achieve state-of-the-art monocular depth estimation and semantic segmentation without fine-tuning.
+
+\subsection{Architectural Question 2: EMA Momentum Schedule}
+\textbf{Question:} Why does DINO use a cosine schedule that increases teacher momentum $\lambda$ from 0.996 to 1.0 toward the end of training?\\
+\textbf{Answer:} Early in training, the student is learning rapid low-level representations; a lower momentum allows the teacher to adapt quickly. Later in training, the teacher representations have stabilized; increasing momentum to nearly 1.0 freezes the teacher, providing an ultra-stable, smooth target that eliminates late-stage oscillatory noise.
+
+\textbf{Meta-Question:} What happens if the teacher momentum is set to a constant 0.9?\\
+\textbf{Answer:} The teacher adapts too quickly to noisy student fluctuations, causing representation drift and degrading k-NN evaluation accuracy by over 10 points.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{DINO Teacher Centering, Sharpening, and Cross-Entropy Distillation}
+\begin{algorithmic}[1]
+\Require Student logits $\mathbf{s} \in \mathbb{R}^K$, teacher logits $\mathbf{t} \in \mathbb{R}^K$, center $\mathbf{c} \in \mathbb{R}^K$, temperatures $\tau_s, \tau_t > 0$, momentum $m \in [0, 1]$
+\Ensure Cross-entropy loss $\mathcal{L}_{\text{CE}}$, updated center $\mathbf{c}_{\text{new}}$, teacher entropy $\mathcal{H}_t$, student entropy $\mathcal{H}_s$, max probability $p_{\max}$
+\Function{Softmax}{$\mathbf{u}, \tau$}
+    \State $\text{max\_u} \gets \max_k (\mathbf{u}[k] / \tau)$
+    \State $\text{sum\_exp} \gets \sum_k \exp(\mathbf{u}[k] / \tau - \text{max\_u})$
+    \State \Return $[\exp(\mathbf{u}[k] / \tau - \text{max\_u}) / \text{sum\_exp} \text{ for } k \in [0, K-1]]$
+\EndFunction
+\State $\tilde{\mathbf{t}} \gets [\mathbf{t}[k] - \mathbf{c}[k] \text{ for } k \in [0, K-1]]$
+\State $P_t \gets \Call{Softmax}{\tilde{\mathbf{t}}, \tau_t}$
+\State $P_s \gets \Call{Softmax}{\mathbf{s}, \tau_s}$
+\State $\mathcal{L}_{\text{CE}} \gets 0.0, \quad \mathcal{H}_t \gets 0.0, \quad \mathcal{H}_s \gets 0.0, \quad \epsilon \gets 10^{-12}$
+\For{$k = 0$ \textbf{to} $K - 1$}
+    \State $\mathcal{L}_{\text{CE}} \gets \mathcal{L}_{\text{CE}} - P_t[k] \cdot \log(\max(\epsilon, P_s[k]))$
+    \If{$P_t[k] > \epsilon$} \State $\mathcal{H}_t \gets \mathcal{H}_t - P_t[k] \cdot \log(P_t[k])$ \EndIf
+    \If{$P_s[k] > \epsilon$} \State $\mathcal{H}_s \gets \mathcal{H}_s - P_s[k] \cdot \log(P_s[k])$ \EndIf
+\EndFor
+\State $\mathbf{c}_{\text{new}} \gets [m \cdot \mathbf{c}[k] + (1 - m) \cdot \mathbf{t}[k] \text{ for } k \in [0, K-1]]$
+\State \Return $(\mathcal{L}_{\text{CE}}, \mathbf{c}_{\text{new}}, \mathcal{H}_t, \mathcal{H}_s, \max(P_t))$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Loss Computation Time Complexity}: $\Theta(K)$ scalar operations for centering, softmax, and cross-entropy per sample view.
+    \item \textbf{Total Batch Distillation Time Complexity}: $\Theta(B \cdot K + \mathcal{C}_{\text{ViT}})$, scaling linearly with prototype vocabulary size $K$.
+    \item \textbf{Space Complexity}: $\Theta(K)$ memory for probability distribution and center vectors.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(K)$; parallel depth across prototypes is $\mathcal{D} = \Theta(\log K)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

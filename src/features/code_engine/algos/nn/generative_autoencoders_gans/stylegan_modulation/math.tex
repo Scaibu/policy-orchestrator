@@ -1,0 +1,293 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{StyleGAN Weight Modulation and Demodulation}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Style Weight Modulation and Demodulation Operator):}
+Let $\mathcal{W} \subset \mathbb{R}^{d_w}$ denote the disentangled latent style space produced by an 8-layer MLP mapping network $f: \mathcal{Z} \to \mathcal{W}$. For a convolution layer with $C_{\text{in}}$ input channels, $C_{\text{out}}$ output channels, and spatial footprint $K$, let $\mathbf{W} \in \mathbb{R}^{C_{\text{out}} \times C_{\text{in}} \times K}$ denote the unconditioned kernel tensor. An affine mapping produces per-input-channel scale factors $\mathbf{s} \in \mathbb{R}^{C_{\text{in}}}$:
+{\boldmath
+\begin{equation}
+s_j = \left( \mathbf{A} \mathbf{w} + \mathbf{b}_A \right)_j + 1.0, \quad \forall j \in \{1, \dots, C_{\text{in}}\}
+\end{equation}
+}
+The \textbf{Modulation} operator scales each slice of the convolution kernel according to the style factor:
+{\boldmath
+\begin{equation}
+W'_{i, j, k} = s_j \cdot W_{i, j, k}
+\end{equation}
+}
+To prevent activation magnitudes from exploding or vanishing without relying on explicit feature-map Adaptive Instance Normalization (AdaIN) which creates water-droplet artifacts, the \textbf{Demodulation} operator normalizes the weights assuming unit-variance input activations:
+{\boldmath
+\begin{equation}
+W''_{i, j, k} = \frac{W'_{i, j, k}}{\sigma_i}, \qquad \sigma_i = \sqrt{\sum_{j=1}^{C_{\text{in}}} \sum_{k=1}^K (W'_{i, j, k})^2 + \epsilon}
+\end{equation}
+}
+The resulting linear map preserves unit output variance $\operatorname{Var}(\mathbf{y}_i) \approx 1.0$ while baking style conditioning directly into the convolutional kernels.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+In standard generative networks, random numbers are dumped directly into the very first layer of a pyramid, and the network tries to build everything—from the overall posture of a human body to individual strands of hair—in a single rigid pass.
+
+StyleGAN changes this entirely by introducing a \textbf{puppet master with fine-tuned style dials}:
+\begin{enumerate}
+    \item \textbf{Disentanglement}: Instead of forcing random noise to directly represent images, a mapping network untangles random noise into clean semantic concepts: pose, lighting, hair color, and expression.
+    \item \textbf{Resolution Injection}: Instead of feeding this style information only once at the beginning, StyleGAN injects it at every resolution level. Early layers receive style instructions about large shapes (head angle, face shape); middle layers receive facial features; high-resolution layers receive fine details (freckles, hair texture).
+    \item \textbf{Weight Demodulation}: Instead of constantly rescaling pixel feature maps, the model directly rescales its internal convolution filters. This keeps image synthesis perfectly crisp and clean, completely eliminating the blurry droplet artifacts of earlier GANs.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Puppet Theater and the Costume Dials}:
+Imagine a master puppet show where you control an actor on stage:
+\begin{itemize}
+    \item \textbf{The Blank Puppet Mannequin (Constant Input)}:
+    On the stage stands a wooden mannequin. It never changes—it is just a sturdy frame standing ready.
+    
+    \item \textbf{The Costume Mixing Desk (Style Latent $\mathbf{w}$)}:
+    You are sitting at a mixing board with colorful sliders. One slider says \emph{``Dragon Wings''}, another says \emph{``Feather Hat''}, and another says \emph{``Gold Glitter''}.
+    
+    \item \textbf{The Magic Spray Nozzles (Modulation $s_j$)}:
+    When you slide \emph{``Gold Glitter''} all the way up, a golden spray nozzle dials up the glitter level on the painter's brush ($s_j \times W$).
+    
+    \item \textbf{The Thickness Meter (Demodulation $\sigma_i$)}:
+    If you spray too much glitter, the paint might get too thick and gooey! A magic scraper instantly balances the brush so that no matter how much glitter you add, the paint layer is always perfectly smooth, even, and paper-thin.
+    
+    \item \textbf{Layered Detail}:
+    Coarse sliders decide if the puppet is an elf or a giant. Fine sliders add shiny sparkles to the elf's jacket.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Affine Style Modulation}}
+{\boldmath
+\begin{equation}
+s_j = \mathbf{a}_j^\top \mathbf{w} + b_j + 1.0, \qquad W'_{i, j, k} = s_j \cdot W_{i, j, k}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The affine scaling of each convolution kernel slice $j \in \{1, \dots, C_{\text{in}}\}$ by scalar magnitude $s_j$ driven by style vector $\mathbf{w} \in \mathbb{R}^{d_w}$.
+    \item \textbf{What It Means}:
+    Alters the amplification factor of each input feature map, allowing the style vector to decide which visual channels are accentuated.
+    \item \textbf{Why It Is Important}:
+    Allows continuous, smooth style control without altering the base spatial architecture of the generator.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Output Channel Standard Deviation}}
+{\boldmath
+\begin{equation}
+\sigma_i = \sqrt{\sum_{j=1}^{C_{\text{in}}} \sum_{k=1}^K (W'_{i, j, k})^2 + \epsilon} = \sqrt{\sum_{j=1}^{C_{\text{in}}} s_j^2 \sum_{k=1}^K W_{i, j, k}^2 + \epsilon}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The $L_2$ Frobenius norm of the modulated weight slice corresponding to output channel $i \in \{1, \dots, C_{\text{out}}\}$.
+    \item \textbf{What It Means}:
+    Measures the standard deviation of the output activation under the assumption that incoming activations are independent and have unit variance.
+    \item \textbf{Why It Is Important}:
+    Identifies the exact scaling factor required to normalize the output signal without calculating runtime statistics on batch activations.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Kernel Demodulation Transformation}}
+{\boldmath
+\begin{equation}
+W''_{i, j, k} = \frac{W'_{i, j, k}}{\sigma_i} = \frac{s_j W_{i, j, k}}{\sqrt{\sum_{j'} s_{j'}^2 \sum_{k'} W_{i, j', k'}^2 + \epsilon}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The projective normalization of the modulated kernel tensor, ensuring that $\sum_{j, k} (W''_{i, j, k})^2 = 1.0$ for all $i$.
+    \item \textbf{What It Means}:
+    Re-normalizes the convolution filter so that output feature maps have approximately unit variance.
+    \item \textbf{Why It Is Important}:
+    Replaces AdaIN normalization, completely eliminating characteristic ``water droplet'' artifacts in generated imagery and allowing kernel fusion into standard GEMM operations.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{w} \in \mathbb{R}^{d_w}$: Intermediate style latent vector.
+    \item $C_{\text{in}}, C_{\text{out}} \in \mathbb{N}_{\ge 1}$: Input and output channel counts.
+    \item $K \in \mathbb{N}_{\ge 1}$: Spatial kernel footprint (e.g., $3 \times 3 = 9$).
+    \item $\mathbf{s} \in \mathbb{R}^{C_{\text{in}}}$: Style scaling vector.
+    \item $\mathbf{W} \in \mathbb{R}^{C_{\text{out}} \times C_{\text{in}} \times K}$: Base convolution weight tensor.
+    \item $\mathbf{W}'' \in \mathbb{R}^{C_{\text{out}} \times C_{\text{in}} \times K}$: Demodulated convolution kernel tensor.
+    \item $\sigma_i \in \mathbb{R}_{> 0}$: Channel normalization scalar.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of StyleGAN Modulation Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$C_{\text{in}}, C_{\text{out}}, K, d_w$ & \textbf{Defined} (Architectural hyperparameter) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\epsilon$ & \textbf{Defined} (Stability constant) & Small positive scalar (typically $10^{-8}$) \\
+$\mathbf{A}, \mathbf{b}_A, \mathbf{W}$ & \textbf{Learned} (Generator parameters) & Continuous weights and biases \\
+$\mathbf{s}, \mathbf{W}', \mathbf{W}''$ & \textbf{Calculated} (Feedforward tensor states) & Real vectors and tensors \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+\mathbf{w} \xrightarrow{\mathbf{A}, \mathbf{b}_A} \mathbf{s} \xrightarrow{\times \mathbf{W}} \mathbf{W}' \xrightarrow{\|\cdot\|_2} \boldsymbol{\sigma} \xrightarrow{\mathbf{W}' / \boldsymbol{\sigma}} \mathbf{W}'' \xrightarrow{\text{Conv}} \mathbf{Y}
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item Style vector $\mathbf{w}$: Rank-1 tensor of shape $(d_w)$.
+    \item Scale vector $\mathbf{s}$: Rank-1 tensor of shape $(C_{\text{in}})$.
+    \item Weight tensor $\mathbf{W}''$: Rank-3 tensor of shape $(C_{\text{out}}, C_{\text{in}}, K)$.
+    \item Normalization vector $\boldsymbol{\sigma}$: Rank-1 tensor of shape $(C_{\text{out}})$.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Neutral Style Regime ($\mathbf{w} = \mathbf{0}, \mathbf{b}_A = \mathbf{0}$)}: $s_j \equiv 1.0$. The operator degenerates into standard weight normalization.
+    \item \textbf{Dominant Single-Channel Regime ($s_m \gg s_{j \ne m}$)}: Channel $m$ dominates $\sigma_i$, effectively gating out all other channels.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Degenerate Weight Norm ($\sum W_{i, j, k}^2 \to 0$)}: If base weights shrink to zero, $\sigma_i \to \sqrt{\epsilon}$, causing numerical instability. Additive $\epsilon > 0$ strictly prevents division by zero.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Exact Unit Norm Invariance}: $\sum_{j=1}^{C_{\text{in}}} \sum_{k=1}^K (W''_{i, j, k})^2 = \frac{\sum (W'_{i, j, k})^2}{\sum (W'_{i, j, k})^2 + \epsilon} \approx 1.0$ identically for all output channels $i$.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Weight Normalization (Salimans \& Kingma)}: Weight demodulation is a dynamic, style-conditioned generalization of classical weight normalization.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Preservation of Unit Output Variance via Weight Demodulation}]
+Let $\mathbf{x} \in \mathbb{R}^{C_{\text{in}} \times H \times W}$ denote an input feature map whose channel activations $x_{j, p}$ are mutually uncorrelated with zero mean and unit variance $\mathbb{E}[x_{j, p}] = 0$, $\operatorname{Var}(x_{j, p}) = 1.0$. Let convolution weights be demodulated according to $W''_{i, j, k} = \frac{s_j W_{i, j, k}}{\sqrt{\sum_{j, k} s_j^2 W_{i, j, k}^2}}$. Then the output activation $y_{i, p} = \sum_{j, k} W''_{i, j, k} x_{j, p_k}$ has exact unit variance:
+{\boldmath
+\begin{equation}
+\operatorname{Var}(y_{i, p}) = 1.0
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let output activation at spatial position $p$ be defined by the linear combination:
+{\boldmath
+\begin{equation}
+y_{i, p} = \sum_{j=1}^{C_{\text{in}}} \sum_{k=1}^K W''_{i, j, k} x_{j, p+k}
+\end{equation}
+}
+Taking expectation:
+{\boldmath
+\begin{equation}
+\mathbb{E}[y_{i, p}] = \sum_{j, k} W''_{i, j, k} \mathbb{E}[x_{j, p+k}] = 0
+\end{equation}
+}
+Because components of $\mathbf{x}$ are mutually uncorrelated with unit variance ($\operatorname{Cov}(x_{j, a}, x_{j', b}) = \delta_{j, j'} \delta_{a, b}$):
+{\boldmath
+\begin{align}
+\operatorname{Var}(y_{i, p}) &= \mathbb{E}[(y_{i, p})^2] = \mathbb{E}\left[ \left( \sum_{j, k} W''_{i, j, k} x_{j, p+k} \right)^2 \right] \\
+&= \sum_{j, k} \sum_{j', k'} W''_{i, j, k} W''_{i, j', k'} \mathbb{E}[x_{j, p+k} x_{j', p+k'}] \\
+&= \sum_{j=1}^{C_{\text{in}}} \sum_{k=1}^K (W''_{i, j, k})^2
+\end{align}
+}
+Substituting the definition of $W''_{i, j, k}$:
+{\boldmath
+\begin{equation}
+\sum_{j, k} (W''_{i, j, k})^2 = \sum_{j, k} \frac{s_j^2 W_{i, j, k}^2}{\sum_{j', k'} s_{j'}^2 W_{i, j', k'}^2} = \frac{\sum_{j, k} s_j^2 W_{i, j, k}^2}{\sum_{j', k'} s_{j'}^2 W_{i, j', k'}^2} = 1.0
+\end{equation}
+}
+Thus, $\operatorname{Var}(y_{i, p}) = 1.0$. This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Why Does Demodulation Eliminate Water-Droplet Artifacts?}
+\textbf{Question}: Why did StyleGAN1 with AdaIN produce localized, droplet-shaped artifacts in generated faces, and how does weight demodulation eliminate them?
+
+\textbf{Meta-Question}: Does normalizing feature maps after computation create different boundary dynamics than normalizing operator kernels prior to computation?
+
+\textbf{Answer}: In AdaIN, instance normalization normalizes the feature map $\mathbf{x}$ by dividing by its empirical spatial standard deviation $\sigma(\mathbf{x})$. If the generator wants to create a localized high-amplitude signal at one specific pixel, AdaIN's spatial normalization would penalize the entire feature map. To bypass AdaIN, the network learned to place a massive artificial peak (a droplet) elsewhere in the image, artificially blowing up $\sigma(\mathbf{x})$ and dominating the normalization statistics. Weight demodulation normalizes the filter weights $\mathbf{W}$ beforehand, completely independent of spatial feature statistics, removing any incentive for the generator to create deceptive localized artifact spikes.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{StyleGAN Style Modulation and Demodulation Forward Pass}
+\label{alg:stylegan_mod}
+\begin{algorithmic}[1]
+\Require Latent style $\mathbf{w} \in \mathbb{R}^{d_w}$, Affine $\mathbf{A} \in \mathbb{R}^{C_{\text{in}} \times d_w}, \mathbf{b}_A \in \mathbb{R}^{C_{\text{in}}}$, Weights $\mathbf{W} \in \mathbb{R}^{C_{\text{out}} \times C_{\text{in}} \times K}$, Epsilon $\epsilon > 0$
+\Ensure Style scales $\mathbf{s} \in \mathbb{R}^{C_{\text{in}}}$, Demodulated weights $\mathbf{W}'' \in \mathbb{R}^{C_{\text{out}} \times C_{\text{in}} \times K}$, Norms $\boldsymbol{\sigma} \in \mathbb{R}^{C_{\text{out}}}$
+\State $\mathbf{s} \gets \text{zeros}(C_{\text{in}})$
+\For{$j \gets 1 \textbf{ to } C_{\text{in}}$}
+    \State $s_j \gets b_{A, j} + 1.0 + \sum_{d=1}^{d_w} A_{j, d} \cdot w_d$
+\EndFor
+\State $\mathbf{W}'' \gets \text{zeros}(C_{\text{out}}, C_{\text{in}}, K), \quad \boldsymbol{\sigma} \gets \text{zeros}(C_{\text{out}})$
+\For{$i \gets 1 \textbf{ to } C_{\text{out}}$}
+    \State $\text{sum\_sq} \gets 0.0$
+    \For{$j \gets 1 \textbf{ to } C_{\text{in}}$}
+        \For{$k \gets 1 \textbf{ to } K$}
+            \State $w_{\text{mod}} \gets s_j \cdot W_{i, j, k}$
+            \State $\text{sum\_sq} \gets \text{sum\_sq} + w_{\text{mod}} \cdot w_{\text{mod}}$
+        \EndFor
+    \EndFor
+    \State $\sigma_i \gets \sqrt{\text{sum\_sq} + \epsilon}$
+    \For{$j \gets 1 \textbf{ to } C_{\text{in}}$}
+        \For{$k \gets 1 \textbf{ to } K$}
+            \State $W''_{i, j, k} \gets (s_j \cdot W_{i, j, k}) / \sigma_i$
+        \EndFor
+    \EndFor
+\EndFor
+\State \Return $\{\text{style\_scales}: \mathbf{s}, \text{demodulated}: \mathbf{W}'', \text{channel\_norms}: \boldsymbol{\sigma}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Style scale computation: $C_{\text{in}} \times d_w$ operations ($\Theta(C_{\text{in}} d_w)$).
+        \item Modulation and demodulation: $2 C_{\text{out}} \times C_{\text{in}} \times K$ multiplications and additions ($\Theta(C_{\text{out}} C_{\text{in}} K)$).
+        \item Total Time: $\Theta(C_{\text{in}} d_w + C_{\text{out}} C_{\text{in}} K)$ FLOPs.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Demodulated weight tensor: $\Theta(C_{\text{out}} C_{\text{in}} K)$ floats.
+        \item Auxiliary scale and norm buffers: $\Theta(C_{\text{in}} + C_{\text{out}})$ floats.
+        \item Total Auxiliary Space: $\Theta(C_{\text{out}} C_{\text{in}} K)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

@@ -1,0 +1,308 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{3D Gaussian Splatting and Differentiable Rasterization}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (3D Gaussian Representation and Screen Projective Splatting):}
+Let a 3D scene be represented as a discrete collection of millions of anisotropic 3D Gaussians $\{\mathcal{G}_i\}_{i=1}^K$. Each Gaussian is defined in world space by its mean position $\boldsymbol{\mu} \in \mathbb{R}^3$, 3D covariance matrix $\boldsymbol{\Sigma} \in \mathbb{R}^{3 \times 3}$, opacity $\alpha \in [0, 1]$, and view-dependent color $\mathbf{c} \in \mathbb{R}^3$:
+{\boldmath
+\begin{equation}
+G(\mathbf{x}) = \exp\left( -\frac{1}{2} (\mathbf{x} - \boldsymbol{\mu})^T \boldsymbol{\Sigma}^{-1} (\mathbf{x} - \boldsymbol{\mu}) \right)
+\end{equation}
+}
+To ensure positive semi-definiteness, $\boldsymbol{\Sigma}$ is factorized into a rotation quaternion $\mathbf{q} \in \mathbb{H}$ (rotation matrix $\mathbf{R}$) and scale vector $\mathbf{s} \in \mathbb{R}^3$ ($\mathbf{S} = \operatorname{diag}(\mathbf{s})$):
+{\boldmath
+\begin{equation}
+\boldsymbol{\Sigma} = \mathbf{R} \mathbf{S} \mathbf{S}^T \mathbf{R}^T
+\end{equation}
+}
+Given a camera viewing transformation matrix $\mathbf{W} \in \mathbb{R}^{3 \times 3}$ and affine projective Jacobian $\mathbf{J} \in \mathbb{R}^{2 \times 3}$, the projected 2D screen covariance matrix $\boldsymbol{\Sigma}' \in \mathbb{R}^{2 \times 2}$ is given by the EWA volume splatting transform:
+{\boldmath
+\begin{equation}
+\boldsymbol{\Sigma}' = \mathbf{J} \mathbf{W} \boldsymbol{\Sigma} \mathbf{W}^T \mathbf{J}^T
+\end{equation}
+}
+For a screen pixel coordinate $\mathbf{u} = (u, v) \in \mathbb{R}^2$, the effective spatial opacity $\alpha_i'(\mathbf{u})$ of the $i$-th Gaussian is:
+{\boldmath
+\begin{equation}
+\alpha_i'(\mathbf{u}) = \alpha_i \exp\left( -\frac{1}{2} (\mathbf{u} - \boldsymbol{\mu}_{2D, i})^T (\boldsymbol{\Sigma}_i')^{-1} (\mathbf{u} - \boldsymbol{\mu}_{2D, i}) \right)
+\end{equation}
+}
+The final pixel color is rendered via depth-sorted front-to-back alpha compositing across overlapping Gaussians:
+{\boldmath
+\begin{equation}
+C(\mathbf{u}) = \sum_{i \in \mathcal{N}} \mathbf{c}_i \, \alpha_i'(\mathbf{u}) \prod_{j=1}^{i-1} \left( 1 - \alpha_j'(\mathbf{u}) \right)
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Throwing Colored Paint Blobs in 3D}: Instead of querying a slow neural network billions of times, 3D Gaussian Splatting turns the scene into millions of tiny, fuzzy, translucent 3D ellipsoids (like tiny grains of colorful rice).
+    \item \textbf{Each Blob Has Properties}: Every rice grain has an exact location $(x, y, z)$, an orientation (rotation), a stretch factor (size along 3 axes), a color, and a transparency value.
+    \item \textbf{Splattering onto the Camera Lens}: When looking from a virtual camera, each 3D ellipsoid flattens into a 2D oval on your screen (a ``splat'').
+    \item \textbf{Fast Sorting and Blending}: The computer sorts the splats from closest to farthest. It blends their colors front-to-back, stopping the moment a pixel is 99.9\% covered (early ray termination). Because this requires only fast matrix multiplications, gaming GPUs render high-resolution 3D worlds at over 120 frames per second!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine building a sculpture out of colored cotton candy:
+\begin{itemize}
+    \item \textbf{Fluffy Puffs}: Each puff of cotton candy is soft and fuzzy at the edges, and denser in the center.
+    \item \textbf{Looking Through}: If you hold the cotton candy sculpture in front of your eyes, nearby blue puffs overlap with farther red puffs, blending smoothly into purple.
+    \item \textbf{Real-Time Magic}: Because each puff is an explicit physical blob, turning your head instantly shows the new angle with zero delay!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Projective 2D Covariance Matrix Transformation}
+{\boldmath
+\begin{equation}
+\boldsymbol{\Sigma}' = \mathbf{J} \mathbf{W} \boldsymbol{\Sigma} \mathbf{W}^T \mathbf{J}^T, \quad \boldsymbol{\Sigma}' = \begin{bmatrix} \sigma_{u}^2 & \sigma_{uv} \\ \sigma_{uv} & \sigma_{v}^2 \end{bmatrix}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The linear differential coordinate mapping projecting a 3D ellipsoidal covariance onto the 2D image camera plane.
+    \item \textbf{What It Means}: Captures how a 3D oriented blob tilts, skews, and projects from the camera's perspective.
+    \item \textbf{Why It Is Important}: Guarantees analytical, continuous projection without requiring discrete ray marching steps.
+\end{itemize}
+
+\subsection{Inverse Covariance Quadratic Form}
+{\boldmath
+\begin{equation}
+(\boldsymbol{\Sigma}')^{-1} = \begin{bmatrix} a & b \\ b & c \end{bmatrix}, \quad Q(\mathbf{u}) = a (u - \mu_u)^2 + 2b (u - \mu_u)(v - \mu_v) + c (v - \mu_v)^2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The quadratic form evaluating the Mahalanobis distance from pixel coordinate $(u, v)$ to the Gaussian center $(\mu_u, \mu_v)$.
+    \item \textbf{What It Means}: Determines how rapidly the Gaussian's density fades as you move away from its center on the screen.
+    \item \textbf{Why It Is Important}: Computed in just 6 arithmetic scalar operations per pixel, enabling ultra-fast parallel GPU rasterization.
+\end{itemize}
+
+\subsection{Effective Spatial Alpha Attenuation}
+{\boldmath
+\begin{equation}
+\alpha'(\mathbf{u}) = \alpha \cdot \exp\left( -\frac{1}{2} Q(\mathbf{u}) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The point opacity evaluating the product of base transparency $\alpha$ and continuous 2D Gaussian density.
+    \item \textbf{What It Means}: Opacity peaks at the center and decays smoothly to zero toward the boundary of the ellipse.
+    \item \textbf{Why It Is Important}: Produces seamless, anti-aliased transitions between overlapping splats without pixelated edges.
+\end{itemize}
+
+\subsection{Front-to-Back Alpha Compositing Recurrence}
+{\boldmath
+\begin{equation}
+C = \sum_{i=1}^K \mathbf{c}_i \alpha_i' T_i, \quad T_i = \prod_{j=1}^{i-1} (1 - \alpha_j'), \quad T_1 = 1
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The discrete recursive blending accumulating color weighted by remaining transmittance $T_i$.
+    \item \textbf{What It Means}: Blends Gaussian colors in order of increasing depth from the camera.
+    \item \textbf{Why It Is Important}: Provides exact occlusion culling; when $T_i < 10^{-4}$, rasterization halts instantly for that pixel.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\boldsymbol{\mu} \in \mathbb{R}^3$: World-space 3D center position.
+    \item $\boldsymbol{\Sigma} \in \mathbb{R}^{3 \times 3}$: 3D covariance matrix.
+    \item $\boldsymbol{\Sigma}' \in \mathbb{R}^{2 \times 2}$: Screen-space 2D covariance matrix.
+    \item $a, b, c \in \mathbb{R}$: Coefficients of screen inverse covariance $(\boldsymbol{\Sigma}')^{-1}$.
+    \item $\alpha \in [0, 1]$: Base opacity.
+    \item $\mathbf{c} \in \mathbb{R}^3$: RGB radiance vector.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+3D Covariance & $\boldsymbol{\Sigma}$ & Factorized Learnable Tensor & Encodes physical shape and orientation \\
+2D Covariance & $\boldsymbol{\Sigma}'$ & Projective Observable & Defines 2D splat footprint on camera screen \\
+Effective Alpha & $\alpha'(\mathbf{u})$ & Point Spatial Opacity & Weights local color contribution \\
+Composited Pixel & $C(\mathbf{u})$ & Rasterized Output & Rendered color compared against ground-truth \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\boldsymbol{\mu}, \mathbf{q}, \mathbf{s}\} \longrightarrow \{\boldsymbol{\mu}_{2D}, \boldsymbol{\Sigma}'\} \longrightarrow (\boldsymbol{\Sigma}')^{-1} \longrightarrow Q(\mathbf{u}) \longrightarrow \alpha'(\mathbf{u}) \longrightarrow \text{Depth Sort} \longrightarrow C(\mathbf{u})$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Screen pixel coordinates $\mathbf{u} \in \mathbb{R}^2$; 2D inverse covariance matrix has dimension $2 \times 2$; color outputs reside in $\mathbb{R}^3$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{Far Center Limit ($Q(\mathbf{u}) \to \infty$)}: $\alpha' \to 0$; Gaussian has zero influence outside its $3\sigma$ bounding box.
+    \item \textbf{Saturated Transmittance ($T \to 0$)}: Early termination halts rasterization, saving redundant memory lookups.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Positive Definiteness}: $\operatorname{det}(\boldsymbol{\Sigma}') = a c - b^2 > 0$ strictly holds for all valid non-degenerate Gaussians.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+3D Gaussian Splatting is structurally isomorphic to Elliptical Weighted Average (EWA) surface splatting in signal processing and particle-based Lagrangian fluid simulation.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Affine Invariance of EWA Projective Covariance Splatting]
+Let $\mathbf{x} \sim \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$ be a 3D Gaussian random variable. Under an affine camera projection $\mathbf{u} = \mathbf{A} \mathbf{x} + \mathbf{b}$ where $\mathbf{A} = \mathbf{J} \mathbf{W} \in \mathbb{R}^{2 \times 3}$, the marginal distribution on the 2D image plane is an exact 2D Gaussian $\mathcal{N}(\boldsymbol{\mu}', \boldsymbol{\Sigma}')$ with covariance:
+{\boldmath
+\begin{equation}
+\boldsymbol{\Sigma}' = \mathbf{A} \boldsymbol{\Sigma} \mathbf{A}^T = \mathbf{J} \mathbf{W} \boldsymbol{\Sigma} \mathbf{W}^T \mathbf{J}^T
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{x} \in \mathbb{R}^3$ have characteristic function $\varphi_\mathbf{x}(\mathbf{t}) = \mathbb{E}[\exp(i \mathbf{t}^T \mathbf{x})] = \exp\left( i \mathbf{t}^T \boldsymbol{\mu} - \frac{1}{2} \mathbf{t}^T \boldsymbol{\Sigma} \mathbf{t} \right)$.
+Consider the linear transformation $\mathbf{u} = \mathbf{A} \mathbf{x} + \mathbf{b} \in \mathbb{R}^2$.
+Evaluating the characteristic function of $\mathbf{u}$ for $\mathbf{s} \in \mathbb{R}^2$:
+{\boldmath
+\begin{equation}
+\varphi_\mathbf{u}(\mathbf{s}) = \mathbb{E}\left[ \exp\left( i \mathbf{s}^T (\mathbf{A}\mathbf{x} + \mathbf{b}) \right) \right] = \exp(i \mathbf{s}^T \mathbf{b}) \mathbb{E}\left[ \exp\left( i (\mathbf{A}^T \mathbf{s})^T \mathbf{x} \right) \right]
+\end{equation}
+}
+Substituting the characteristic function of $\mathbf{x}$ evaluated at $\mathbf{t} = \mathbf{A}^T \mathbf{s}$:
+{\boldmath
+\begin{equation}
+\varphi_\mathbf{u}(\mathbf{s}) = \exp(i \mathbf{s}^T \mathbf{b}) \exp\left( i (\mathbf{A}^T \mathbf{s})^T \boldsymbol{\mu} - \frac{1}{2} (\mathbf{A}^T \mathbf{s})^T \boldsymbol{\Sigma} (\mathbf{A}^T \mathbf{s}) \right)
+\end{equation}
+}
+Regrouping terms:
+{\boldmath
+\begin{equation}
+\varphi_\mathbf{u}(\mathbf{s}) = \exp\left( i \mathbf{s}^T (\mathbf{A}\boldsymbol{\mu} + \mathbf{b}) - \frac{1}{2} \mathbf{s}^T (\mathbf{A} \boldsymbol{\Sigma} \mathbf{A}^T) \mathbf{s} \right)
+\end{equation}
+}
+By the uniqueness theorem for characteristic functions, $\mathbf{u}$ is uniquely a 2D Gaussian distribution with mean $\boldsymbol{\mu}' = \mathbf{A}\boldsymbol{\mu} + \mathbf{b}$ and covariance matrix $\boldsymbol{\Sigma}' = \mathbf{A} \boldsymbol{\Sigma} \mathbf{A}^T = \mathbf{J} \mathbf{W} \boldsymbol{\Sigma} \mathbf{W}^T \mathbf{J}^T$.
+Thus, projection through camera affine coordinates preserves Gaussian shape analytically without truncation error.
+\end{proof}
+
+\begin{theorem}[Monotonic Transmittance Decay and Early Exit Correctness]
+Let $\alpha_i' \in [0, 1)$ for all $i$. Then the sequence of transmittances $\{T_i\}_{i=1}^K$ is strictly monotonically decreasing:
+{\boldmath
+\begin{equation}
+T_{i+1} \le T_i, \quad \forall i \ge 1
+\end{equation}
+}
+and if $T_m < \epsilon_{\text{exit}}$, the maximum residual truncation error in color is bounded by $\epsilon_{\text{exit}}$:
+{\boldmath
+\begin{equation}
+\left\| \sum_{i=m+1}^K \mathbf{c}_i \alpha_i' T_i \right\|_\infty \le \epsilon_{\text{exit}} \max_{i} \|\mathbf{c}_i\|_\infty
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition, $T_{i+1} = T_i (1 - \alpha_i')$. Since $\alpha_i' \in [0, 1)$, $(1 - \alpha_i') \le 1$, and therefore:
+{\boldmath
+\begin{equation}
+T_{i+1} = T_i (1 - \alpha_i') \le T_i \cdot 1 = T_i
+\end{equation}
+}
+Now consider truncating the summation at index $m$ where $T_{m+1} < \epsilon_{\text{exit}}$.
+The residual color contribution is:
+{\boldmath
+\begin{equation}
+\mathbf{R}_m = \sum_{i=m+1}^K \mathbf{c}_i \alpha_i' T_i \le \max_j \|\mathbf{c}_j\|_\infty \sum_{i=m+1}^K \alpha_i' T_i
+\end{equation}
+}
+From the telescoping identity $\alpha_i' T_i = T_i - T_{i+1}$:
+{\boldmath
+\begin{equation}
+\sum_{i=m+1}^K \alpha_i' T_i = \sum_{i=m+1}^K (T_i - T_{i+1}) = T_{m+1} - T_{K+1} \le T_{m+1} < \epsilon_{\text{exit}}
+\end{equation}
+}
+Therefore, $\|\mathbf{R}_m\|_\infty \le \epsilon_{\text{exit}} \max_j \|\mathbf{c}_j\|_\infty$.
+Setting $\epsilon_{\text{exit}} = 10^{-4}$ guarantees that early ray termination introduces less than $0.01\%$ discrepancy on pixel color values in $[0, 1]$, enabling massive computational speedups with zero perceptible visual error.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Adaptive Density Control}
+\textbf{Question:} How does 3D Gaussian Splatting avoid under-reconstruction in empty regions and over-reconstruction in dense regions?\\
+\textbf{Answer:} Through periodic adaptive density control every 100 iterations. Gaussians with high positional viewspace gradients ($\|\nabla_{\boldsymbol{\mu}} \mathcal{L}\| > \tau_{\text{pos}}$) are either cloned (if small, to fill under-reconstructed detail) or split into two smaller Gaussians (if large, to resolve geometric over-smoothing). Gaussians with low opacity ($\alpha < 0.005$) are pruned completely.
+
+\textbf{Meta-Question:} Why can't we just start with 50 million Gaussians uniformly distributed in a grid?\\
+\textbf{Answer:} Uniform grids waste VRAM on empty air, leading to blurry artifacts. Starting with sparse Structure-from-Motion (SfM) points and adaptively growing Gaussians concentrates modeling capacity strictly on physical object surfaces.
+
+\subsection{Architectural Question 2: Differentiability of Depth Sorting}
+\textbf{Question:} How can 3D Gaussian Splatting be trained by gradient descent if Gaussians must be sorted by depth?\\
+\textbf{Answer:} Depth sorting is piecewise constant: swapping the order of two Gaussians changes gradients only at the exact instant their depths coincide (a set of measure zero). During backpropagation, gradients flow smoothly through the compositing weights $w_i = \alpha_i' T_i$ back to the 2D covariances $\boldsymbol{\Sigma}'$ and 3D centers $\boldsymbol{\mu}$ without needing to differentiate through the sorting permutation itself.
+
+\textbf{Meta-Question:} What happens if two transparent Gaussians have nearly identical depth?\\
+\textbf{Answer:} Their blending weights commute up to second-order terms: $C = \alpha_1 \mathbf{c}_1 + (1-\alpha_1)\alpha_2 \mathbf{c}_2 \approx \alpha_1 \mathbf{c}_1 + \alpha_2 \mathbf{c}_2$. Subtle sorting jitter between close transparent particles causes zero gradient instability.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{3D Gaussian Splatting 2D Pixel Rasterization}
+\begin{algorithmic}[1]
+\Require Pixel $(u, v)$, centers $\{\boldsymbol{\mu}_i\}_{i=1}^K$, inverse covariances $\{(a_i, b_i, c_i)\}_{i=1}^K$, opacities $\{\alpha_i\}_{i=1}^K$, colors $\{\mathbf{c}_i\}_{i=1}^K$
+\Ensure Pixel color $\mathbf{C} \in \mathbb{R}^3$, terminal transmittance $T$, total weight $w_{\text{total}}$, effective alphas $\{\alpha_i'\}_{i=1}^K$
+\State $T \gets 1.0, \quad w_{\text{total}} \gets 0.0, \quad \mathbf{C} \gets [0.0, 0.0, 0.0]$, initialize array $\boldsymbol{\alpha}'$ of length $K$
+\For{$i = 0$ \textbf{to} $K - 1$}
+    \State $du \gets u - \boldsymbol{\mu}_i[0], \quad dv \gets v - \boldsymbol{\mu}_i[1]$
+    \State $Q \gets a_i \cdot du^2 + 2.0 \cdot b_i \cdot du \cdot dv + c_i \cdot dv^2$
+    \State $g \gets \exp(-0.5 \cdot \max(0.0, Q))$
+    \State $\alpha_{\text{eff}} \gets \min(0.99, \max(0.0, \alpha_i) \cdot g)$
+    \State $\boldsymbol{\alpha}'[i] \gets \alpha_{\text{eff}}$
+    \If{$\alpha_{\text{eff}} < 1.0 / 255.0$} \textbf{continue} \EndIf
+    \State $w \gets \alpha_{\text{eff}} \cdot T$
+    \State $\mathbf{C}[0] \gets \mathbf{C}[0] + w \cdot \mathbf{c}_i[0]$
+    \State $\mathbf{C}[1] \gets \mathbf{C}[1] + w \cdot \mathbf{c}_i[1]$
+    \State $\mathbf{C}[2] \gets \mathbf{C}[2] + w \cdot \mathbf{c}_i[2]$
+    \State $w_{\text{total}} \gets w_{\text{total}} + w$
+    \State $T \gets T \cdot (1.0 - \alpha_{\text{eff}})$
+    \If{$T < 10^{-4}$} \textbf{break} \EndIf
+\EndFor
+\State \Return $(\mathbf{C}, T, w_{\text{total}}, \boldsymbol{\alpha}')$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Pixel Rasterization Time Complexity}: $\Theta(K_{\text{overlap}})$ scalar quadratic evaluations per pixel, where $K_{\text{overlap}} \ll K_{\text{total}}$ due to tile culling.
+    \item \textbf{Full Frame Rendering Complexity}: $\Theta(K_{\text{total}} \log K_{\text{total}} + H \cdot W \cdot K_{\text{tile}})$, delivering $> 100$ FPS rendering on modern GPUs.
+    \item \textbf{Space Complexity}: $\Theta(K)$ memory to store 3D Gaussian attributes (positions, rotations, scales, opacities, SH coefficients).
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(H \cdot W \cdot K_{\text{tile}})$; parallel depth across independent screen tiles is $\mathcal{D} = \Theta(\log K_{\text{tile}})$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

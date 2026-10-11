@@ -1,0 +1,308 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Joint-Embedding Predictive Architectures}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Joint-Embedding Predictive Architecture):}
+Let $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ denote an image partitioned into spatial patch tokens. A \textbf{Joint-Embedding Predictive Architecture (JEPA)} discards pixel reconstruction entirely and predicts target representations directly in latent feature space:
+\begin{enumerate}
+    \item \textbf{Target Masking}: Multiple spatially coherent target blocks $\{B_y^{(m)}\}_{m=1}^M$ are sampled with aspect ratios in $[0.75, 1.5]$ and scale in $[0.15, 0.2]$.
+    \item \textbf{Target Encoder}: An Exponential Moving Average (EMA) teacher encoder $\mathcal{E}_\theta$ embeds each target block into feature space:
+    {\boldmath
+    \begin{equation}
+    \mathbf{s}_y^{(m)} = \mathcal{E}_\theta\left( \mathbf{x}\left[ B_y^{(m)} \right] \right) \in \mathbb{R}^{K_m \times D}
+    \end{equation}
+    }
+    \item \textbf{Context Encoder}: A student encoder $\mathcal{E}_\phi$ embeds a non-overlapping context block $B_x$:
+    {\boldmath
+    \begin{equation}
+    \mathbf{s}_x = \mathcal{E}_\phi\left( \mathbf{x}\left[ B_x \right] \right) \in \mathbb{R}^{K_x \times D}
+    \end{equation}
+    }
+    \item \textbf{Predictor Network}: A lightweight transformer $\mathcal{P}_\psi$ takes the context embedding $\mathbf{s}_x$ along with target positional mask tokens $\{\mathbf{e}_{\text{pos}}^{(m)}\}$, outputting predicted target representations:
+    {\boldmath
+    \begin{equation}
+    \hat{\mathbf{s}}_y^{(m)} = \mathcal{P}_\psi\left( \mathbf{s}_x, \, \mathbf{e}_{\text{pos}}^{(m)} \right) \in \mathbb{R}^{K_m \times D}
+    \end{equation}
+    }
+\end{enumerate}
+The model is optimized via an $L_1$ or $L_2$ regression loss computed strictly in abstract latent space:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{JEPA}}(\phi, \psi) = \frac{1}{M} \sum_{m=1}^M \frac{1}{K_m D} \sum_{k=1}^{K_m} \sum_{d=1}^D \left| \hat{s}_{y, kd}^{(m)} - \operatorname{stopgrad}(s_{y, kd}^{(m)}) \right|
+\end{equation}
+}
+The target encoder parameters are updated exclusively via Polyak averaging: $\theta \gets \mu \theta + (1 - \mu)\phi$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Pitfall of Pixel Obsession}: Generative models (like MAE or diffusion) try to predict every single pixel. But the real world is full of unpredictable, useless noise: the exact shape of ripples in a river, the random flutter of leaves in the wind, or tiny dust specks on a road. Trying to predict individual pixels wastes immense compute on useless details.
+    \item \textbf{How Humans Think}: When you see a tree trunk and branches hidden behind a wall, your brain does not predict the exact microscopic cellular pattern of the hidden bark. You simply predict: ``There are more leaves and branches back there.'' You predict abstract meaning, not pixels.
+    \item \textbf{Predicting Ideas, Not Pixels (JEPA)}: JEPA eliminates pixel decoders entirely. The student encoder looks at visible parts of an image, while an EMA target encoder summarizes hidden regions into pure semantic idea-vectors.
+    \item \textbf{The Fast Semantic Predictor}: A lightweight neural predictor guesses what the target idea-vector looks like. By training strictly in the realm of ideas, JEPA ignores irrelevant background noise and focuses 100\% of its learning power on high-level semantics, physics, and world concepts.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine listening to a storyteller reading a book:
+\begin{itemize}
+    \item \textbf{Pixel Reconstructor (MAE)}: Before turning the page, you must guess the exact font, ink splatter, paper texture, and letter spacing on page 10. That's exhausting and pointless!
+    \item \textbf{Joint-Embedding Predictor (JEPA)}: You simply predict what happens next in the story: ``The knight will cross the bridge and enter the cave.'' You predict the plot of the story in your mind without caring what kind of ink was used on the page!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Latent Target Regression Objective}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{JEPA}} = \frac{1}{M \cdot D} \sum_{m=1}^M \sum_{d=1}^D \mathcal{D}\left( \hat{\mathbf{s}}_{y, m}[d], \, \mathbf{s}_{y, m}[d] \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The normalized continuous distance metric evaluated directly between predicted and actual latent representation vectors.
+    \item \textbf{What It Means}: Penalizes representational discrepancy using smooth $L_1$ norm $\mathcal{D}(a, b) = |a - b|$ or $L_2$ norm $(a - b)^2$.
+    \item \textbf{Why It Is Important}: Avoids costly pixel-space rendering, eliminating decoders and focusing gradients entirely on feature-space semantics.
+\end{itemize}
+
+\subsection{Target Encoder EMA Parameter Trajectory}
+{\boldmath
+\begin{equation}
+\theta_t = \mu_t \theta_{t-1} + (1 - \mu_t) \phi_t, \quad \mu_t = 1 - (1 - \mu_0) \cdot \frac{1}{2}\left( 1 + \cos\left( \frac{\pi t}{T} \right) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The smooth cosine-scheduled Polyak-Ruppert moving average governing target encoder parameters.
+    \item \textbf{What It Means}: Updates the target representation space gradually from initial momentum $\mu_0 = 0.996$ to terminal momentum $1.0$.
+    \item \textbf{Why It Is Important}: Enforces target representation stability, preventing representation collapse in the absence of contrastive negatives.
+\end{itemize}
+
+\subsection{Directional Cosine Alignment Metric}
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{align}} = \frac{1}{M} \sum_{m=1}^M \frac{\hat{\mathbf{s}}_{y, m} \cdot \mathbf{s}_{y, m}}{\|\hat{\mathbf{s}}_{y, m}\|_2 \|\mathbf{s}_{y, m}\|_2 + \epsilon}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The average cosine similarity evaluating directional concordance between predicted and target feature vectors.
+    \item \textbf{What It Means}: Measures whether the predictor correctly identifies the semantic orientation of the target block regardless of magnitude.
+    \item \textbf{Why It Is Important}: Serves as a vital diagnostic metric to detect representation collapse or spatial misalignment.
+\end{itemize}
+
+\subsection{Target Embedding Energy Norm}
+{\boldmath
+\begin{equation}
+\mathcal{E}_{\text{target}} = \frac{1}{M} \sum_{m=1}^M \|\mathbf{s}_{y, m}\|_2
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The average Euclidean magnitude of the target representation vectors.
+    \item \textbf{What It Means}: Tracks the geometric scale of the target representation space.
+    \item \textbf{Why It Is Important}: Guarantees that the target representations do not decay to the zero vector ($\mathbf{s}_y \to \mathbf{0}$).
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $M \in \mathbb{N}$: Number of target spatial blocks ($M \approx 4$).
+    \item $D \in \mathbb{N}$: Latent feature dimension ($D \in [768, 1408]$).
+    \item $\mathbf{s}_x \in \mathbb{R}^{K_x \times D}$: Context encoder representation.
+    \item $\mathbf{s}_y \in \mathbb{R}^{M \times D}$: Target encoder representation.
+    \item $\hat{\mathbf{s}}_y \in \mathbb{R}^{M \times D}$: Predictor network output.
+    \item $\mu_t \in [0.996, 1.0]$: Exponential moving average momentum.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Context Embedding & $\mathbf{s}_x$ & Student Encoder Output & Visible conditioning evidence \\
+Target Embedding & $\mathbf{s}_y$ & EMA Teacher Target & Semantic ground-truth representation \\
+Predicted Target & $\hat{\mathbf{s}}_y$ & Predictor Output & Inferred representation across masked region \\
+Latent Loss & $\mathcal{L}_{\text{JEPA}}$ & Representation Discrepancy & Guides student and predictor weights \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\mathbf{x} \longrightarrow \{B_x, B_y\} \longrightarrow \{\mathcal{E}_\phi(B_x), \mathcal{E}_\theta(B_y)\} \longrightarrow \{\mathbf{s}_x, \mathbf{s}_y\} \longrightarrow \mathcal{P}_\psi(\mathbf{s}_x, \text{pos}) \longrightarrow \hat{\mathbf{s}}_y \longrightarrow \mathcal{L}_{\text{JEPA}}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+Target and predicted embeddings share identical shape $M \times D$. Distance metrics evaluate elementwise and reduce to scalar losses.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{Optimal Equilibrium}: $\hat{\mathbf{s}}_y \approx \mathbf{s}_y \implies \mathcal{L}_{\text{JEPA}} \to 0$ with non-zero energy $\mathcal{E}_{\text{target}} > 0$.
+    \item \textbf{Complete Collapse}: $\mathbf{s}_y = \mathbf{0} \implies \mathcal{E}_{\text{target}} = 0$; trivial failure prevented by EMA and wide multi-block masking.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Non-Triviality Invariant}: Non-zero target norm $\mathcal{E}_{\text{target}} > \delta > 0$ for all valid images.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+JEPA is structurally isomorphic to World Models in model-based reinforcement learning (e.g. Dreamer, MuZero) where transition dynamics operate exclusively inside a latent state-space without rendering observation pixels.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Information-Theoretic Filtering of Irrelevant High-Frequency Pixel Noise]
+Let an observation $\mathbf{X}$ be decomposed into semantic state $\mathbf{S}$ and independent aleatoric noise $\mathbf{N}$: $\mathbf{X} = g(\mathbf{S}) + \mathbf{N}$ where $\mathbf{N} \perp \mathbf{S}$. Let $\mathcal{E}(\mathbf{X})$ be an encoder whose mutual information satisfies $I(\mathcal{E}(\mathbf{X}); \mathbf{N}) = 0$. Then predicting in latent space $\mathcal{E}(\mathbf{X})$ strictly bounds the Bayes risk below pixel-space predictive reconstruction:
+{\boldmath
+\begin{equation}
+\mathcal{R}_{\text{latent}}^* \le \mathcal{R}_{\text{pixel}}^* - \operatorname{Var}(\mathbf{N})
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{X}_y$ denote the target region pixels and $\mathbf{X}_x$ denote context region pixels.
+In generative pixel prediction (e.g. MAE), the model minimizes expected squared error:
+{\boldmath
+\begin{equation}
+\mathcal{R}_{\text{pixel}} = \mathbb{E}\left[ \|\mathbf{X}_y - \hat{\mathbf{X}}_y\|_2^2 \right] = \mathbb{E}\left[ \|g(\mathbf{S}_y) + \mathbf{N}_y - \hat{\mathbf{X}}_y\|_2^2 \right]
+\end{equation}
+}
+Since aleatoric noise $\mathbf{N}_y$ is independent of the context $\mathbf{X}_x$, the minimum mean squared error (Bayes optimal predictor) is $\hat{\mathbf{X}}_y^* = \mathbb{E}[g(\mathbf{S}_y) \mid \mathbf{X}_x]$.
+Evaluating the minimum Bayes risk:
+{\boldmath
+\begin{align}
+\mathcal{R}_{\text{pixel}}^* &= \mathbb{E}\left[ \|g(\mathbf{S}_y) - \hat{\mathbf{X}}_y^* + \mathbf{N}_y\|_2^2 \right] \\
+&= \mathbb{E}\left[ \|g(\mathbf{S}_y) - \hat{\mathbf{X}}_y^*\|_2^2 \right] + \mathbb{E}[\|\mathbf{N}_y\|_2^2] + 2 \mathbb{E}[\langle g(\mathbf{S}_y) - \hat{\mathbf{X}}_y^*, \mathbf{N}_y \rangle] \\
+&= \mathbb{E}\left[ \|g(\mathbf{S}_y) - \hat{\mathbf{X}}_y^*\|_2^2 \right] + \operatorname{Tr}(\operatorname{Var}(\mathbf{N}_y))
+\end{align}
+}
+Notice that the pixel reconstruction error is fundamentally lower-bounded by the irreducible variance of the noise $\operatorname{Tr}(\operatorname{Var}(\mathbf{N}_y))$. The pixel model must spend substantial gradient capacity attempting to fit stochastic high-frequency variations.
+
+Now consider JEPA. The target encoder maps $\mathbf{s}_y = \mathcal{E}(\mathbf{X}_y) = \mathbf{S}_y$, filtering out $\mathbf{N}_y$ such that $\frac{\partial \mathcal{E}}{\partial \mathbf{N}_y} = \mathbf{0}$.
+The latent prediction objective evaluates:
+{\boldmath
+\begin{equation}
+\mathcal{R}_{\text{latent}}^* = \mathbb{E}\left[ \|\mathbf{S}_y - \hat{\mathbf{S}}_y^*\|_2^2 \right]
+\end{equation}
+}
+Subtracting the two optimal risks:
+{\boldmath
+\begin{equation}
+\mathcal{R}_{\text{pixel}}^* - \mathcal{R}_{\text{latent}}^* = \operatorname{Tr}(\operatorname{Var}(\mathbf{N}_y)) \ge 0
+\end{equation}
+}
+Thus, latent prediction completely circumvents the irreducible aleatoric pixel noise floor, dedicating 100\% of model capacity to predictable semantic factors.
+\end{proof}
+
+\begin{theorem}[Computational Speedup of Representation Prediction over Pixel Decoders]
+Let the target region contain $K_y$ tokens and the pixel patch size be $p \times p$ with $C$ channels ($d_p = p^2 C$). Evaluating the JEPA $L_1$ loss in latent space of dimension $D$ reduces loss evaluation complexity compared to pixel deconvolution/reconstruction by a factor of $\frac{d_p + d_{\text{dec}} \cdot d_p}{D}$.
+\end{theorem}
+
+\begin{proof}
+In pixel masked autoencoding, the tokens must pass through a multi-layer transformer decoder with dimension $d_{\text{dec}}$, followed by a linear projection back to raw pixels $\mathbf{W}_{\text{pixel}} \in \mathbb{R}^{d_{\text{dec}} \times d_p}$.
+The projection alone requires $2 K_y d_{\text{dec}} d_p$ FLOPs, and computing pixel MSE requires $3 K_y d_p$ FLOPs.
+In JEPA, the lightweight predictor outputs representations directly in latent dimension $D$, and the loss is evaluated via vector difference:
+{\boldmath
+\begin{equation}
+\mathcal{C}_{\text{JEPA\_loss}} = 2 K_y D
+\end{equation}
+}
+The ratio of computation is:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{pixel\_head}}}{\mathcal{C}_{\text{JEPA\_loss}}} = \frac{2 K_y d_{\text{dec}} d_p + 3 K_y d_p}{2 K_y D} = \frac{d_p (2 d_{\text{dec}} + 3)}{2 D}
+\end{equation}
+}
+For standard ViT configurations ($p = 16, C = 3 \implies d_p = 768$, $d_{\text{dec}} = 512$, $D = 768$):
+{\boldmath
+\begin{equation}
+\frac{768 \cdot (1024 + 3)}{2 \cdot 768} \approx 513\times
+\end{equation}
+}
+Thus, evaluating prediction in representation space saves over $500\times$ computation in the terminal projection and loss calculation layers.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Masking Strategy in JEPA}
+\textbf{Question:} Why does I-JEPA use multi-block masking (large rectangular contiguous blocks) rather than random independent patch masking like MAE?\\
+\textbf{Answer:} If patches are masked randomly across the image, adjacent unmasked pixels are physically millimeters away. A predictor in latent space could easily solve the problem through trivial spatial interpolation without learning semantics. Masking large contiguous blocks (scale $\ge 0.15$) ensures that target blocks are far from the context block, forcing the model to perform long-range semantic reasoning.
+
+\textbf{Meta-Question:} Why does the context block encompass a large fraction of the image (e.g. 85\%)?\\
+\textbf{Answer:} If the context block is too small, target prediction becomes mathematically ambiguous. A large context provides sufficient evidence for the predictor to infer scene composition, object identities, and spatial geometry.
+
+\subsection{Architectural Question 2: JEPA vs DINO and BYOL}
+\textbf{Question:} How does JEPA differ from other non-contrastive methods like DINO and BYOL?\\
+\textbf{Answer:} DINO and BYOL compare two entire global views of an image; they do not perform spatial prediction. JEPA is explicitly a predictive world model: it conditions on a visible spatial region and predicts a masked spatial region across space (I-JEPA) or time (V-JEPA). It bridges the gap between masked autoencoding and self-distillation.
+
+\textbf{Meta-Question:} Can JEPA be applied directly to video?\\
+\textbf{Answer:} Yes. V-JEPA masks 3D spatio-temporal tubelets in video. Given past context frames, it predicts future feature representations without generating pixels, achieving state-of-the-art action recognition and physical reasoning efficiency.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Joint-Embedding Predictive Architecture Latent Loss Evaluation}
+\begin{algorithmic}[1]
+\Require Predicted target embeddings $\hat{\mathbf{S}} \in \mathbb{R}^{M \times D}$, actual target embeddings $\mathbf{S} \in \mathbb{R}^{M \times D}$, loss type $\in \{\text{`l1'}, \text{`l2'}\}$
+\Ensure Primary loss $\mathcal{L}_{\text{JEPA}}$, $L_1$ discrepancy, $L_2$ discrepancy, cosine similarity $\mathcal{C}_{\text{cos}}$, target norm $\mathcal{E}_t$
+\State $\epsilon \gets 10^{-8}, \quad sum_{l1} \gets 0.0, \quad sum_{l2} \gets 0.0, \quad sum_{\text{cos}} \gets 0.0, \quad sum_{\text{norm}} \gets 0.0$
+\For{$m = 0$ \textbf{to} $M - 1$}
+    \State $dot \gets 0.0, \quad norm_p \gets 0.0, \quad norm_t \gets 0.0$
+    \For{$d = 0$ \textbf{to} $D - 1$}
+        \State $p \gets \hat{\mathbf{S}}[m][d], \quad t \gets \mathbf{S}[m][d]$
+        \State $diff \gets p - t$
+        \State $sum_{l1} \gets sum_{l1} + |diff|$
+        \State $sum_{l2} \gets sum_{l2} + diff \cdot diff$
+        \State $dot \gets dot + p \cdot t$
+        \State $norm_p \gets norm_p + p \cdot p$
+        \State $norm_t \gets norm_t + t \cdot t$
+    \EndFor
+    \State $mag_t \gets \sqrt{norm_t}$
+    \State $sum_{\text{norm}} \gets sum_{\text{norm}} + mag_t$
+    \State $sum_{\text{cos}} \gets sum_{\text{cos}} + dot / (\sqrt{norm_p \cdot norm_t} + \epsilon)$
+\EndFor
+\State $total \gets M \cdot D$
+\State $l1\_mean \gets sum_{l1} / total, \quad l2\_mean \gets sum_{l2} / total$
+\State $\mathcal{L}_{\text{JEPA}} \gets l1\_mean$ \textbf{if} loss type is `l1' \textbf{else} $l2\_mean$
+\State \Return $(\mathcal{L}_{\text{JEPA}}, l1\_mean, l2\_mean, sum_{\text{cos}} / M, sum_{\text{norm}} / M)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Loss Computation Time Complexity}: $\Theta(M \cdot D)$ scalar operations directly across the $M$ target token vectors.
+    \item \textbf{Total JEPA Training Time Complexity}: $\Theta(K_x^2 \cdot d_{\text{enc}} + K_y^2 \cdot d_{\text{enc}} + (K_x + K_y)^2 \cdot d_{\text{pred}})$, with zero pixel decoding overhead.
+    \item \textbf{Space Complexity}: $\Theta(M \cdot D)$ memory for intermediate target embeddings.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(M \cdot D)$; parallel depth across tokens is $\mathcal{D} = \Theta(\log(M \cdot D))$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

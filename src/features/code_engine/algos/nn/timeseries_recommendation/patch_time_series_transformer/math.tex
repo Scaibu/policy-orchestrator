@@ -1,0 +1,259 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Patch Time-Series Transformer (PatchTST)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Patching Tokenization, Reversible Normalization, and Channel Independence):}
+Let $\mathbf{x} = [x_1, x_2, \dots, x_L]^T \in \mathbb{R}^L$ denote a raw univariate continuous time-series lookback signal of length $L$. A \textbf{Patch Time-Series Transformer (PatchTST)} architecture transforms the raw numerical signal into a compact semantic token sequence using three foundational operations:
+
+\begin{enumerate}
+    \item \textbf{Reversible Instance Normalization (RevIN)}: To remove non-stationary mean and variance distribution shifts across time, the signal is normalized:
+    {\boldmath
+    \begin{equation}
+    \mu_x = \frac{1}{L}\sum_{t=1}^L x_t, \quad \sigma_x = \sqrt{\frac{1}{L}\sum_{t=1}^L (x_t - \mu_x)^2 + \epsilon}, \quad \mathbf{x}_{\text{norm}} = \frac{\mathbf{x} - \mu_x}{\sigma_x}
+    \end{equation}
+    }
+    \item \textbf{Patch Extraction (Subseries Tokenization)}: The normalized sequence $\mathbf{x}_{\text{norm}}$ is sliced into $N$ overlapping or non-overlapping patches of patch length $P$ with stride $S$:
+    {\boldmath
+    \begin{equation}
+    N = \left\lfloor \frac{L - P}{S} \right\rfloor + 1
+    \end{equation}
+    }
+    where each patch $\mathbf{p}_i \in \mathbb{R}^P$ is defined by:
+    {\boldmath
+    \begin{equation}
+    \mathbf{p}_i = [x_{\text{norm}, (i-1)S + 1}, \; \dots, \; x_{\text{norm}, (i-1)S + P}]^T, \quad i \in \{1, \dots, N\}
+    \end{equation}
+    }
+    \item \textbf{Linear Embedding Projection}: Each patch token is projected into the Transformer hidden latent dimension $D$:
+    {\boldmath
+    \begin{equation}
+    \mathbf{e}_i = W_{\text{proj}} \mathbf{p}_i \in \mathbb{R}^D, \quad W_{\text{proj}} \in \mathbb{R}^{D \times P}
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Numbers Are Not Words}: In natural language processing, words like ``apple'' or ``spaceship'' have rich semantic meaning. In time series, a single isolated number like ``47.2'' has zero meaning without its neighbors! Early time-series transformers treated each isolated number as a token, wasting massive attention compute on meaningless points.
+    \item \textbf{Patching (Grouping Numbers into Words)}: PatchTST groups 16 or 24 consecutive numbers into a single ``patch'' (like a phrase: ``rising slope'' or ``sharp dip''). The Transformer then reasons about interactions between structural shapes rather than noisy scalars.
+    \item \textbf{Cutting Quadratic Attention Costs}: If a history has $L = 1024$ steps, standard self-attention requires over $1,000,000$ operations ($1024^2$). Grouping points into patches of length $P=16$ reduces sequence length to $N = 64$, cutting attention compute by $256\times$ ($64^2 = 4096$)!
+    \item \textbf{Reversible Normalization (RevIN)}: Erases seasonal heatwaves or inflation shifts during the forward pass so the model learns universal physical shapes, then restores the original scale perfectly upon output.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine reading a comic book:
+\begin{itemize}
+    \item \textbf{The Microscopic Ant}: An ant looks at the comic book one ink dot at a time ($0.1$ mm). It sees millions of black dots, gets overwhelmed, and never understands the story.
+    \item \textbf{The Human Eye (The Patch Reader)}: A human looks at whole comic book panels (patches). Panel 1: Hero jumps; Panel 2: Villain runs; Panel 3: Goal scored!
+    \item \textbf{Instant Comprehension}: By connecting the storyline between whole panels instead of individual ink dots, the reader instantly predicts what happens in the next chapter!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Reversible Instance Normalization Metric}
+{\boldmath
+\begin{equation}
+x_{\text{norm}}[t] = \frac{x[t] - \mu_x}{\sigma_x + \epsilon}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The instance-level z-score standardization evaluated symmetrically across the temporal lookback window.
+    \item \textbf{What It Means}: Centers the lookback signal at zero mean and scales it to unit variance.
+    \item \textbf{Why It Is Important}: Insulates the attention mechanism from non-stationary distribution shifts, trend drift, and arbitrary measurement units.
+\end{itemize}
+
+\subsection{Discrete Patch Sliding Window Unfolding}
+{\boldmath
+\begin{equation}
+p_i[k] = x_{\text{norm}}[i \cdot S + k], \quad i \in \{0, \dots, N-1\}, \; k \in \{0, \dots, P-1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The 1D tensor unfolding operator mapping continuous temporal indices to 2D patch arrays.
+    \item \textbf{What It Means}: Gathers contiguous temporal intervals into multi-dimensional token vectors.
+    \item \textbf{Why It Is Important}: Preserves dense local temporal correlation within each patch while shortening overall sequence length.
+\end{itemize}
+
+\subsection{Linear Patch Embedding Projection}
+{\boldmath
+\begin{equation}
+e_{i, d} = \sum_{p=0}^{P-1} W_{\text{proj}}[d, p] \cdot p_i[p]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The linear mapping from local temporal patch space $\mathbb{R}^P$ to Transformer latent space $\mathbb{R}^D$.
+    \item \textbf{What It Means}: Projects the temporal subseries shape into the semantic embedding manifold of the Transformer.
+    \item \textbf{Why It Is Important}: Enables standard self-attention mechanisms to operate over time-series segments without modification.
+\end{itemize}
+
+\subsection{Reversible Denormalization (RevIN Inversion)}
+{\boldmath
+\begin{equation}
+\widehat{y}[\tau] = \widehat{y}_{\text{norm}}[\tau] \cdot \sigma_x + \mu_x
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The affine inverse transformation restoring instance mean and standard deviation to the model's output.
+    \item \textbf{What It Means}: Rescales normalized forecasts back to original physical engineering units (megawatts, temperature, dollars).
+    \item \textbf{Why It Is Important}: Guarantees unbiased forecasting even when series undergo significant historical drift.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $L$ (lookback length), $P$ (patch length), $S$ (stride), $N$ (patch token count), $D$ (embedding dimension), $\mu_x, \sigma_x$ (RevIN statistics).
+    \item \textbf{Epistemic Status}: Proposed by Nie et al. (ICLR 2023), established SOTA standard across long-term time-series forecasting benchmarks.
+    \item \textbf{Dependency Graph}: $\mathbf{x} \to (\mu_x, \sigma_x) \to \mathbf{x}_{\text{norm}} \to \{\mathbf{p}_i\} \to \{\mathbf{e}_i\} \to \text{Transformer Attention} \to \widehat{\mathbf{y}}_{\text{norm}} \to \widehat{\mathbf{y}}$.
+    \item \textbf{Dimensions}: Lookback $\mathbf{x} \in \mathbb{R}^L$, patch tokens $\mathbf{P} \in \mathbb{R}^{N \times P}$, projected embeddings $\mathbf{E} \in \mathbb{R}^{N \times D}$.
+    \item \textbf{Regimes}: Long-sequence multivariate forecasting (ETT, Weather, Electricity, Traffic).
+    \item \textbf{Invariants}: Unit variance and zero mean: $\sum_{t} x_{\text{norm}}[t] = 0$, $\frac{1}{L}\sum_t x_{\text{norm}}[t]^2 = 1$.
+    \item \textbf{Isomorphisms}: 1D temporal patching is isomorphic to 2D image patch tokenization in Vision Transformers (ViT).
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Quadratic Attention Complexity Reduction Factor]
+Let $L$ denote lookback sequence length and let patching be applied with non-overlapping patch length $P$ ($S = P$). The full pairwise self-attention computational cost $\mathcal{C}$ decreases by an exact factor of $P^2$:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{Patch}}}{\mathcal{C}_{\text{Pointwise}}} = \frac{N^2}{L^2} = \frac{1}{P^2}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+In pointwise time-series transformers, the self-attention matrix between all individual time steps has size $L \times L$, requiring $\mathcal{C}_{\text{Pointwise}} = \Theta(L^2 D)$ operations.
+Under patching with patch size $P$ and stride $S = P$, the number of patch tokens is:
+{\boldmath
+\begin{equation}
+N = \left\lfloor \frac{L - P}{P} \right\rfloor + 1 = \left\lfloor \frac{L}{P} - 1 \right\rfloor + 1 = \frac{L}{P}
+\end{equation}
+}
+Self-attention across the token sequence of length $N$ requires $\mathcal{C}_{\text{Patch}} = \Theta(N^2 D)$ operations.
+Evaluating the ratio:
+{\boldmath
+\begin{equation}
+\frac{\mathcal{C}_{\text{Patch}}}{\mathcal{C}_{\text{Pointwise}}} = \frac{N^2 D}{L^2 D} = \frac{(L / P)^2}{L^2} = \frac{L^2 / P^2}{L^2} = \frac{1}{P^2}
+\end{equation}
+}
+For a standard patch length $P = 16$, attention operations are reduced by $\frac{1}{256}$, demonstrating quadratic computational acceleration.
+\end{proof}
+
+\begin{theorem}[Shift and Scale Invariance of RevIN Transformation]
+Let $\mathbf{x} \in \mathbb{R}^L$ and let $\mathbf{x}' = a \mathbf{x} + b \mathbf{1}$ be an affine transformation with arbitrary shift $b \in \mathbb{R}$ and scale $a > 0$. The RevIN normalized representation is invariant to $(a, b)$:
+{\boldmath
+\begin{equation}
+\mathbf{x}'_{\text{norm}} = \mathbf{x}_{\text{norm}}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{x}' = a \mathbf{x} + b \mathbf{1}$. The sample mean of $\mathbf{x}'$ is:
+{\boldmath
+\begin{equation}
+\mu_{x'} = \frac{1}{L}\sum_{t=1}^L (a x_t + b) = a \left( \frac{1}{L}\sum_{t=1}^L x_t \right) + b = a \mu_x + b
+\end{equation}
+}
+The sample variance of $\mathbf{x}'$ is:
+{\boldmath
+\begin{equation}
+\sigma_{x'}^2 = \frac{1}{L}\sum_{t=1}^L (x'_t - \mu_{x'})^2 = \frac{1}{L}\sum_{t=1}^L \left( (a x_t + b) - (a \mu_x + b) \right)^2 = \frac{1}{L}\sum_{t=1}^L a^2 (x_t - \mu_x)^2 = a^2 \sigma_x^2
+\end{equation}
+}
+Taking the square root (for $a > 0$): $\sigma_{x'} = a \sigma_x$.
+Now evaluating the normalized series for $\mathbf{x}'$:
+{\boldmath
+\begin{equation}
+x'_{\text{norm}}[t] = \frac{x'_t - \mu_{x'}}{\sigma_{x'}} = \frac{(a x_t + b) - (a \mu_x + b)}{a \sigma_x} = \frac{a (x_t - \mu_x)}{a \sigma_x} = \frac{x_t - \mu_x}{\sigma_x} = x_{\text{norm}}[t]
+\end{equation}
+}
+Hence $\mathbf{x}'_{\text{norm}} \equiv \mathbf{x}_{\text{norm}}$, proving exact shift and scale invariance.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Channel Independence vs Channel Mixing}
+\textbf{Question:} Why does PatchTST achieve higher multivariate forecasting accuracy by treating each channel independently (Channel Independence) rather than cross-attending across channels?\\
+\textbf{Answer:} Real-world multivariate datasets often exhibit cross-channel noise and distribution shift asymmetries (e.g. traffic speed vs humidity). Cross-channel attention introduces severe overfitting when dataset sizes are moderate. Treating channels independently with shared network weights forces the model to learn universal temporal dynamics, reducing parameters and dramatically boosting generalization.
+
+\textbf{Meta-Question:} When does Channel Independence fail?\\
+\textbf{Answer:} It fails when the core physical phenomenon depends explicitly on instantaneous multi-variable causal interactions (e.g. closed-loop chemical reactions or robotic kinematics), where lagged cross-variable dependencies must be resolved.
+
+\subsection{Architectural Question 2: Patch Size Selection vs Receptive Field}
+\textbf{Question:} How does patch size $P$ affect the model's effective temporal resolution?\\
+\textbf{Answer:} Small patch size ($P \in [4, 8]$) preserves fine-grained, high-frequency spikes at the cost of larger sequence length $N$. Large patch size ($P \in [16, 32]$) acts as an inductive low-pass filter, capturing smooth macroeconomic or seasonal patterns while discarding intra-patch high-frequency noise.
+
+\textbf{Meta-Question:} Does overlapping patching ($S < P$) provide tangible benefits over non-overlapping patching ($S = P$)?\\
+\textbf{Answer:} Yes. Overlapping patching ($S = P/2$) introduces temporal smoothing and ensures that boundary transition points between adjacent patches are preserved across token representations, preventing edge-discontinuity artifacts.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{PatchTST Reversible Normalization and Patch Token Projection}
+\begin{algorithmic}[1]
+\Require Time series $\mathbf{x} \in \mathbb{R}^L$, patch length $P \ge 1$, stride $S \ge 1$, projection matrix $W_{\text{proj}} \in \mathbb{R}^{D \times P}$
+\Ensure Normalized series $\mathbf{x}_{\text{norm}} \in \mathbb{R}^L$, patch tokens $\mathbf{P} \in \mathbb{R}^{N \times P}$, token embeddings $\mathbf{E} \in \mathbb{R}^{N \times D}$, stats $(\mu_x, \sigma_x)$
+\State $\mu_x \gets \frac{1}{L}\sum_{t=0}^{L-1} \mathbf{x}[t]$
+\State $\sigma_x \gets \sqrt{\frac{1}{L}\sum_{t=0}^{L-1} (\mathbf{x}[t] - \mu_x)^2} + 10^{-8}$
+\State Initialize $\mathbf{x}_{\text{norm}} \in \mathbb{R}^L$
+\For{$t = 0$ \textbf{to} $L-1$} \Comment{RevIN Normalization}
+    \State $\mathbf{x}_{\text{norm}}[t] \gets (\mathbf{x}[t] - \mu_x) / \sigma_x$
+\EndFor
+\State Initialize dynamic list of patches $\mathbf{P}$
+\State $idx \gets 0$
+\While{$idx + P \le L$} \Comment{Sliding Window Patch Extraction}
+    \State $\mathbf{p} \gets [\mathbf{x}_{\text{norm}}[idx], \dots, \mathbf{x}_{\text{norm}}[idx + P - 1]]$
+    \State Append $\mathbf{p}$ to $\mathbf{P}$
+    \State $idx \gets idx + S$
+\EndWhile
+\State $N \gets \operatorname{length}(\mathbf{P})$
+\State Initialize matrix $\mathbf{E} \in \mathbb{R}^{N \times D}$
+\For{$i = 0$ \textbf{to} $N-1$} \Comment{Linear Token Embedding Projection}
+    \For{$d = 0$ \textbf{to} $D-1$}
+        \State $\mathbf{E}[i][d] \gets \sum_{k=0}^{P-1} W_{\text{proj}}[d][k] \cdot \mathbf{P}[i][k]$
+    \EndFor
+\EndFor
+\State \Return $(\mathbf{x}_{\text{norm}}, \mathbf{P}, \mathbf{E}, \mu_x, \sigma_x)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{RevIN Standardization Complexity}: $\Theta(L)$ scalar operations to compute mean, variance, and normalization.
+    \item \textbf{Patch Extraction Complexity}: $\Theta(N \cdot P)$ memory gather operations.
+    \item \textbf{Linear Token Projection Complexity}: $\Theta(N \cdot P \cdot D)$ scalar multiply-accumulate operations.
+    \item \textbf{Space Complexity}: $\Theta(L + N \cdot P + N \cdot D)$ for normalized series and token representations.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log L + \log P)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

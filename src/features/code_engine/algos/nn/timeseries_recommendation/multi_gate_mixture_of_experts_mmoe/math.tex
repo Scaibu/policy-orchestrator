@@ -1,0 +1,278 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Multi-Gate Mixture-of-Experts (MMoE)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Multi-Gate Mixture-of-Experts and Multi-Task Gradient Decoupling):}
+Let $\mathbf{x} \in \mathbb{R}^D$ denote a shared input feature vector, and let $\{T_1, T_2, \dots, T_K\}$ denote $K$ distinct prediction tasks (e.g. Click-Through Rate, Conversion Rate, Dwell Time, Social Shares). In traditional Shared-Bottom multi-task networks, all tasks share identical lower layers, which causes severe performance degradation (\emph{negative transfer}) when tasks have weakly correlated or conflicting objectives.
+
+\textbf{Multi-Gate Mixture-of-Experts (MMoE)} decouples multi-task learning by introducing $E$ shared expert sub-networks $\{f_1, f_2, \dots, f_E\}$ paired with $K$ task-specific gating networks $\{g^1, g^2, \dots, g^K\}$:
+\begin{enumerate}
+    \item Each expert $i \in \{1, \dots, E\}$ computes a non-linear feature transformation:
+    {\boldmath
+    \begin{equation}
+    f_i(\mathbf{x}) = \max\left( \mathbf{0}, \; W_i^e \mathbf{x} + \mathbf{b}_i^e \right) \in \mathbb{R}^{D_{\text{expert}}}
+    \end{equation}
+    }
+    \item For each task $k \in \{1, \dots, K\}$, a dedicated gating network generates a probability distribution over the experts:
+    {\boldmath
+    \begin{equation}
+    g^k(\mathbf{x}) = \operatorname{softmax}\left( W_g^k \mathbf{x} \right) \in \Delta^{E-1}, \quad g_i^k(\mathbf{x}) = \frac{\exp\left( (W_g^k \mathbf{x})_i \right)}{\sum_{j=1}^E \exp\left( (W_g^k \mathbf{x})_j \right)}
+    \end{equation}
+    }
+    \item The task-specific representation $\mathbf{u}_k \in \mathbb{R}^{D_{\text{expert}}}$ is synthesized as the gate-weighted combination:
+    {\boldmath
+    \begin{equation}
+    \mathbf{u}_k(\mathbf{x}) = \sum_{i=1}^E g_i^k(\mathbf{x}) \cdot f_i(\mathbf{x})
+    \end{equation}
+    }
+    \item Task-specific tower networks $h^k$ output the calibrated prediction:
+    {\boldmath
+    \begin{equation}
+    \widehat{y}_k = \sigma\left( \mathbf{w}_{\text{tower}}^k \cdot \mathbf{u}_k(\mathbf{x}) + b_{\text{tower}}^k \right) \in [0, 1]
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Conflict of Multi-Task Learning}: When YouTube or Netflix recommends a video, it has to predict two different things: ``Will the user click the thumbnail?'' (Clickbait) and ``Will the user watch for 10 minutes?'' (True Satisfaction). If you force one single brain to predict both, it gets confused because clickbait tactics conflict with high-quality long videos.
+    \item \textbf{A Panel of Diverse Experts}: MMoE trains 4 or 8 shared specialist networks (experts). Some experts specialize in visual appeal; other experts specialize in educational depth or genre matching.
+    \item \textbf{Personalized Gating Dials for Each Task}: Instead of giving every task the same answer, each task gets its own mixing dial (the gate). The Click Tower turns up the volume on the visual appeal experts; the Watch-Time Tower turns up the volume on the educational depth experts.
+    \item \textbf{Eliminating Negative Transfer}: Because each task can ignore experts that harm its objective, all tasks improve simultaneously without sabotaging each other!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a master restaurant kitchen preparing a meal:
+\begin{itemize}
+    \item \textbf{The 4 Specialist Chefs}: Chef 1 makes sweet cakes; Chef 2 grills steaks; Chef 3 tosses fresh salads; Chef 4 bakes breads.
+    \item \textbf{Customer Alice (Task 1: Dessert Party)}: Alice's waiter (Gate 1) takes 90\% of food from the Baker and Cake chef, and 0\% from the Steak chef.
+    \item \textbf{Customer Bob (Task 2: Healthy Dinner)}: Bob's waiter (Gate 2) takes 80\% of food from the Salad chef and 20\% from the Steak chef.
+    \item \textbf{Happy Diners}: Both customers get their dream custom feast from the same kitchen without ever having their orders mixed up!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Shared Expert Feature Transformation}
+{\boldmath
+\begin{equation}
+f_i(\mathbf{x}) = \operatorname{ReLU}\left( W_i^e \mathbf{x} + \mathbf{b}_i^e \right), \quad i \in \{1, \dots, E\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The feed-forward non-linear representation extracted by the $i$-th shared expert sub-network.
+    \item \textbf{What It Means}: Extracts a distinct latent facet of the shared feature space.
+    \item \textbf{Why It Is Important}: Allows expert specialization across sub-domains without duplicating parameter overhead across separate task models.
+\end{itemize}
+
+\subsection{Task-Specific Gating Softmax Operator}
+{\boldmath
+\begin{equation}
+g_i^k(\mathbf{x}) = \frac{\exp\left( \sum_{d=0}^{D-1} W_{g, i, d}^k x_d \right)}{\sum_{j=1}^E \exp\left( \sum_{d=0}^{D-1} W_{g, j, d}^k x_d \right)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The input-dependent softmax probability distribution over experts assigned to task $k$.
+    \item \textbf{What It Means}: Dynamically routes task $k$ toward the experts most competent for the current input profile.
+    \item \textbf{Why It Is Important}: Decouples gradient updates across tasks by allowing task $k$ to allocate zero weight ($g_i^k \approx 0$) to conflicting experts.
+\end{itemize}
+
+\subsection{Task Representation Synthesis}
+{\boldmath
+\begin{equation}
+\mathbf{u}_k = \sum_{i=1}^E g_i^k(\mathbf{x}) \cdot f_i(\mathbf{x})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The convex combination of expert activations weighted by task $k$'s gating network.
+    \item \textbf{What It Means}: Blends multiple expert specializations into a customized latent representation tailored to task $k$.
+    \item \textbf{Why It Is Important}: Retains end-to-end differentiability and allows smooth interpolation between specialized representations.
+\end{itemize}
+
+\subsection{Task Tower Sigmoid Prediction}
+{\boldmath
+\begin{equation}
+\widehat{y}_k = \sigma\left( \mathbf{w}_{\text{tower}}^k \cdot \mathbf{u}_k + b_{\text{tower}}^k \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The task-specific projection mapping blended expert representations to final decision probabilities.
+    \item \textbf{What It Means}: Computes calibrated task output scores (CTR, conversion, engagement) for ranking.
+    \item \textbf{Why It Is Important}: Isolates task-specific classification logic, preventing output scale differences from corrupting shared expert training.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $E$ (expert count), $K$ (task count), $D$ (input dimension), $D_{\text{expert}}$ (expert dimension), $g^k$ (gating vector), $\mathbf{u}_k$ (task representation).
+    \item \textbf{Epistemic Status}: Proposed by Ma et al. (Google Research, KDD 2018), industry standard for multi-task recommendation.
+    \item \textbf{Dependency Graph}: $\mathbf{x} \to [f_1(\mathbf{x}), \dots, f_E(\mathbf{x})]$ and $[g^1(\mathbf{x}), \dots, g^K(\mathbf{x})] \to \mathbf{u}_k = \sum g_i^k f_i \to \widehat{y}_k$.
+    \item \textbf{Dimensions}: Input $\mathbf{x} \in \mathbb{R}^D$, expert output $f_i \in \mathbb{R}^{D_{\text{expert}}}$, gates $g^k \in \Delta^{E-1}$, predictions $\widehat{\mathbf{y}} \in [0, 1]^K$.
+    \item \textbf{Regimes}: Recommender systems balancing multiple objectives (CTR, CVR, dwell time, user satisfaction).
+    \item \textbf{Invariants}: Gating simplex conservation: $\sum_{i=1}^E g_i^k(\mathbf{x}) = 1$ and $g_i^k(\mathbf{x}) > 0$ for all tasks $k$.
+    \item \textbf{Isomorphisms}: When $K=1$, MMoE reduces to a standard Mixture-of-Experts layer; when $W_g^1 = W_g^2 = \cdots = W_g^K$, MMoE collapses to a single-gate shared-mixture model.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Decoupling of Backpropagated Task Gradients]
+Let $\mathcal{L}_k$ denote the loss function for task $k$, and let $\mathcal{L}_{\text{total}} = \sum_{k=1}^K \mathcal{L}_k$. The gradient of the total loss with respect to expert $i$'s parameters $\theta_i^e$ is weighted by task gating probabilities:
+{\boldmath
+\begin{equation}
+\nabla_{\theta_i^e} \mathcal{L}_{\text{total}} = \sum_{k=1}^K g_i^k(\mathbf{x}) \cdot \nabla_{\mathbf{u}_k} \mathcal{L}_k \cdot \frac{\partial f_i}{\partial \theta_i^e}
+\end{equation}
+}
+Consequently, if task $k$ allocates zero weight to expert $i$ ($g_i^k \to 0$), task $k$'s gradients have zero influence on expert $i$.
+\end{theorem}
+
+\begin{proof}
+By the multivariable chain rule, the gradient of task loss $\mathcal{L}_k$ with respect to expert parameters $\theta_i^e$ flows through task representation $\mathbf{u}_k$:
+{\boldmath
+\begin{equation}
+\nabla_{\theta_i^e} \mathcal{L}_k = \nabla_{\mathbf{u}_k} \mathcal{L}_k \cdot \frac{\partial \mathbf{u}_k}{\partial \theta_i^e}
+\end{equation}
+}
+The task representation is defined by:
+{\boldmath
+\begin{equation}
+\mathbf{u}_k = \sum_{j=1}^E g_j^k(\mathbf{x}) \cdot f_j(\mathbf{x})
+\end{equation}
+}
+Differentiating $\mathbf{u}_k$ with respect to $\theta_i^e$:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathbf{u}_k}{\partial \theta_i^e} = g_i^k(\mathbf{x}) \cdot \frac{\partial f_i}{\partial \theta_i^e}
+\end{equation}
+}
+Substituting this back into the task loss gradient:
+{\boldmath
+\begin{equation}
+\nabla_{\theta_i^e} \mathcal{L}_k = g_i^k(\mathbf{x}) \cdot \nabla_{\mathbf{u}_k} \mathcal{L}_k \cdot \frac{\partial f_i}{\partial \theta_i^e}
+\end{equation}
+}
+Summing across all $K$ tasks by linearity of differentiation:
+{\boldmath
+\begin{equation}
+\nabla_{\theta_i^e} \mathcal{L}_{\text{total}} = \sum_{k=1}^K \nabla_{\theta_i^e} \mathcal{L}_k = \sum_{k=1}^K g_i^k(\mathbf{x}) \cdot \nabla_{\mathbf{u}_k} \mathcal{L}_k \cdot \frac{\partial f_i}{\partial \theta_i^e}
+\end{equation}
+}
+If $g_i^k(\mathbf{x}) \to 0$, the $k$-th term vanishes, proving that task $k$ does not perturb the parameters of expert $i$.
+\end{proof}
+
+\begin{theorem}[Containment of Shared-Bottom as a Constrained Subspace]
+The classical Shared-Bottom multi-task architecture is a strict mathematical special case of MMoE. Setting $E=1$ or constraining gating weights $W_g^1 = W_g^2 = \cdots = W_g^K = \mathbf{0}$ yields the exact Shared-Bottom model.
+\end{theorem}
+
+\begin{proof}
+Consider the Shared-Bottom architecture where a single shared network $f_{\text{shared}}(\mathbf{x})$ feeds into $K$ distinct task towers: $\mathbf{u}_k = f_{\text{shared}}(\mathbf{x})$ for all $k \in \{1, \dots, K\}$.
+In MMoE, let $E = 1$.
+The single gate distribution for any task $k$ is:
+{\boldmath
+\begin{equation}
+g_1^k(\mathbf{x}) = \frac{\exp(W_g^k \mathbf{x})}{\exp(W_g^k \mathbf{x})} = 1, \quad \forall k \in \{1, \dots, K\}
+\end{equation}
+}
+Consequently:
+{\boldmath
+\begin{equation}
+\mathbf{u}_k(\mathbf{x}) = \sum_{i=1}^1 g_i^k(\mathbf{x}) f_i(\mathbf{x}) = 1 \cdot f_1(\mathbf{x}) = f_1(\mathbf{x})
+\end{equation}
+}
+Setting $f_1 \equiv f_{\text{shared}}$ reproduces the identical computational graph and forward activations of the Shared-Bottom architecture.
+Because MMoE provides $K$ independent gating parameter matrices $W_g^k$, its parameter hypothesis space strictly subsumes the Shared-Bottom hypothesis space.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: MMoE vs Progressive Layered Extraction (PLE)}
+\textbf{Question:} Why was Progressive Layered Extraction (PLE) developed as an extension of MMoE?\\
+\textbf{Answer:} In MMoE, all experts are shared across all tasks. When two tasks have strong negative correlation (e.g. ad click vs user bounce rate), shared experts can still suffer from partial gradient tug-of-war. PLE resolves this by splitting experts into explicit task-specific experts (dedicated exclusively to Task $k$) and shared experts, stacked across multiple extraction layers.
+
+\textbf{Meta-Question:} How should one choose between MMoE and PLE?\\
+\textbf{Answer:} MMoE is computationally lighter, requires simpler serving infrastructure, and performs exceptionally well when tasks share moderate-to-high positive correlation. PLE is justified on large-scale production engines where tasks exhibit severe negative correlation.
+
+\subsection{Architectural Question 2: Pareto Multi-Task Balancing at Serving Time}
+\textbf{Question:} How are individual task predictions $[\widehat{y}_{\text{CTR}}, \widehat{y}_{\text{CVR}}, \widehat{y}_{\text{Dwell}}]$ combined into a single final ranking score?\\
+\textbf{Answer:} Using business utility scoring functions: $Score = \widehat{y}_{\text{CTR}}^{\alpha} \times \widehat{y}_{\text{CVR}}^{\beta} \times \text{Bid} + \gamma \ln(1 + \widehat{y}_{\text{Dwell}})$, where hyper-parameters $\alpha, \beta, \gamma$ are calibrated via offline Pareto-frontier exploration and online A/B testing to balance commercial revenue against user retention.
+
+\textbf{Meta-Question:} Can expert gating degenerate into selecting only a single expert?\\
+\textbf{Answer:} Yes. Highly confident gating softmax can lead to routing collapse where all tasks select Expert 1 and ignore other experts. This is prevented using entropy regularization on gate distributions or dropout on expert activations.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{MMoE Multi-Task Expert Forward Pass and Task Routing}
+\begin{algorithmic}[1]
+\Require Input vector $\mathbf{x} \in \mathbb{R}^D$, expert weights $W^e \in \mathbb{R}^{E \times D_{\text{expert}} \times D}$, expert biases $\mathbf{b}^e \in \mathbb{R}^{E \times D_{\text{expert}}}$, gate weights $W_g \in \mathbb{R}^{K \times E \times D}$, tower weights $W_{\text{tower}} \in \mathbb{R}^{K \times D_{\text{expert}}}$, tower biases $\mathbf{b}_{\text{tower}} \in \mathbb{R}^K$
+\Ensure Task predictions $\widehat{\mathbf{y}} \in [0, 1]^K$, gate distributions $G \in \mathbb{R}^{K \times E}$, expert outputs $F \in \mathbb{R}^{E \times D_{\text{expert}}}$
+\State Initialize $F \in \mathbb{R}^{E \times D_{\text{expert}}}$
+\For{$i = 0$ \textbf{to} $E-1$} \Comment{Evaluate Shared Experts}
+    \For{$d_e = 0$ \textbf{to} $D_{\text{expert}}-1$}
+        \State $val \gets \sum_{j=0}^{D-1} W^e[i][d_e][j] \cdot \mathbf{x}[j] + \mathbf{b}^e[i][d_e]$
+        \State $F[i][d_e] \gets \max(0.0, val)$
+    \EndFor
+\EndFor
+\State Initialize $\widehat{\mathbf{y}} \in \mathbb{R}^K, \quad G \in \mathbb{R}^{K \times E}$
+\For{$k = 0$ \textbf{to} $K-1$} \Comment{Process Each Task Independently}
+    \State Initialize $\mathbf{g}_{\text{logits}} \in \mathbb{R}^E$
+    \For{$i = 0$ \textbf{to} $E-1$}
+        \State $\mathbf{g}_{\text{logits}}[i] \gets \sum_{j=0}^{D-1} W_g[k][i][j] \cdot \mathbf{x}[j]$
+    \EndFor
+    \State $gl_{\max} \gets \max_i \mathbf{g}_{\text{logits}}[i]$
+    \State $sum\_exp \gets \sum_{i=0}^{E-1} \exp(\mathbf{g}_{\text{logits}}[i] - gl_{\max})$
+    \For{$i = 0$ \textbf{to} $E-1$}
+        \State $G[k][i] \gets \exp(\mathbf{g}_{\text{logits}}[i] - gl_{\max}) / sum\_exp$
+    \EndFor
+    \State Initialize $\mathbf{u}_k \in \mathbb{R}^{D_{\text{expert}}}$ to zeros
+    \For{$i = 0$ \textbf{to} $E-1$} \Comment{Blend Experts for Task k}
+        \State $prob \gets G[k][i]$
+        \For{$d_e = 0$ \textbf{to} $D_{\text{expert}}-1$}
+            \State $\mathbf{u}_k[d_e] \gets \mathbf{u}_k[d_e] + prob \cdot F[i][d_e]$
+        \EndFor
+    \EndFor
+    \State $t\_logit \gets \sum_{d_e=0}^{D_{\text{expert}}-1} W_{\text{tower}}[k][d_e] \cdot \mathbf{u}_k[d_e] + \mathbf{b}_{\text{tower}}[k]$
+    \State $\widehat{\mathbf{y}}[k] \gets (t\_logit \ge 0) \;?\; \frac{1}{1 + \exp(-t\_logit)} : \frac{\exp(t\_logit)}{1 + \exp(t\_logit)}$
+\EndFor
+\State \Return $(\widehat{\mathbf{y}}, G, F)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Expert Computation Time Complexity}: $\Theta(E \cdot D_{\text{expert}} \cdot D)$ scalar operations for shared experts.
+    \item \textbf{Gating Computation Complexity}: $\Theta(K \cdot E \cdot D)$ operations across all task gates.
+    \item \textbf{Task Representation Blending}: $\Theta(K \cdot E \cdot D_{\text{expert}})$ operations.
+    \item \textbf{Tower Evaluation Complexity}: $\Theta(K \cdot D_{\text{expert}})$ operations.
+    \item \textbf{Space Complexity}: $\Theta(E \cdot D_{\text{expert}} + K \cdot E)$ for intermediate activations.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log D + \log E + \log D_{\text{expert}})$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

@@ -1,0 +1,329 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Wasserstein GAN with Gradient Penalty}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Wasserstein-1 Distance and Critic Operator):}
+Let $\mathcal{P}(\mathcal{X})$ denote the space of Borel probability measures with finite first moments on metric space $(\mathcal{X}, \|\cdot\|)$. The \textbf{Wasserstein-1} (Earth Mover's) distance between the real data distribution $\mathbb{P}_r$ and generator distribution $\mathbb{P}_g$ is defined as the optimal transport infimum:
+{\boldmath
+\begin{equation}
+W_1(\mathbb{P}_r, \mathbb{P}_g) = \inf_{\gamma \in \Pi(\mathbb{P}_r, \mathbb{P}_g)} \mathbb{E}_{(\mathbf{x}, \mathbf{y}) \sim \gamma}[\|\mathbf{x} - \mathbf{y}\|]
+\end{equation}
+}
+where $\Pi(\mathbb{P}_r, \mathbb{P}_g)$ is the set of all joint distributions whose marginals are $\mathbb{P}_r$ and $\mathbb{P}_g$. By the \textbf{Kantorovich-Rubinstein Duality Theorem}, this intractable infimum admits an exact supremum representation:
+{\boldmath
+\begin{equation}
+W_1(\mathbb{P}_r, \mathbb{P}_g) = \sup_{\|D\|_L \le 1} \left( \mathbb{E}_{\mathbf{x} \sim \mathbb{P}_r}[D(\mathbf{x})] - \mathbb{E}_{\mathbf{y} \sim \mathbb{P}_g}[D(\mathbf{y})] \right)
+\end{equation}
+}
+where $\|D\|_L \le 1$ denotes the set of 1-Lipschitz scalar functions satisfying $|D(\mathbf{x}) - D(\mathbf{y})| \le \|\mathbf{x} - \mathbf{y}\|_2$. In \textbf{WGAN-GP}, this constraint is enforced not via weight clipping, but via a differentiable penalty on the gradient norm along straight-line interpolations $\hat{\mathbf{x}} = \epsilon \mathbf{x} + (1 - \epsilon)\mathbf{y}$ with $\epsilon \sim \mathcal{U}(0, 1)$:
+{\boldmath
+\begin{equation}
+\mathcal{L}_D^{\text{WGAN-GP}} = \mathbb{E}_{\tilde{\mathbf{x}} \sim \mathbb{P}_g}[D(\tilde{\mathbf{x}})] - \mathbb{E}_{\mathbf{x} \sim \mathbb{P}_r}[D(\mathbf{x})] + \lambda_{\text{gp}} \mathbb{E}_{\hat{\mathbf{x}} \sim \mathbb{P}_{\hat{\mathbf{x}}}} \left[ (\|\nabla_{\hat{\mathbf{x}}} D(\hat{\mathbf{x}})\|_2 - 1)^2 \right]
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Imagine trying to navigate in a dense fog. In a standard GAN, if the generator is completely wrong, the discriminator says: \emph{``0\% real''} across the entire room. Because the fog is equally thick everywhere, the generator has no idea which way to walk to find the real distribution.
+
+The Wasserstein distance solves this by measuring physical work:
+\begin{enumerate}
+    \item \textbf{The Earth Mover Metaphor}: Imagine the generated distribution is a pile of dirt, and the real data distribution is a hole in the ground. The Wasserstein distance is the minimum physical effort (mass $\times$ distance) needed to shovel the dirt into the hole.
+    \item \textbf{Continuous Guidance}: Even if the dirt pile and the hole are completely separated by a mile, the distance changes smoothly as you move the dirt closer. The loss function never becomes flat or saturated.
+    \item \textbf{The 1-Lipschitz Rule}: To keep the scoring fair, the critic cannot change its score faster than the physical distance you travel (its slope is capped at 1).
+    \item \textbf{Gradient Penalty}: Instead of crudely clipping network weights (which ruins capacity), WGAN-GP checks points between real and fake samples and gently nudges the critic's slope toward exactly 1.0.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Sand Mover and the Speedometer Badge}:
+Imagine two giant sandbox piles on a playground:
+\begin{itemize}
+    \item \textbf{The Target Sandbox Pile ($\mathbb{P}_r$)}:
+    The teacher built a neat, tall pyramid of golden sand in the right sandbox.
+    
+    \item \textbf{The Messy Sandbox Pile ($\mathbb{P}_g$)}:
+    You dumped a big bucket of blue sand in the left sandbox.
+    
+    \item \textbf{The Shovel Wheelbarrow Score ($W_1$)}:
+    How hard is it to turn your blue sand into the teacher's pyramid? You measure how many footsteps you have to push your wheelbarrow. Even if the boxes are far apart, moving your pile one step closer makes the journey shorter!
+    
+    \item \textbf{The Speedometer Badge ($\|\nabla D\| \le 1$)}:
+    The playground referee wears a badge that says: \emph{``Speed limit: 1 mile per hour!''} If the referee runs too fast down the hill, his whistle blows. He must walk smoothly so the slope never gets too steep.
+    
+    \item \textbf{The Laser Check ($\lambda_{\text{gp}}$)}:
+    Whenever you walk between the blue sand and the golden sand, a laser checks your speed. If you are walking at exactly 1 step per second, the laser glows green and training runs as smooth as butter!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Kantorovich-Rubinstein Dual Formulation}}
+{\boldmath
+\begin{equation}
+W_1(\mathbb{P}_r, \mathbb{P}_g) = \sup_{\|D\|_L \le 1} \left( \mathbb{E}_{\mathbf{x} \sim \mathbb{P}_r}[D(\mathbf{x})] - \mathbb{E}_{\mathbf{y} \sim \mathbb{P}_g}[D(\mathbf{y})] \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The dual representation of the 1-Wasserstein optimal transport problem over the space of 1-Lipschitz continuous functions.
+    \item \textbf{What It Means}:
+    Expresses the physical effort of transporting probability mass as the maximum possible difference in expectations achievable by a function whose slope never exceeds 1.
+    \item \textbf{Why It Is Important}:
+    Transforms an intractable combinatorial optimization over joint distributions into a tractable expectation maximization solvable by a deep neural network.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Stochastic Linear Interpolation Path}}
+{\boldmath
+\begin{equation}
+\hat{\mathbf{x}} = \epsilon \mathbf{x} + (1 - \epsilon)\mathbf{y}, \quad \mathbf{x} \sim \mathbb{P}_r, \quad \mathbf{y} \sim \mathbb{P}_g, \quad \epsilon \sim \mathcal{U}(0, 1)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    A convex combination of pairs of samples from real and generated distributions, tracing geodesic straight lines connecting $\mathbb{P}_r$ and $\mathbb{P}_g$.
+    \item \textbf{What It Means}:
+    Defines the sampling distribution $\mathbb{P}_{\hat{\mathbf{x}}}$ along the optimal transport trajectories where Lipschitz regularization is strictly necessary.
+    \item \textbf{Why It Is Important}:
+    Restricts the penalty enforcement to relevant geometric paths rather than the entire intractable high-dimensional volume of $\mathbb{R}^{d_x}$.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Differentiable Gradient Penalty Functional}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{GP}} = \mathbb{E}_{\hat{\mathbf{x}} \sim \mathbb{P}_{\hat{\mathbf{x}}}}\left[ \left( \|\nabla_{\hat{\mathbf{x}}} D(\hat{\mathbf{x}})\|_2 - 1 \right)^2 \right]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The two-sided $L_2$ penalty anchoring the Euclidean norm of the critic gradient to unity along transport paths.
+    \item \textbf{What It Means}:
+    Penalizes both slopes that are too steep ($\|\nabla D\| > 1$) and slopes that are too flat ($\|\nabla D\| < 1$), enforcing maximum discriminative slope.
+    \item \textbf{Why It Is Important}:
+    Eliminates pathological gradient collapse and capacity degradation caused by primitive weight clipping ($W \in [-c, c]$).
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Total Penalized Critic Objective}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{critic}} = \mathbb{E}_{\mathbf{y} \sim \mathbb{P}_g}[D(\mathbf{y})] - \mathbb{E}_{\mathbf{x} \sim \mathbb{P}_r}[D(\mathbf{x})] + \lambda_{\text{gp}} \mathcal{L}_{\text{GP}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The composite scalar objective minimized by the critic, balancing optimal transport distance maximization against Lipschitz constraint satisfaction.
+    \item \textbf{What It Means}:
+    The negative of the estimated Wasserstein distance plus the regularization penalty.
+    \item \textbf{Why It Is Important}:
+    Provides a stable loss curve where critic loss directly correlates with generative visual quality.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbb{P}_r, \mathbb{P}_g$: Real and generative probability distributions.
+    \item $D(\mathbf{x}) \in \mathbb{R}$: Unbounded scalar critic evaluation.
+    \item $\hat{\mathbf{x}} \in \mathbb{R}^{d_x}$: Interpolated state vector.
+    \item $\nabla_{\hat{\mathbf{x}}} D(\hat{\mathbf{x}})$: Gradient vector of critic with respect to input.
+    \item $\lambda_{\text{gp}} \in \mathbb{R}_{> 0}$: Gradient penalty regularization coefficient (typically 10.0).
+    \item $W_1$: Estimated Wasserstein-1 distance.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of WGAN-GP Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$\lambda_{\text{gp}}$ & \textbf{Defined} (Penalty weight) & Positive real scalar $\mathbb{R}_{> 0}$ \\
+$D(\mathbf{x}), D(G(\mathbf{z}))$ & \textbf{Calculated} (Critic evaluations) & Unbounded real values $\mathbb{R}$ \\
+$\|\nabla_{\hat{\mathbf{x}}} D\|_2$ & \textbf{Calculated} (Gradient norm) & Non-negative real scalar $\mathbb{R}_{\ge 0}$ \\
+$\mathcal{L}_{\text{critic}}, W_1$ & \textbf{Calculated} (Transport metrics) & Real loss and distance estimates \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{x}, \mathbf{y}) \xrightarrow{\epsilon} \hat{\mathbf{x}} \xrightarrow{D} (\nabla_{\hat{\mathbf{x}}} D, D(\mathbf{x}), D(\mathbf{y})) \longrightarrow (W_1, \mathcal{L}_{\text{GP}}) \xrightarrow{\lambda_{\text{gp}}} \mathcal{L}_{\text{critic}}
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item Critic output $D(\mathbf{x})$: Dimensionless scalar value.
+    \item Input gradient $\nabla_{\hat{\mathbf{x}}} D$: Rank-1 tensor of shape $(d_x)$.
+    \item Wasserstein distance $W_1$: Same dimension as sample metric (Euclidean distance).
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Optimal Coupling Limit ($p_g \to p_r$)}: $W_1 \to 0$ continuously; critic evaluations become flat on data support.
+    \item \textbf{Infinite Support Separation Limit ($\|\mathbf{x} - \mathbf{y}\| \to \infty$)}: $W_1$ grows linearly with Euclidean separation, maintaining non-vanishing gradient $\nabla_{\mathbf{y}} W_1 \ne \mathbf{0}$.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Batch Normalization Incompatibility}: Batch normalization creates inter-sample dependencies across the batch, violating the independent gradient condition $\nabla_{\hat{\mathbf{x}}} D(\hat{\mathbf{x}})$. Layer normalization must be used instead.
+    \item \textbf{Penalty Weight Imbalance}: Too large $\lambda_{\text{gp}}$ over-constrains the critic; too small allows gradient explosion.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Weak Convergence Guarantee}: $W_1(\mathbb{P}_n, \mathbb{P}) \to 0 \Longleftrightarrow \mathbb{P}_n \xrightarrow{\mathcal{D}} \mathbb{P}$. Convergence in $W_1$ is strictly equivalent to weak convergence of probability measures.
+    \item \textbf{Unit Gradient Norm on Geodesics}: The optimal transport potential $D^*$ satisfies $\|\nabla D^*(\mathbf{x})\|_2 = 1$ almost everywhere along transport paths.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Monge-Ampère Equation}: In optimal transport theory, the 1-Lipschitz critic potential solves the boundary-value Monge-Kantorovich problem.
+    \item \textbf{Eikonal Equation}: Enforcing $\|\nabla D(\mathbf{x})\| = 1$ is the classical Eikonal equation governing wave front propagation in geometric optics.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Unit Gradient Norm of Optimal Transport Potentials}]
+Let $\mathbb{P}_r$ and $\mathbb{P}_g$ be probability measures on $\mathbb{R}^{d_x}$ with compact support. Let $D^*$ be the optimal 1-Lipschitz Kantorovich potential attaining the supremum in $W_1(\mathbb{P}_r, \mathbb{P}_g) = \mathbb{E}_{\mathbf{x} \sim \mathbb{P}_r}[D^*(\mathbf{x})] - \mathbb{E}_{\mathbf{y} \sim \mathbb{P}_g}[D^*(\mathbf{y})]$. Let $\gamma^*$ be the optimal transport plan. Then, for any pair $(\mathbf{x}, \mathbf{y})$ in the support of $\gamma^*$, $D^*$ satisfies:
+{\boldmath
+\begin{equation}
+D^*(\mathbf{x}) - D^*(\mathbf{y}) = \|\mathbf{x} - \mathbf{y}\|_2
+\end{equation}
+}
+Furthermore, for almost every point $\hat{\mathbf{x}} = \epsilon \mathbf{x} + (1 - \epsilon)\mathbf{y}$ with $\epsilon \in (0, 1)$, the gradient exists and satisfies:
+{\boldmath
+\begin{equation}
+\|\nabla_{\hat{\mathbf{x}}} D^*(\hat{\mathbf{x}})\|_2 = 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By the Kantorovich duality theorem:
+{\boldmath
+\begin{equation}
+W_1(\mathbb{P}_r, \mathbb{P}_g) = \int D^*(\mathbf{x}) d\mathbb{P}_r(\mathbf{x}) - \int D^*(\mathbf{y}) d\mathbb{P}_g(\mathbf{y}) = \int [D^*(\mathbf{x}) - D^*(\mathbf{y})] d\gamma^*(\mathbf{x}, \mathbf{y})
+\end{equation}
+}
+Since $D^*$ is 1-Lipschitz, $D^*(\mathbf{x}) - D^*(\mathbf{y}) \le \|\mathbf{x} - \mathbf{y}\|_2$ holds for all pairs. Also, by definition of optimal plan:
+{\boldmath
+\begin{equation}
+W_1(\mathbb{P}_r, \mathbb{P}_g) = \int \|\mathbf{x} - \mathbf{y}\|_2 d\gamma^*(\mathbf{x}, \mathbf{y})
+\end{equation}
+}
+Subtracting the two equations:
+{\boldmath
+\begin{equation}
+\int \left( \|\mathbf{x} - \mathbf{y}\|_2 - [D^*(\mathbf{x}) - D^*(\mathbf{y})] \right) d\gamma^*(\mathbf{x}, \mathbf{y}) = 0
+\end{equation}
+}
+Since the integrand is non-negative everywhere, it must vanish $\gamma^*$-almost everywhere:
+{\boldmath
+\begin{equation}
+D^*(\mathbf{x}) - D^*(\mathbf{y}) = \|\mathbf{x} - \mathbf{y}\|_2
+\end{equation}
+}
+Now parameterize the straight-line segment by $t \in [0, 1]$ via $\mathbf{r}(t) = \mathbf{y} + t(\mathbf{x} - \mathbf{y})$, so $\mathbf{r}(0) = \mathbf{y}$ and $\mathbf{r}(1) = \mathbf{x}$. By the fundamental theorem of calculus:
+{\boldmath
+\begin{equation}
+D^*(\mathbf{x}) - D^*(\mathbf{y}) = \int_0^1 \nabla D^*(\mathbf{r}(t)) \cdot \mathbf{r}'(t) \, dt = \int_0^1 \nabla D^*(\mathbf{r}(t)) \cdot (\mathbf{x} - \mathbf{y}) \, dt
+\end{equation}
+}
+By Cauchy-Schwarz and the 1-Lipschitz property $\|\nabla D^*\| \le 1$:
+{\boldmath
+\begin{equation}
+\nabla D^*(\mathbf{r}(t)) \cdot (\mathbf{x} - \mathbf{y}) \le \|\nabla D^*(\mathbf{r}(t))\|_2 \|\mathbf{x} - \mathbf{y}\|_2 \le \|\mathbf{x} - \mathbf{y}\|_2
+\end{equation}
+}
+For the integral to equal $\|\mathbf{x} - \mathbf{y}\|_2$, equality must hold almost everywhere:
+{\boldmath
+\begin{equation}
+\|\nabla D^*(\mathbf{r}(t))\|_2 = 1 \quad \text{and} \quad \nabla D^*(\mathbf{r}(t)) = \frac{\mathbf{x} - \mathbf{y}}{\|\mathbf{x} - \mathbf{y}\|_2}
+\end{equation}
+}
+This proves that the optimal potential has unit gradient norm along the transport paths.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Why Does WGAN-GP Solve Vanishing Gradients When Distributions Have Disjoint Support?}
+\textbf{Question}: Why does the standard GAN fail when data distributions are supported on low-dimensional manifolds with empty intersection, whereas WGAN-GP continues to provide smooth gradients?
+
+\textbf{Meta-Question}: Does changing the topology of probability metric spaces alter optimization tractability?
+
+\textbf{Answer}: In high-dimensional ambient space $\mathbb{R}^{d_x}$, two lower-dimensional manifolds almost never overlap ($p_{\text{data}} \cap p_g = \emptyset$). Under total variation or Jensen-Shannon divergence, the distance is maximal and constant ($D_{\text{JS}} \equiv \log 2$), meaning the loss surface has zero derivative. In contrast, the Wasserstein metric incorporates the underlying Euclidean metric of the space ($\|\mathbf{x} - \mathbf{y}\|$). The distance between two non-overlapping delta functions $\delta_a$ and $\delta_b$ is exactly $|a - b|$, whose derivative with respect to position $b$ is non-zero ($\pm 1$). Thus, optimal transport retains strong, constant directional gradient flow regardless of support overlap.
+
+\subsection{Architectural Question 2: Why Is Weight Clipping Inferior to Gradient Penalty?}
+\textbf{Question}: Original WGAN enforced the Lipschitz constraint by clipping weights to $[-c, c]$. What mathematical pathology does weight clipping cause?
+
+\textbf{Meta-Question}: How does structural parameter constraint distort functional representation capacity?
+
+\textbf{Answer}: Restricting weights to $[-c, c]$ forces the neural network parameters toward the extreme boundary coordinates $\pm c$. This pathological behavior, termed \emph{capacity underuse}, biases the critic toward computing simple, piecewise linear approximations with extreme slopes only along coordinate axes. Furthermore, if $c$ is too large, the critic can take a very long time to reach the 1-Lipschitz boundary; if $c$ is too small, gradients vanish through deep layers. The gradient penalty penalizes function slope directly in input space without restricting the internal parameters, preserving full expressivity.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{Wasserstein GAN with Gradient Penalty Loss Evaluation}
+\label{alg:wgangp}
+\begin{algorithmic}[1]
+\Require Critic real scores $\mathbf{s}_r \in \mathbb{R}^{N_r}$, Critic fake scores $\mathbf{s}_f \in \mathbb{R}^{N_f}$, Interp gradients $\mathbf{G} \in \mathbb{R}^{N_g \times d}$, Weight $\lambda_{\text{gp}} \ge 0$
+\Ensure Critic loss $\mathcal{L}_D$, Generator loss $\mathcal{L}_G$, Distance $W_1$, Gradient penalty $\mathcal{L}_{\text{GP}}$
+\State $S_r \gets \sum_{i=1}^{N_r} s_r[i] / N_r$
+\State $S_f \gets \sum_{j=1}^{N_f} s_f[j] / N_f$
+\State $W_1 \gets S_r - S_f$
+\State $\mathcal{L}_G \gets -S_f$
+\State $L_{\text{gp\_sum}} \gets 0.0$
+\For{$k \gets 1 \textbf{ to } N_g$}
+    \State $\text{norm\_sq} \gets \sum_{d=1}^D G_{k, d}^2$
+    \State $\text{diff} \gets \sqrt{\text{norm\_sq}} - 1.0$
+    \State $L_{\text{gp\_sum}} \gets L_{\text{gp\_sum}} + \text{diff} \cdot \text{diff}$
+\EndFor
+\State $\mathcal{L}_{\text{GP}} \gets L_{\text{gp\_sum}} / N_g$
+\State $\mathcal{L}_D \gets -W_1 + \lambda_{\text{gp}} \cdot \mathcal{L}_{\text{GP}}$
+\State \Return $\{\text{critic\_loss}: \mathcal{L}_D, \text{generator\_loss}: \mathcal{L}_G, \text{wasserstein\_dist}: W_1, \text{gp}: \mathcal{L}_{\text{GP}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Critic expectation: $N_r + N_f$ additions and divisions ($\Theta(N_r + N_f)$ FLOPs).
+        \item Gradient penalty: $N_g \times d$ squarings, square root, and accumulations ($\Theta(N_g d)$ FLOPs).
+        \item Total Time: $\Theta(N_r + N_f + N_g d)$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Auxiliary storage: $\Theta(1)$ scalar floats.
+        \item Total Space: $\Theta(1)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

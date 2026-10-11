@@ -1,0 +1,282 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Spiking Neural Networks and Leaky Integrate-and-Fire Dynamics}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Continuous Leaky Integration, Discontinuous Spike Generation, and Surrogate Derivatives):}
+In computational neuroscience and neuromorphic engineering, the \textbf{Leaky Integrate-and-Fire (LIF)} model describes the subthreshold membrane voltage $V(t)$ of an electrically polarized neuron governed by the continuous-time linear differential equation:
+{\boldmath
+\begin{equation}
+\tau_m \frac{\mathrm{d}V(t)}{\mathrm{d}t} = - (V(t) - V_{\text{rest}}) + R_m I(t)
+\end{equation}
+}
+where $\tau_m = R_m C_m$ is the membrane time constant, $V_{\text{rest}}$ is the resting equilibrium potential (conveniently set to 0), and $I(t)$ is the incoming synaptic current.
+
+In discrete-time simulation with step size $\Delta t$, the subthreshold state updates via the exponential decay factor $\beta = \exp(-\Delta t / \tau_m) \in (0, 1)$:
+{\boldmath
+\begin{equation}
+V[t] = \beta V[t-1] + I[t]
+\end{equation}
+}
+A spike $S[t] \in \{0, 1\}$ is emitted instantaneously when the membrane potential reaches or surpasses the threshold $V_{\text{th}} > 0$:
+{\boldmath
+\begin{equation}
+S[t] = \Theta(V[t] - V_{\text{th}}) = 
+\begin{cases}
+1, & \text{if } V[t] \ge V_{\text{th}} \\
+0, & \text{if } V[t] < V_{\text{th}}
+\end{cases}
+\end{equation}
+}
+Following a spike emission ($S[t] = 1$), the membrane voltage resets immediately to a baseline state according to either:
+{\boldmath
+\begin{align}
+\text{Hard Reset:} \quad V[t] &\gets 0 \\
+\text{Soft Reset:} \quad V[t] &\gets V[t] - V_{\text{th}}
+\end{align}
+}
+Because the Heaviside step function $\Theta$ has zero derivative almost everywhere and undefined derivative at $0$, standard backpropagation through time (BPTT) fails. Spiking neural networks resolve this using a smooth \textbf{Surrogate Gradient} $\sigma'(x)$, such as the fast arc-tangent derivative:
+{\boldmath
+\begin{equation}
+\frac{\partial S}{\partial V} \approx \frac{1}{\pi} \frac{\alpha}{1 + \alpha^2 (V - V_{\text{th}})^2}
+\end{equation}
+}
+where $\alpha > 0$ controls the surrogate gradient bandwidth.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{How the Human Brain Sips 20 Watts of Power}: Modern GPU clusters consume megawatts of power running giant continuous matrix multiplications 100\% of the time, even when nothing changes. The human brain computes at extreme efficiency because billions of neurons stay completely silent until a critical spark of electricity occurs.
+    \item \textbf{Binary Spikes Instead of Floating-Point Decimals}: In standard AI, every layer outputs dense 32-bit floating numbers ($0.8741, -2.1932$). In spiking neural networks, neurons communicate using binary Morse-code pulses: $1$ (spike) or $0$ (silence).
+    \item \textbf{Multiplications Turn into Additions}: When a neuron is silent ($0$), downstream synapses perform zero operations. When a neuron fires ($1$), the receiver simply adds the weight into its bucket without needing expensive multiply-accumulate (MAC) circuitry!
+    \item \textbf{Surrogate Gradients (Training the Un-differentiable)}: You cannot calculate standard derivatives across an on/off light switch. Surrogate gradients replace the step-function switch with a gentle virtual ramp during the backward pass so the AI can learn with standard gradient descent.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a leaky water bucket under a dripping faucet:
+\begin{itemize}
+    \item \textbf{The Leaky Hole}: The bucket has a small hole at the bottom. If water drips slowly, it leaks right out and the bucket stays empty ($\beta V$).
+    \item \textbf{The Sudden Rush of Rain}: If a sudden torrent of rain pours in ($I[t]$), the water level rises faster than it can leak out.
+    \item \textbf{The Tipping Latch}: When the water hits the red line at the top ($V_{\text{th}}$), the bucket trips a mechanical bell: \emph{DING!} (Spike $S=1$!).
+    \item \textbf{The Dump and Reset}: The bell trips a trapdoor that instantly empties the bucket back to zero, ready to collect fresh raindrops!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Subthreshold Discrete Leaky Integration}
+{\boldmath
+\begin{equation}
+V_{\text{decayed}}[t, i] = \beta \cdot V[t-1, i] + I[t, i]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The first-order autoregressive decay and accumulation of input synaptic current.
+    \item \textbf{What It Means}: Blends past membrane charge with fresh external electrical charge while leaking energy exponentially.
+    \item \textbf{Why It Is Important}: Gives each neuron temporal memory, allowing it to integrate information arriving asynchronously over time.
+\end{itemize}
+
+\subsection{Discontinuous Heaviside Firing Condition}
+{\boldmath
+\begin{equation}
+S[t, i] = \Theta(V_{\text{decayed}}[t, i] - V_{\text{th}})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The step-threshold operator producing binary events $\{0, 1\}$.
+    \item \textbf{What It Means}: Emits a binary communication spike if the membrane potential surpasses the action potential threshold.
+    \item \textbf{Why It Is Important}: Enforces event-driven temporal sparsity, cutting energy consumption on neuromorphic hardware.
+\end{itemize}
+
+\subsection{Membrane Reset Dynamics (Hard vs Soft)}
+{\boldmath
+\begin{equation}
+V[t, i] = 
+\begin{cases}
+V_{\text{decayed}}[t, i] \cdot (1 - S[t, i]), & \text{Hard Reset} \\
+V_{\text{decayed}}[t, i] - S[t, i] \cdot V_{\text{th}}, & \text{Soft Reset}
+\end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The state reset mechanism discharging the membrane potential following a spike.
+    \item \textbf{What It Means}: Hard reset clears the membrane to 0; soft reset preserves residual excess charge above threshold.
+    \item \textbf{Why It Is Important}: Soft reset prevents information loss caused by throwing away surplus excitation energy.
+\end{itemize}
+
+\subsection{Fast Arc-Tangent Surrogate Gradient Operator}
+{\boldmath
+\begin{equation}
+\sigma'(u) = \frac{1}{\pi} \frac{\alpha}{1 + \alpha^2 u^2}, \quad u = V_{\text{decayed}} - V_{\text{th}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The continuous, bell-shaped Cauchy-Lorentz surrogate derivative substituting the Dirac delta distribution.
+    \item \textbf{What It Means}: Provides smooth, non-zero gradient flow around the threshold boundary during backpropagation.
+    \item \textbf{Why It Is Important}: Resolves the vanishing/dead gradient problem of discontinuous spiking neurons.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $V$ (membrane voltage), $I$ (synaptic current), $\beta$ (leak factor), $V_{\text{th}}$ (firing threshold), $S$ (binary spike train), $\sigma'$ (surrogate gradient).
+    \item \textbf{Epistemic Status}: Classical bio-physics formulation (Lapicque 1907), modernized for deep learning via surrogate gradients by Neftci et al. (2019).
+    \item \textbf{Dependency Graph}: $V[t-1] \to V_{\text{decayed}}[t] \to (S[t], \sigma'[t]) \to V[t] \to V[t+1]$.
+    \item \textbf{Dimensions}: Currents $I \in \mathbb{R}^{T \times N}$, spikes $S \in \{0, 1\}^{T \times N}$, voltage $V \in \mathbb{R}^N$.
+    \item \textbf{Regimes}: Neuromorphic event-driven computing (Intel Loihi, SynSense Speck), ultra-low-power edge audio/vision processing.
+    \item \textbf{Invariants}: Spike states $S[t, i] \in \{0, 1\}$; subthreshold leak strictly dissipates energy: $\beta \in [0, 1)$.
+    \item \textbf{Isomorphisms}: LIF with surrogate gradients is isomorphic to a Recurrent Neural Network (RNN) with quantized step activation and identity state decay.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Asymptotic Steady-State Voltage under Constant DC Current]
+Let a subthreshold LIF neuron receive constant input current $I[t] = I_0$ for all $t \ge 0$, with leak factor $\beta \in [0, 1)$ and initial voltage $V[0] = 0$. If $I_0 < (1 - \beta) V_{\text{th}}$, the neuron will never fire, and its membrane potential converges asymptotically to the steady-state limit:
+{\boldmath
+\begin{equation}
+\lim_{t \to \infty} V[t] = \frac{I_0}{1 - \beta}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Since $I_0 < (1 - \beta) V_{\text{th}}$, assume no spikes are emitted ($S[t] = 0$).
+The discrete linear recurrence is:
+{\boldmath
+\begin{equation}
+V[t] = \beta V[t-1] + I_0
+\end{equation}
+}
+Unrolling the recurrence from $V[0] = 0$:
+{\boldmath
+\begin{equation}
+V[t] = I_0 \sum_{k=0}^{t-1} \beta^k = I_0 \frac{1 - \beta^t}{1 - \beta}
+\end{equation}
+}
+Since $\beta \in [0, 1)$, $\lim_{t \to \infty} \beta^t = 0$.
+Taking the limit as $t \to \infty$:
+{\boldmath
+\begin{equation}
+\lim_{t \to \infty} V[t] = \frac{I_0}{1 - \beta}
+\end{equation}
+}
+Since by assumption $I_0 < (1 - \beta) V_{\text{th}}$, we have $\frac{I_0}{1 - \beta} < V_{\text{th}}$.
+Because $V[t]$ is strictly monotonically increasing and upper-bounded by $\frac{I_0}{1 - \beta} < V_{\text{th}}$, the membrane potential never crosses the threshold $V_{\text{th}}$, verifying that no spikes are emitted.
+\end{proof}
+
+\begin{theorem}[Bounded Mean Firing Rate]
+Let $T$ denote the total simulation horizon. The temporal mean firing rate $\bar{r}_i = \frac{1}{T} \sum_{t=0}^{T-1} S[t, i]$ of any LIF neuron is strictly bounded on the unit interval:
+{\boldmath
+\begin{equation}
+0 \le \bar{r}_i \le 1
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+At every discrete time step $t \in \{0, \dots, T-1\}$, the spike emission is defined by the indicator function $S[t, i] \in \{0, 1\}$.
+Summing over all $T$ time steps:
+{\boldmath
+\begin{equation}
+0 \le \sum_{t=0}^{T-1} S[t, i] \le \sum_{t=0}^{T-1} 1 = T
+\end{equation}
+}
+Dividing the entire inequality by $T > 0$:
+{\boldmath
+\begin{equation}
+0 \le \frac{1}{T} \sum_{t=0}^{T-1} S[t, i] \le 1
+\end{equation}
+}
+Hence $0 \le \bar{r}_i \le 1$.
+The lower bound is attained when $I[t, i] < (1-\beta)V_{\text{th}}$ (quiescent neuron), and the upper bound is attained when $I[t, i] \ge V_{\text{th}}$ for all $t$ under hard reset (maximum firing saturation).
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Information Transmission via Rate vs Temporal Coding}
+\textbf{Question:} How does an SNN encode information in spike trains?\\
+\textbf{Answer:} There are two primary paradigms: (1) \emph{Rate Coding}, where information is proportional to the total spike count $\bar{r}$ over window $T$, requiring multiple time steps to convey high precision; and (2) \emph{Temporal/Time-to-First-Spike Coding}, where the exact microsecond timestamp of the first spike conveys information with single-spike energy efficiency.
+
+\textbf{Meta-Question:} Which coding scheme is most compatible with surrogate gradient BPTT?\\
+\textbf{Answer:} Rate-like dense burst coding trains reliably with standard Adam optimizers because surrogate gradients flow across many active time steps. Sparse single-spike temporal coding suffers from severe gradient vanishing unless exact spike-timing loss functions (like EventProp or SpikeGrad) are used.
+
+\subsection{Architectural Question 2: Hard Reset vs Soft Reset}
+\textbf{Question:} Why does soft reset outperform hard reset in deep SNN architectures?\\
+\textbf{Answer:} Under hard reset, if a neuron accumulates $V = 1.9$ against threshold $V_{\text{th}} = 1.0$, the voltage resets to $0$, discarding $0.9$ units of excitation charge. Under soft reset, the voltage resets to $1.9 - 1.0 = 0.9$, carrying over the residual energy. This guarantees exact charge conservation and eliminates quantization distortion.
+
+\textbf{Meta-Question:} Is soft reset biologically realistic?\\
+\textbf{Answer:} Biological potassium and sodium ion channels force a hyperpolarization refractory period closer to hard reset. However, in artificial deep networks, soft reset acts as a high-fidelity continuous integrator that maximizes signal-to-noise ratio.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Leaky Integrate-and-Fire Dynamic Simulation with Surrogate Gradients}
+\begin{algorithmic}[1]
+\Require Currents $\mathbf{I} \in \mathbb{R}^{T \times N}$, initial voltage $\mathbf{V}_0 \in \mathbb{R}^N$, leak $\beta \in [0, 1]$, threshold $V_{\text{th}} > 0$, reset mode $\in \{\text{hard}, \text{soft}\}$, surrogate scale $\alpha > 0$
+\Ensure Spike trains $\mathbf{S} \in \{0, 1\}^{T \times N}$, final voltage $\mathbf{V}_{\text{final}} \in \mathbb{R}^N$, firing rates $\mathbf{r} \in \mathbb{R}^N$, surrogate grads $\mathbf{G} \in \mathbb{R}^{T \times N}$
+\State $\mathbf{V} \gets \operatorname{copy}(\mathbf{V}_0), \quad \text{counts} \gets \mathbf{0} \in \mathbb{Z}^N$
+\State Initialize $\mathbf{S} \in \mathbb{Z}^{T \times N}, \quad \mathbf{G} \in \mathbb{R}^{T \times N}$
+\For{$t = 0$ \textbf{to} $T-1$}
+    \For{$i = 0$ \textbf{to} $N-1$}
+        \State $v_{\text{dec}} \gets \beta \cdot \mathbf{V}[i] + \mathbf{I}[t][i]$ \Comment{Leaky Integration}
+        \State $diff \gets v_{\text{dec}} - V_{\text{th}}$
+        \State $spike \gets (diff \ge 0.0) \;?\; 1 : 0$ \Comment{Threshold Check}
+        \State $u \gets \alpha \cdot diff$ \Comment{Arc-Tangent Surrogate Derivative}
+        \State $grad \gets \frac{1}{\pi} \cdot \frac{\alpha}{1.0 + u^2}$
+        \If{$spike = 1$} \Comment{State Reset}
+            \State $\text{counts}[i] \gets \text{counts}[i] + 1$
+            \If{reset mode is soft}
+                \State $\mathbf{V}[i] \gets v_{\text{dec}} - V_{\text{th}}$
+            \Else
+                \State $\mathbf{V}[i] \gets 0.0$
+            \EndIf
+        \Else
+            \State $\mathbf{V}[i] \gets v_{\text{dec}}$
+        \EndIf
+        \State $\mathbf{S}[t][i] \gets spike, \quad \mathbf{G}[t][i] \gets grad$
+    \EndFor
+\EndFor
+\State Initialize $\mathbf{r} \in \mathbb{R}^N$
+\For{$i = 0$ \textbf{to} $N-1$}
+    \State $\mathbf{r}[i] \gets \text{counts}[i] / T$
+\EndFor
+\State \Return $(\mathbf{S}, \mathbf{V}, \mathbf{r}, \mathbf{G})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Dynamic Integration Time Complexity}: $\Theta(T \cdot N)$ scalar operations across all simulation time steps and neurons.
+    \item \textbf{Surrogate Derivative Evaluation}: $\Theta(T \cdot N)$ operations.
+    \item \textbf{Space Complexity}: $\Theta(T \cdot N)$ memory buffers for output spike trains and surrogate computational tapes.
+    \item \textbf{Neuromorphic Hardware Operations}: If total spikes emitted is $M \ll T \cdot N$, synaptic compute complexity drops to $\Theta(M \cdot d_{\text{synapse}})$ sparse additions with zero multiplications.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(T)$ sequential recurrence steps in time; $\Theta(1)$ parallel across the $N$ neurons.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

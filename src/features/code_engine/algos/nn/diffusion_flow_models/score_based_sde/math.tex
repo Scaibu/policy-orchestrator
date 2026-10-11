@@ -1,0 +1,307 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Score-Based Stochastic Differential Equations}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Continuous Score-Based Diffusion and Probability Flow):}
+Let $\mathbf{x} \in \mathbb{R}^D$ and $t \in [0, T]$. The forward diffusion process is governed by an It\^o Stochastic Differential Equation (SDE):
+{\boldmath
+\begin{equation}
+\mathrm{d}\mathbf{x} = \mathbf{f}(\mathbf{x}, t)\,\mathrm{d}t + g(t)\,\mathrm{d}\mathbf{w}
+\end{equation}
+}
+where $\mathbf{f}(\mathbf{x}, t): \mathbb{R}^D \times [0, T] \to \mathbb{R}^D$ is the vector drift coefficient, $g(t): [0, T] \to \mathbb{R}$ is the scalar diffusion coefficient, and $\mathbf{w}$ is standard $D$-dimensional Brownian motion. In the Variance Preserving (VP) formulation, $\mathbf{f}(\mathbf{x}, t) = -\frac{1}{2}\beta(t)\mathbf{x}$ and $g(t) = \sqrt{\beta(t)}$.
+
+By Anderson's theorem (1982), the reverse-time process running from $t = T$ down to $t = 0$ satisfies the reverse-time SDE:
+{\boldmath
+\begin{equation}
+\mathrm{d}\mathbf{x} = \left[ \mathbf{f}(\mathbf{x}, t) - g(t)^2 \nabla_\mathbf{x} \log p_t(\mathbf{x}) \right] \mathrm{d}t + g(t)\,\mathrm{d}\bar{\mathbf{w}}
+\end{equation}
+}
+where $\mathrm{d}t$ is negative time increment, $\bar{\mathbf{w}}$ is a standard Brownian motion flowing backward, and $\nabla_\mathbf{x} \log p_t(\mathbf{x})$ denotes the spatial Stein score function of the marginal density $p_t(\mathbf{x})$.
+
+Remarkably, there exists a deterministic Ordinary Differential Equation (ODE), termed the \textbf{Probability Flow ODE}, whose trajectories share the exact same marginal probability densities $\{p_t(\mathbf{x})\}_{t=0}^T$ as the forward and reverse SDEs:
+{\boldmath
+\begin{equation}
+\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{f}(\mathbf{x}, t) - \frac{1}{2}g(t)^2 \nabla_\mathbf{x} \log p_t(\mathbf{x})
+\end{equation}
+}
+A parameterized neural network $\mathbf{s}_\theta(\mathbf{x}, t) \approx \nabla_\mathbf{x} \log p_t(\mathbf{x})$ trained via continuous denoising score matching enables both stochastic generation (reverse SDE) and deterministic reversible encoding/likelihood computation (Probability Flow ODE).
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The River of Noise}: Instead of thinking of noise as 1,000 separate camera clicks, imagine a smooth, continuous flowing river. A clean photo placed into the river smoothly dissolves as water currents push and jitter its particles over continuous time $t \in [0, 1]$.
+    \item \textbf{The Mountain Slope (The Score)}: At every second of time, the probability of where pictures can exist forms a mountain landscape in high dimensions. The ``Score'' is a vector of arrows pointing directly up the steepest hill towards realistic images. If you are lost in a foggy valley of static noise, the score is a compass pointing uphill toward meaningful objects.
+    \item \textbf{Two Ways to Hike Back}:
+    \begin{itemize}
+        \item \textbf{Stochastic Hiking (Reverse SDE)}: You follow the compass uphill, but you also take small random jittery steps (Brownian motion). This explores different mountain peaks, generating diverse paintings every time you run it.
+        \item \textbf{Deterministic Rail (Probability Flow ODE)}: You follow the smooth average flow of the arrows without taking any random steps. This turns the process into a two-way street: you can turn an image into exact static noise code, and run it backward to get the exact original image back without losing a single pixel.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine you have a sandcastle on the beach:
+\begin{itemize}
+    \item \textbf{The Forward SDE}: Gentle, steady ocean waves wash over the sandcastle for 10 minutes. Each grain of sand gets shaken and drifted until the castle is completely smoothed out into a flat, level sandbar (pure random noise).
+    \item \textbf{The Score}: While the waves are washing the sand, a magical laser creates a 3D arrow above every grain of sand showing which direction it was pushed from.
+    \item \textbf{The Reverse Miracle}: When you play the film backward, you use those 3D arrows to push every grain of sand back up into towers, walls, and bridges. Even if you start with an entirely flat patch of sand, following the arrows rebuilds an intricate castle out of nowhere!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{The Continuous Forward VP-SDE}
+{\boldmath
+\begin{equation}
+\mathrm{d}\mathbf{x} = -\frac{1}{2}\beta(t)\mathbf{x}\,\mathrm{d}t + \sqrt{\beta(t)}\,\mathrm{d}\mathbf{w}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The It\^o SDE defining the continuous limit of the DDPM Markov chain where drift is linear contraction and diffusion is scaled Brownian increments.
+    \item \textbf{What It Means}: In an infinitesimally small interval $\mathrm{d}t$, the state shrinks toward the origin by $\frac{1}{2}\beta(t)\mathbf{x}\,\mathrm{d}t$ and receives a spherical Gaussian random displacement of variance $\beta(t)\,\mathrm{d}t$.
+    \item \textbf{Why It Is Important}: It guarantees that as $t \to \infty$, the stationary distribution converges smoothly and exponentially to a standard isotropic Gaussian $\mathcal{N}(\mathbf{0}, \mathbf{I})$.
+\end{itemize}
+
+\subsection{Anderson's Reverse-Time SDE}
+{\boldmath
+\begin{equation}
+\mathrm{d}\mathbf{x} = \left[ -\frac{1}{2}\beta(t)\mathbf{x} - \beta(t) \nabla_\mathbf{x} \log p_t(\mathbf{x}) \right]\mathrm{d}t + \sqrt{\beta(t)}\,\mathrm{d}\bar{\mathbf{w}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The exact time-reversal of the forward diffusion SDE where time flows backward from $t = T$ to $t = 0$.
+    \item \textbf{What It Means}: Reversing diffusion requires adding an extra deterministic drift term $-\beta(t)\nabla_\mathbf{x}\log p_t(\mathbf{x})$ that counteracts entropy and pushes probability mass back into high-density image regions.
+    \item \textbf{Why It Is Important}: Proves that knowing only the score function $\nabla_\mathbf{x} \log p_t(\mathbf{x})$ is sufficient to generate authentic samples from noise without computing the intractable partition function $Z_t$.
+\end{itemize}
+
+\subsection{The Probability Flow ODE}
+{\boldmath
+\begin{equation}
+\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = -\frac{1}{2}\beta(t)\mathbf{x} - \frac{1}{2}\beta(t) \nabla_\mathbf{x} \log p_t(\mathbf{x})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The deterministic dynamical system whose trajectory distribution $q_t(\mathbf{x})$ matches $p_t(\mathbf{x})$ for all $t \in [0, T]$.
+    \item \textbf{What It Means}: Halving the score drift coefficient completely eliminates the stochastic Brownian diffusion term while preserving identical marginal density cross-sections.
+    \item \textbf{Why It Is Important}: Connects diffusion models directly to Continuous Normalizing Flows (CNFs), enabling exact likelihood calculation via the Instantaneous Change of Variables formula and ultra-fast adaptive ODE solvers.
+\end{itemize}
+
+\subsection{Continuous Score Matching Objective}
+{\boldmath
+\begin{equation}
+\mathcal{L}(\theta) = \int_0^T \lambda(t)\, \mathbb{E}_{\mathbf{x}_0 \sim p_0, \mathbf{x}_t \sim p_{t|0}(\mathbf{x}_t|\mathbf{x}_0)}\left[ \left\| \mathbf{s}_\theta(\mathbf{x}_t, t) - \nabla_{\mathbf{x}_t}\log p_{t|0}(\mathbf{x}_t|\mathbf{x}_0) \right\|_2^2 \right] \mathrm{d}t
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The weighted Fisher divergence regression between the parameterized score network $\mathbf{s}_\theta$ and the analytic transition score.
+    \item \textbf{What It Means}: Since $p_{t|0}(\mathbf{x}_t|\mathbf{x}_0) = \mathcal{N}\left(\mathbf{x}_t; \mu(t)\mathbf{x}_0, \sigma^2(t)\mathbf{I}\right)$, its score is analytically known as $-\frac{\mathbf{x}_t - \mu(t)\mathbf{x}_0}{\sigma^2(t)}$, making supervised training simple and globally stable.
+    \item \textbf{Why It Is Important}: Avoids computing intractable marginal densities by using conditional denoising score matching which shares the exact same optimal estimator.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{x} \in \mathbb{R}^D$: State vector (image or latent feature).
+    \item $t \in [0, T]$: Continuous time parameter.
+    \item $\beta(t) \in \mathbb{R}^+$: Continuous noise schedule rate.
+    \item $\mathbf{w}, \bar{\mathbf{w}} \in \mathbb{R}^D$: Standard forward and backward Brownian motion vectors.
+    \item $\nabla_\mathbf{x} \log p_t(\mathbf{x}) \in \mathbb{R}^D$: Stein spatial score function vector.
+    \item $\mathbf{s}_\theta(\mathbf{x}, t) \in \mathbb{R}^D$: Score prediction network parameterized by weights $\theta$.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Continuous Drift & $\mathbf{f}(\mathbf{x}, t)$ & Axiomatic / Prescribed & Contraction towards Gaussian base prior \\
+Continuous Diffusion & $g(t) = \sqrt{\beta(t)}$ & Axiomatic / Scheduled & Controls rate of Brownian variance injection \\
+Ground Truth Score & $\nabla_\mathbf{x} \log p_t(\mathbf{x})$ & Intractable Ground Truth & Vector field driving reverse trajectory \\
+Parametric Score & $\mathbf{s}_\theta(\mathbf{x}, t)$ & Empirically Learned & Neural network approximation of the score \\
+Probability Flow Drift & $\mathbf{v}_{\text{ODE}}(\mathbf{x}, t)$ & Analytically Derived & Deterministic vector field for flow ODE \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\beta(t) \longrightarrow \{g(t), \mathbf{f}(\mathbf{x}_t, t)\} \longrightarrow \text{Forward SDE} \longrightarrow p_t(\mathbf{x}_t) \longrightarrow \nabla \log p_t \longrightarrow \mathbf{s}_\theta(\mathbf{x}, t) \longrightarrow \{\text{Reverse SDE}, \text{Flow ODE}\}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All vector quantities $\mathbf{x}$, $\mathbf{f}$, $\mathrm{d}\mathbf{w}$, $\nabla_\mathbf{x}\log p_t$, and $\mathbf{s}_\theta$ reside strictly in $\mathbb{R}^D$. All temporal scalars $t$, $\beta(t)$, $\mathrm{d}t$, and $g(t)$ reside in $\mathbb{R}$. The units of the score are $[\mathbf{x}]^{-1}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{As $t \to 0$}: Marginal density $p_0(\mathbf{x})$ is the true data distribution; score diverges near thin manifold boundaries.
+    \item \textbf{As $t \to T$}: Total accumulated variance saturates; $p_T(\mathbf{x}) \to \mathcal{N}(\mathbf{0}, \mathbf{I})$ and $\nabla_\mathbf{x} \log p_T(\mathbf{x}) \to -\mathbf{x}$.
+    \item \textbf{As $\mathrm{d}t \to 0$}: Discrete Euler-Maruyama discretization converges weakly and strongly to the continuous It\^o solution.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Variance Preservation}: Under $\mathbf{f}(\mathbf{x}, t) = -\frac{1}{2}\beta(t)\mathbf{x}$ and $g(t) = \sqrt{\beta(t)}$, if $\operatorname{Cov}(\mathbf{x}_0) = \mathbf{I}$, then $\operatorname{Cov}(\mathbf{x}_t) = \mathbf{I}$ for all $t \ge 0$.
+    \item \textbf{Density Matching}: The marginal distribution of the reverse SDE and the Probability Flow ODE are strictly identical for all $t \in [0, T]$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+The Probability Flow ODE is isomorphic to a Continuous Normalizing Flow (CNF) with vector field $\mathbf{u}(\mathbf{x}, t) = \mathbf{f}(\mathbf{x}, t) - \frac{1}{2}g(t)^2 \mathbf{s}_\theta(\mathbf{x}, t)$.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Fokker-Planck Equivalence of the Probability Flow ODE]
+Let $p_t(\mathbf{x})$ denote the transition probability density governed by the forward SDE $\mathrm{d}\mathbf{x} = \mathbf{f}(\mathbf{x}, t)\,\mathrm{d}t + g(t)\,\mathrm{d}\mathbf{w}$. Then the deterministic trajectory generated by the ODE
+{\boldmath
+\begin{equation}
+\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{f}(\mathbf{x}, t) - \frac{1}{2}g(t)^2 \nabla_\mathbf{x} \log p_t(\mathbf{x})
+\end{equation}
+}
+has a time-dependent marginal distribution that identically satisfies $q_t(\mathbf{x}) = p_t(\mathbf{x})$ for all $t \in [0, T]$.
+\end{theorem}
+
+\begin{proof}
+The forward It\^o SDE induces a time-evolution on $p_t(\mathbf{x})$ governed by the Fokker-Planck (Kolmogorov forward) partial differential equation:
+{\boldmath
+\begin{equation}
+\frac{\partial p_t(\mathbf{x})}{\partial t} = -\sum_{i=1}^D \frac{\partial}{\partial x_i}\left[ f_i(\mathbf{x}, t) p_t(\mathbf{x}) \right] + \frac{1}{2} g(t)^2 \sum_{i=1}^D \frac{\partial^2 p_t(\mathbf{x})}{\partial x_i^2}
+\end{equation}
+}
+Rewriting in vector divergence notation:
+{\boldmath
+\begin{equation}
+\frac{\partial p_t(\mathbf{x})}{\partial t} = -\nabla_\mathbf{x} \cdot \left[ \mathbf{f}(\mathbf{x}, t) p_t(\mathbf{x}) \right] + \frac{1}{2} g(t)^2 \nabla_\mathbf{x} \cdot \left[ \nabla_\mathbf{x} p_t(\mathbf{x}) \right]
+\end{equation}
+}
+Using the identity $\nabla_\mathbf{x} p_t(\mathbf{x}) = p_t(\mathbf{x}) \nabla_\mathbf{x} \log p_t(\mathbf{x})$, we rewrite the second term:
+{\boldmath
+\begin{equation}
+\frac{1}{2} g(t)^2 \nabla_\mathbf{x} \cdot \left[ \nabla_\mathbf{x} p_t(\mathbf{x}) \right] = \nabla_\mathbf{x} \cdot \left[ \frac{1}{2} g(t)^2 p_t(\mathbf{x}) \nabla_\mathbf{x} \log p_t(\mathbf{x}) \right]
+\end{equation}
+}
+Combining both divergence operators yields:
+{\boldmath
+\begin{equation}
+\frac{\partial p_t(\mathbf{x})}{\partial t} = -\nabla_\mathbf{x} \cdot \left[ \left( \mathbf{f}(\mathbf{x}, t) - \frac{1}{2} g(t)^2 \nabla_\mathbf{x} \log p_t(\mathbf{x}) \right) p_t(\mathbf{x}) \right]
+\end{equation}
+}
+Now consider any deterministic continuous ODE $\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{v}(\mathbf{x}, t)$. The continuity equation governing its transport density $q_t(\mathbf{x})$ is:
+{\boldmath
+\begin{equation}
+\frac{\partial q_t(\mathbf{x})}{\partial t} = -\nabla_\mathbf{x} \cdot \left[ \mathbf{v}(\mathbf{x}, t) q_t(\mathbf{x}) \right]
+\end{equation}
+}
+Equating vector fields gives $\mathbf{v}(\mathbf{x}, t) = \mathbf{f}(\mathbf{x}, t) - \frac{1}{2} g(t)^2 \nabla_\mathbf{x} \log p_t(\mathbf{x})$. Since $q_0(\mathbf{x}) = p_0(\mathbf{x})$ at boundary $t = 0$, by uniqueness of solutions to first-order linear parabolic transport equations, $q_t(\mathbf{x}) = p_t(\mathbf{x})$ for all $t \in [0, T]$.
+\end{proof}
+
+\begin{theorem}[Instantaneous Exact Log-Likelihood Computation]
+Let $\mathbf{x}(t)$ follow the Probability Flow ODE from $t = 0$ to $t = T$. Then the exact log-likelihood of data $\mathbf{x}(0)$ is given by:
+{\boldmath
+\begin{equation}
+\log p_0(\mathbf{x}(0)) = \log p_T(\mathbf{x}(T)) + \int_0^T \operatorname{div}\left( \mathbf{v}(\mathbf{x}(t), t) \right) \mathrm{d}t
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By the Instantaneous Change of Variables theorem for ODE continuous dynamics, the total derivative of log-density along an individual particle trajectory $\mathbf{x}(t)$ is:
+{\boldmath
+\begin{equation}
+\frac{\mathrm{d}}{\mathrm{d}t} \log p_t(\mathbf{x}(t)) = \frac{\partial \log p_t}{\partial t} + \nabla_\mathbf{x} \log p_t(\mathbf{x}(t)) \cdot \frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t}
+\end{equation}
+}
+Substituting the continuity equation $\frac{\partial p_t}{\partial t} = -\nabla_\mathbf{x} \cdot (p_t \mathbf{v})$:
+{\boldmath
+\begin{equation}
+\frac{\partial \log p_t}{\partial t} = \frac{1}{p_t}\frac{\partial p_t}{\partial t} = -\frac{1}{p_t}\left[ p_t \operatorname{div}(\mathbf{v}) + \mathbf{v} \cdot \nabla_\mathbf{x} p_t \right] = -\operatorname{div}(\mathbf{v}) - \mathbf{v} \cdot \nabla_\mathbf{x} \log p_t
+\end{equation}
+}
+Since $\frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{v}(\mathbf{x}(t), t)$, the directional derivative terms cancel exactly:
+{\boldmath
+\begin{equation}
+\frac{\mathrm{d}}{\mathrm{d}t} \log p_t(\mathbf{x}(t)) = -\operatorname{div}(\mathbf{v}(\mathbf{x}(t), t)) - \mathbf{v} \cdot \nabla_\mathbf{x} \log p_t + \mathbf{v} \cdot \nabla_\mathbf{x} \log p_t = -\operatorname{div}(\mathbf{v}(\mathbf{x}(t), t))
+\end{equation}
+}
+Integrating both sides from $t = 0$ to $t = T$:
+{\boldmath
+\begin{equation}
+\log p_T(\mathbf{x}(T)) - \log p_0(\mathbf{x}(0)) = -\int_0^T \operatorname{div}(\mathbf{v}(\mathbf{x}(t), t)) \mathrm{d}t
+\end{equation}
+}
+Rearranging terms yields the exact claim.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: SDE versus Probability Flow ODE}
+\textbf{Question:} When should a generative pipeline sample via the stochastic reverse SDE versus the deterministic Probability Flow ODE?\\
+\textbf{Answer:} Reverse SDE sampling is preferred when sample perceptual diversity and tolerance to score estimation errors are critical; the Brownian diffusion injects noise that self-corrects off-manifold trajectories. The Probability Flow ODE is chosen when deterministic encoding (inversion), interpolation in latent space, or exact likelihood computation is required.
+
+\textbf{Meta-Question:} Does the determinism of the Probability Flow ODE contradict the probabilistic nature of generative modeling?\\
+\textbf{Answer:} No. The randomness is entirely concentrated in the initial boundary condition $\mathbf{x}_T \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$. Once the initial seed is drawn, transport to data space is a deterministic diffeomorphism, preserving measure conservation identically.
+
+\subsection{Architectural Question 2: Divergence Computation Scalability}
+\textbf{Question:} How is the divergence $\operatorname{div}(\mathbf{v}) = \sum_{i=1}^D \frac{\partial v_i}{\partial x_i}$ computed efficiently in million-dimensional spaces?\\
+\textbf{Answer:} Direct backpropagation requires $D$ separate passes, which is computationally prohibitive. Hutchinson's trace estimator approximates the divergence using unbiased random projections $\mathbb{E}_{\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})}[\boldsymbol{\epsilon}^T \nabla_\mathbf{x} (\mathbf{v}^T \boldsymbol{\epsilon})]$, computed in a single vector-Jacobian product pass.
+
+\textbf{Meta-Question:} Does stochastic approximation of divergence undermine exact likelihood guarantees?\\
+\textbf{Answer:} Hutchinson's estimator is strictly unbiased: the expected value is identical to the exact trace. While single-sample variance exists, averaging over Monte Carlo vectors gives arbitrary precision without systematic bias.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{Continuous Score-Based Reverse SDE and Flow ODE Integration}
+\begin{algorithmic}[1]
+\Require Spatial state $\mathbf{x} \in \mathbb{R}^D$, predicted score $\mathbf{s}_\theta \in \mathbb{R}^D$, noise rate $\beta_t > 0$, step size $\Delta t > 0$, standard noise $\mathbf{z} \in \mathbb{R}^D$
+\Ensure Reverse SDE state $\mathbf{x}_{\text{sde}}$, Flow ODE drift $\mathbf{v}_{\text{ode}}$, Reverse ODE state $\mathbf{x}_{\text{ode}}$, score $L_2$ norm
+\State $\mathbf{f}_{\text{drift}} \gets -\frac{1}{2} \beta_t \mathbf{x}$
+\State $g^2 \gets \beta_t$
+\State $g \gets \sqrt{\beta_t}$
+\State $\mathbf{v}_{\text{ode}} \gets \mathbf{f}_{\text{drift}} - 0.5 \cdot g^2 \cdot \mathbf{s}_\theta$
+\State $\mathbf{v}_{\text{sde\_drift}} \gets \mathbf{f}_{\text{drift}} - g^2 \cdot \mathbf{s}_\theta$
+\State $\mathbf{x}_{\text{sde}} \gets \mathbf{x} - \mathbf{v}_{\text{sde\_drift}} \cdot \Delta t + g \sqrt{\Delta t} \cdot \mathbf{z}$
+\State $\mathbf{x}_{\text{ode}} \gets \mathbf{x} - \mathbf{v}_{\text{ode}} \cdot \Delta t$
+\State $\text{score\_norm} \gets \sqrt{\sum_{i=1}^D (\mathbf{s}_\theta[i])^2}$
+\State \Return $(\mathbf{x}_{\text{sde}}, \mathbf{v}_{\text{ode}}, \mathbf{x}_{\text{ode}}, \text{score\_norm})$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Integration Step Time Complexity}: $\Theta(D)$ scalar operations per step given the evaluated score vector $\mathbf{s}_\theta$.
+    \item \textbf{Total Sampling Trajectory Time Complexity}: For $N = T / \Delta t$ discretized steps, total runtime is $\Theta(N \cdot (D + \mathcal{C}_{\text{NN}}))$, where $\mathcal{C}_{\text{NN}}$ is the neural network forward pass cost.
+    \item \textbf{Space Complexity}: $\Theta(D)$ auxiliary memory required to store state and Brownian increment buffers.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(N \cdot D)$; parallel depth across spatial coordinates is $\mathcal{D} = \Theta(N \cdot \log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

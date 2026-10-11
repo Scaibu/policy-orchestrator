@@ -1,0 +1,319 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Energy-Based Models and Restricted Boltzmann Machines}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Energy-Based Density and Restricted Boltzmann Machine):}
+Let $\mathbf{v} \in \{0, 1\}^{D_v}$ or $\mathbb{R}^{D_v}$ denote visible observations and $\mathbf{h} \in \{0, 1\}^{D_h}$ denote latent binary features. An \textbf{Energy-Based Model} (EBM) specifies probability density via a scalar energy function $E_\theta(\mathbf{v}, \mathbf{h})$ governed by the Gibbs-Boltzmann distribution:
+{\boldmath
+\begin{equation}
+p_\theta(\mathbf{v}, \mathbf{h}) = \frac{1}{Z_\theta} \exp(-E_\theta(\mathbf{v}, \mathbf{h})), \qquad Z_\theta = \sum_{\mathbf{v}'} \sum_{\mathbf{h}'} \exp(-E_\theta(\mathbf{v}', \mathbf{h}'))
+\end{equation}
+}
+where $Z_\theta$ is the normalizing partition function. In a bipartite \textbf{Restricted Boltzmann Machine} (RBM), no intra-layer connections exist between visible units or between hidden units, defining the quadratic energy function:
+{\boldmath
+\begin{equation}
+E(\mathbf{v}, \mathbf{h}) = -\mathbf{a}^\top \mathbf{v} - \mathbf{b}^\top \mathbf{h} - \mathbf{h}^\top \mathbf{W} \mathbf{v}
+\end{equation}
+}
+Marginalizing over all $2^{D_h}$ hidden configurations yields the closed-form \textbf{Free Energy} $\mathcal{F}(\mathbf{v})$:
+{\boldmath
+\begin{equation}
+\mathcal{F}(\mathbf{v}) = -\mathbf{a}^\top \mathbf{v} - \sum_{j=1}^{D_h} \operatorname{softplus}\left( \mathbf{W}_{j, :}^\top \mathbf{v} + b_j \right), \quad \operatorname{softplus}(u) = \ln(1 + e^u)
+\end{equation}
+}
+such that marginal probability satisfies $p_\theta(\mathbf{v}) = \frac{e^{-\mathcal{F}(\mathbf{v})}}{Z_\theta}$. The model parameters are optimized via \textbf{Contrastive Divergence} (CD-$k$), approximating the intractable gradient of the partition function with a $k$-step Markov chain Monte Carlo (MCMC) sample $\mathbf{v}^{(k)}$:
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{W}} \log p(\mathbf{v}) \approx \mathbb{E}_{p(\mathbf{h} \mid \mathbf{v}^{(0)})}[\mathbf{h}^{(0)} (\mathbf{v}^{(0)})^\top] - \mathbb{E}_{p(\mathbf{h} \mid \mathbf{v}^{(k)})}[\mathbf{h}^{(k)} (\mathbf{v}^{(k)})^\top]
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Most machine learning systems are forced to output probabilities that strictly sum to 100\%. In high dimensions, calculating the total sum of all possible images in the universe (the partition function) is mathematically impossible—there are more possible pixel combinations than atoms in the cosmos.
+
+Energy-Based Models (EBMs) throw away the requirement that probabilities must sum to 100\%:
+\begin{enumerate}
+    \item \textbf{The Energy Landscape}: Instead of computing probabilities, the model acts like a sculptor carving hills and valleys into a landscape. Real data points (cat photos) are placed at the very bottom of deep, comfortable valleys (low energy). Unrealistic noise is placed high up on steep mountain peaks (high energy).
+    \item \textbf{Restricted Connections}: By only allowing connections between visible pixels and hidden concepts (no pixel-to-pixel connections), we can solve the hidden math analytically.
+    \item \textbf{Contrastive Divergence (The Bulldozer)}: To train the model, we use a two-phase process:
+    \begin{itemize}
+        \item \emph{Positive Phase}: Push down on the valley where real data lives (lower energy for real data).
+        \item \emph{Negative Phase}: Let a marble roll down the hill for 1 step, find where the model's imagination drifts, and push that spot UP (raise energy for fake data).
+    \end{itemize}
+    \item \textbf{Equilibrium}: Eventually, valleys only exist where real data lives, and all fake data is perched on steep, forbidden peaks.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Trampoline and the Heavy Bowling Balls}:
+Imagine a giant, stretchy trampoline:
+\begin{itemize}
+    \item \textbf{The Heavy Bowling Balls (Real Data $\mathbf{v}^{(0)}$)}:
+    Every real picture of an animal is a heavy bowling ball. When you place it on the trampoline, it creates a deep, curved dip in the canvas (low energy).
+    
+    \item \textbf{The Wooden Blocks (Hidden Units $\mathbf{h}$)}:
+    Underneath the trampoline are wooden levers. When a bowling ball lands, it pulls certain levers down, locking the shape of the dip into place.
+    
+    \item \textbf{The Rolling Marble (Gibbs Sampling $\mathbf{v}^{(1)}$)}:
+    You drop a light marble near the dip. It rolls down the slope toward the bottom of the bowl. Wherever the marble stops is what the machine thinks a bowling ball looks like.
+    
+    \item \textbf{The Shovel and the Jack (Contrastive Divergence)}:
+    If the marble stops in the wrong place, you grab a shovel and dig the real bowling ball's spot deeper (push energy down), and you take a car jack and push the marble's wrong spot higher into the air (push energy up)!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Gibbs-Boltzmann Distribution and Partition Function}}
+{\boldmath
+\begin{equation}
+p_\theta(\mathbf{v}) = \frac{\exp(-\mathcal{F}_\theta(\mathbf{v}))}{Z_\theta}, \qquad Z_\theta = \int_{\mathcal{V}} \exp(-\mathcal{F}_\theta(\mathbf{v}')) \, d\mathbf{v}'
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The canonical Gibbs probability measure mapping configuration state $\mathbf{v}$ to a normalized density via the exponential of its negative free energy.
+    \item \textbf{What It Means}:
+    Low energy states have exponentially high probability; high energy states have exponentially low probability.
+    \item \textbf{Why It Is Important}:
+    Provides a universal formulation for probabilistic physics and generative modeling without requiring normalized autoregressive or Jacobian-constrained architectures.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Analytical Marginal Free Energy}}
+{\boldmath
+\begin{equation}
+\mathcal{F}(\mathbf{v}) = -\mathbf{a}^\top \mathbf{v} - \sum_{j=1}^{D_h} \ln\left( 1 + \exp\left( \mathbf{W}_{j, :}^\top \mathbf{v} + b_j \right) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The effective energy of the visible units obtained by marginalizing over all $2^{D_h}$ discrete binary states of the hidden layer.
+    \item \textbf{What It Means}:
+    Allows exact, closed-form evaluation of visible energy in $\mathcal{O}(D_v D_h)$ time, completely avoiding combinatorial summation over hidden unit permutations.
+    \item \textbf{Why It Is Important}:
+    Enables exact energy ranking and gradient computation with respect to visible input features.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Contrastive Divergence CD-1 Gradient Estimate}}
+{\boldmath
+\begin{equation}
+\nabla_{\mathbf{W}} \mathcal{L}_{\text{CD}} = \mathbf{h}^{(0)} (\mathbf{v}^{(0)})^\top - \mathbf{h}^{(1)} (\mathbf{v}^{(1)})^\top
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The biased, low-variance approximation to the log-likelihood gradient computed by truncating the Gibbs Markov chain after a single sampling step.
+    \item \textbf{What It Means}:
+    The difference between the empirical correlation of data and the reconstructed correlation of model imagination.
+    \item \textbf{Why It Is Important}:
+    Circumvents the computational impossibility of running Markov chains to infinite stationary mixing, making deep Boltzmann machines trainable in practice.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Bipartite Conditional Activation Probabilities}}
+{\boldmath
+\begin{equation}
+p(h_j = 1 \mid \mathbf{v}) = \sigma(\mathbf{W}_{j, :}^\top \mathbf{v} + b_j), \qquad p(v_i = 1 \mid \mathbf{h}) = \sigma(\mathbf{W}_{:, i}^\top \mathbf{h} + a_i)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The factorial conditional distributions derived from the absence of lateral intra-layer connections in the bipartite graph.
+    \item \textbf{What It Means}:
+    All hidden units can be sampled in parallel given visible units, and all visible units can be sampled in parallel given hidden units.
+    \item \textbf{Why It Is Important}:
+    Enables block Gibbs sampling that executes in $\mathcal{O}(1)$ parallel tensor passes on hardware accelerators.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{v} \in \mathbb{R}^{D_v}$: Visible layer state vector.
+    \item $\mathbf{h} \in \{0, 1\}^{D_h}$: Binary latent feature vector.
+    \item $\mathbf{W} \in \mathbb{R}^{D_h \times D_v}$: Bipartite coupling weight matrix.
+    \item $\mathbf{a} \in \mathbb{R}^{D_v}, \mathbf{b} \in \mathbb{R}^{D_h}$: Visible and hidden bias vectors.
+    \item $\mathcal{F}(\mathbf{v})$: Marginal free energy functional.
+    \item $\sigma(u) = 1 / (1 + e^{-u})$: Standard logistic sigmoid activation.
+    \item $Z_\theta$: Intractable partition function.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Energy-Based Model Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$D_v, D_h$ & \textbf{Defined} (Bipartite dimension counts) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\mathbf{W}, \mathbf{a}, \mathbf{b}$ & \textbf{Learned} (Coupling energy parameters) & Real weight matrices and vectors \\
+$\mathbf{h}^{(0)}, \mathbf{v}^{(1)}, \mathbf{h}^{(1)}$ & \textbf{Calculated} (Gibbs chain states) & Vectors in $[0, 1]$ \\
+$\mathcal{F}(\mathbf{v}), \Delta \mathbf{W}_{\text{CD}}$ & \textbf{Calculated} (Energy and gradient) & Real scalars and matrices \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Operator Computation Graph}
+{\boldmath
+\begin{equation}
+\mathbf{v}^{(0)} \xrightarrow{\mathbf{W}, \mathbf{b}} \mathbf{h}^{(0)} \xrightarrow{\mathbf{W}^\top, \mathbf{a}} \mathbf{v}^{(1)} \xrightarrow{\mathbf{W}, \mathbf{b}} \mathbf{h}^{(1)} \longrightarrow \Delta \mathbf{W} = \mathbf{h}^{(0)} (\mathbf{v}^{(0)})^\top - \mathbf{h}^{(1)} (\mathbf{v}^{(1)})^\top
+\end{equation}
+}
+
+\subsection{[ ] Dimensional Units and Tensor Ranks}
+\begin{itemize}
+    \item Visible states $\mathbf{v}$: Rank-1 tensor of shape $(D_v)$.
+    \item Hidden states $\mathbf{h}$: Rank-1 tensor of shape $(D_h)$.
+    \item Coupling matrix $\mathbf{W}$: Rank-2 tensor of shape $(D_h, D_v)$.
+    \item Free energy $\mathcal{F}$: Real scalar energy value.
+\end{itemize}
+
+\subsection{[ ] Limiting Regimes and Asymptotic Behaviors}
+\begin{itemize}
+    \item \textbf{Infinite Gibbs Steps ($k \to \infty$)}: CD-$k$ converges to true maximum likelihood learning $\nabla_\theta \log p(\mathbf{v})$.
+    \item \textbf{Zero Weight Limit ($\mathbf{W} \to \mathbf{0}$)}: Free energy becomes linear $-\mathbf{a}^\top \mathbf{v}$; visible units become completely independent.
+\end{itemize}
+
+\subsection{[ ] Operational Constraints and Failure Modes}
+\begin{itemize}
+    \item \textbf{Exponential Partition Function Explosion}: Partition function $Z_\theta$ cannot be computed analytically, preventing direct evaluation of normalized likelihood $p(\mathbf{v})$.
+    \item \textbf{MCMC Mixing Failure}: Deep energy wells can trap Gibbs sampling, causing the negative phase to explore only a tiny fraction of mode space.
+\end{itemize}
+
+\subsection{[ ] Mathematical Invariants and Conserved Quantities}
+\begin{itemize}
+    \item \textbf{Relative Energy Invariance}: Adding a constant $c$ to the energy function $E(\mathbf{x}) \to E(\mathbf{x}) + c$ changes $Z_\theta \to Z_\theta e^{-c}$, leaving the physical probability distribution $p(\mathbf{x})$ strictly unchanged.
+\end{itemize}
+
+\subsection{[ ] Cross-Domain Mathematical Isomorphisms}
+\begin{itemize}
+    \item \textbf{Ising Model in Statistical Physics}: An RBM is a bipartite 2D spin-glass Ising model under external magnetic fields $\mathbf{a}$ and $\mathbf{b}$.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[\textbf{Closed-Form Marginal Free Energy of Restricted Boltzmann Machines}]
+For a bipartite RBM with energy $E(\mathbf{v}, \mathbf{h}) = -\mathbf{a}^\top \mathbf{v} - \mathbf{b}^\top \mathbf{h} - \mathbf{h}^\top \mathbf{W} \mathbf{v}$ where $\mathbf{h} \in \{0, 1\}^{D_h}$, the marginal free energy $\mathcal{F}(\mathbf{v}) = -\ln \sum_{\mathbf{h}} \exp(-E(\mathbf{v}, \mathbf{h}))$ decomposes analytically as:
+{\boldmath
+\begin{equation}
+\mathcal{F}(\mathbf{v}) = -\mathbf{a}^\top \mathbf{v} - \sum_{j=1}^{D_h} \ln\left( 1 + \exp\left( \mathbf{W}_{j, :}^\top \mathbf{v} + b_j \right) \right)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition of marginal probability:
+{\boldmath
+\begin{equation}
+p(\mathbf{v}) = \sum_{\mathbf{h} \in \{0, 1\}^{D_h}} p(\mathbf{v}, \mathbf{h}) = \frac{1}{Z} \sum_{\mathbf{h}} \exp(-E(\mathbf{v}, \mathbf{h}))
+\end{equation}
+}
+Substituting the RBM energy definition:
+{\boldmath
+\begin{align}
+\sum_{\mathbf{h}} \exp(-E(\mathbf{v}, \mathbf{h})) &= \sum_{\mathbf{h}} \exp\left( \mathbf{a}^\top \mathbf{v} + \mathbf{b}^\top \mathbf{h} + \mathbf{h}^\top \mathbf{W} \mathbf{v} \right) \\
+&= \exp(\mathbf{a}^\top \mathbf{v}) \sum_{h_1 \in \{0, 1\}} \dots \sum_{h_{D_h} \in \{0, 1\}} \prod_{j=1}^{D_h} \exp\left( h_j (b_j + \mathbf{W}_{j, :}^\top \mathbf{v}) \right)
+\end{align}
+}
+Because there are no connections between hidden units ($h_j$ and $h_{j'}$), the product and summations factorize independently:
+{\boldmath
+\begin{align}
+\sum_{\mathbf{h}} \exp(-E(\mathbf{v}, \mathbf{h})) &= \exp(\mathbf{a}^\top \mathbf{v}) \prod_{j=1}^{D_h} \left( \sum_{h_j \in \{0, 1\}} \exp\left( h_j (b_j + \mathbf{W}_{j, :}^\top \mathbf{v}) \right) \right) \\
+&= \exp(\mathbf{a}^\top \mathbf{v}) \prod_{j=1}^{D_h} \left( 1 + \exp(b_j + \mathbf{W}_{j, :}^\top \mathbf{v}) \right)
+\end{align}
+}
+Taking the negative logarithm to obtain free energy $\mathcal{F}(\mathbf{v}) = -\ln \sum_{\mathbf{h}} \exp(-E(\mathbf{v}, \mathbf{h}))$:
+{\boldmath
+\begin{equation}
+\mathcal{F}(\mathbf{v}) = -\mathbf{a}^\top \mathbf{v} - \sum_{j=1}^{D_h} \ln\left( 1 + \exp\left( \mathbf{W}_{j, :}^\top \mathbf{v} + b_j \right) \right)
+\end{equation}
+}
+This completes the analytical proof.
+\end{proof}
+
+\section{Foundational Architectural and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Why Does Contrastive Divergence Converge Despite Being a Biased Estimator?}
+\textbf{Question}: Contrastive divergence CD-1 truncates the Markov chain after 1 step, making it a theoretically biased gradient estimator. Why does it consistently train effective generative representations?
+
+\textbf{Meta-Question}: Is accurate local gradient direction more critical than asymptotic stationary convergence in deep representations?
+
+\textbf{Answer}: To lower energy on data points and raise energy elsewhere, the model does not need to explore the entire stationary distribution. It only needs to know the direction in which samples immediately start to drift when launched from data points. A 1-step Gibbs chain identifies the local gradient of the energy surface directly around the data manifold. Pushing up on that immediate destination $\mathbf{v}^{(1)}$ raises the energy barrier surrounding the data, successfully carving energy valleys without ever having to wait for the Markov chain to explore distant modes.
+
+\section{Algorithmic Specification}
+
+\begin{algorithm}[H]
+\caption{Restricted Boltzmann Machine Contrastive Divergence CD-1 Pass}
+\label{alg:ebm}
+\begin{algorithmic}[1]
+\Require Visible input $\mathbf{v}_0 \in [0, 1]^{D_v}$, Coupling $\mathbf{W} \in \mathbb{R}^{D_h \times D_v}$, Biases $\mathbf{a} \in \mathbb{R}^{D_v}, \mathbf{b} \in \mathbb{R}^{D_h}$
+\Ensure Free energy $\mathcal{F}_0, \mathcal{F}_1$, CD loss $\mathcal{L}_{\text{CD}}$, Reconstruction $\mathbf{v}_1 \in [0, 1]^{D_v}$, Gradient $\Delta \mathbf{W}$
+\State $\mathbf{h}_0 \gets \text{zeros}(D_h)$
+\For{$j \gets 1 \textbf{ to } D_h$}
+    \State $\text{act} \gets b_j + \sum_{i=1}^{D_v} W_{j, i} \cdot v_{0, i}$
+    \State $h_{0, j} \gets 1.0 / (1.0 + \exp(-\text{act}))$
+\EndFor
+\State $\mathbf{v}_1 \gets \text{zeros}(D_v)$
+\For{$i \gets 1 \textbf{ to } D_v$}
+    \State $\text{act} \gets a_i + \sum_{j=1}^{D_h} W_{j, i} \cdot h_{0, j}$
+    \State $v_{1, i} \gets 1.0 / (1.0 + \exp(-\text{act}))$
+\EndFor
+\State $\mathbf{h}_1 \gets \text{zeros}(D_h)$
+\For{$j \gets 1 \textbf{ to } D_h$}
+    \State $\text{act} \gets b_j + \sum_{i=1}^{D_v} W_{j, i} \cdot v_{1, i}$
+    \State $h_{1, j} \gets 1.0 / (1.0 + \exp(-\text{act}))$
+\EndFor
+\State $\Delta \mathbf{W} \gets \text{zeros}(D_h, D_v)$
+\For{$j \gets 1 \textbf{ to } D_h$}
+    \For{$i \gets 1 \textbf{ to } D_v$}
+        \State $\Delta W_{j, i} \gets (h_{0, j} \cdot v_{0, i}) - (h_{1, j} \cdot v_{1, i})$
+    \EndFor
+EndFor
+\State $\mathcal{F}_0 \gets \text{FreeEnergy}(\mathbf{v}_0), \quad \mathcal{F}_1 \gets \text{FreeEnergy}(\mathbf{v}_1)$
+\State $\mathcal{L}_{\text{CD}} \gets \mathcal{F}_0 - \mathcal{F}_1$
+\State \Return $\{\text{fe\_data}: \mathcal{F}_0, \text{fe\_model}: \mathcal{F}_1, \text{cd\_loss}: \mathcal{L}_{\text{CD}}, \text{recon}: \mathbf{v}_1, \text{grad}: \Delta \mathbf{W}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Positive and negative phase projections: $3 D_h \times D_v$ multiplications and sigmoid calls ($\Theta(D_v D_h)$).
+        \item Parameter gradient calculation: $D_h \times D_v$ outer product updates ($\Theta(D_v D_h)$).
+        \item Total Time: $\Theta(D_v D_h)$ FLOPs.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Gradient matrix $\Delta \mathbf{W}$: $\Theta(D_v D_h)$ floats.
+        \item Visible and hidden buffers: $\Theta(D_v + D_h)$ floats.
+        \item Total Auxiliary Space: $\Theta(D_v D_h)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

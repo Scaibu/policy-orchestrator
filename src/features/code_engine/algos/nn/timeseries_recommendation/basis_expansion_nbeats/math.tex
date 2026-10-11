@@ -1,0 +1,271 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Neural Basis Expansion for Time-Series Forecasting (N-BEATS)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Doubly Residual Stacking and Basis Expansion Dynamics):}
+Let $\mathbf{x} = [y_{t-L+1}, \dots, y_t]^T \in \mathbb{R}^L$ denote a backward lookback window of length $L$, and let $\mathbf{y} = [y_{t+1}, \dots, y_{t+H}]^T \in \mathbb{R}^H$ denote the target future forecast horizon of length $H$. An \textbf{N-BEATS} architecture processes the lookback history using a deep cascade of $M$ doubly-residual blocks.
+
+For block $l \in \{1, \dots, M\}$ receiving input $\mathbf{x}_l$ (with $\mathbf{x}_1 \equiv \mathbf{x}$):
+\begin{enumerate}
+    \item A feed-forward network generates backcast expansion coefficients $\boldsymbol{\theta}_l^b \in \mathbb{R}^{P_b}$ and forecast expansion coefficients $\boldsymbol{\theta}_l^f \in \mathbb{R}^{P_f}$:
+    {\boldmath
+    \begin{equation}
+    \boldsymbol{\theta}_l^b = W_l^b \mathbf{x}_l, \quad \boldsymbol{\theta}_l^f = W_l^f \mathbf{x}_l
+    \end{equation}
+    }
+    \item The block synthesizes its backcast $\widehat{\mathbf{x}}_l \in \mathbb{R}^L$ and partial forecast $\widehat{\mathbf{y}}_l \in \mathbb{R}^H$ through basis matrix operators $\mathbf{V}^b \in \mathbb{R}^{L \times P_b}$ and $\mathbf{V}^f \in \mathbb{R}^{H \times P_f}$:
+    {\boldmath
+    \begin{equation}
+    \widehat{\mathbf{x}}_l = \mathbf{V}^b \boldsymbol{\theta}_l^b, \quad \widehat{\mathbf{y}}_l = \mathbf{V}^f \boldsymbol{\theta}_l^f
+    \end{equation}
+    }
+    \item \textbf{Doubly Residual Link}: The input to the subsequent block subtracts what was successfully explained by block $l$:
+    {\boldmath
+    \begin{equation}
+    \mathbf{x}_{l+1} = \mathbf{x}_l - \widehat{\mathbf{x}}_l
+    \end{equation}
+    }
+    \item \textbf{Global Forecast Aggregation}: The final forecast sums the individual contributions of all stacked blocks:
+    {\boldmath
+    \begin{equation}
+    \widehat{\mathbf{y}} = \sum_{l=1}^M \widehat{\mathbf{y}}_l
+    \end{equation}
+    }
+\end{enumerate}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{Peeling an Onion of Patterns}: Traditional forecasting models (like LSTMs or Transformers) try to predict everything at once, causing errors in daily cycles to corrupt long-term yearly predictions. N-BEATS strips patterns away sequentially: Block 1 removes the overarching trend, Block 2 removes weekly cycles, and Block 3 cleans up random noise.
+    \item \textbf{No Recurrent Loops, No Attention Bottlenecks}: N-BEATS uses simple, ultra-fast Multilayer Perceptrons (MLPs) with zero recurrent loops, making it orders of magnitude faster to train and evaluate.
+    \item \textbf{The Backward-and-Forward Mirror (Doubly Residual)}: Every block must prove it understands history before it is allowed to predict the future. It reconstructs the past (the backcast); only the unexplained residuals are handed to the next block.
+    \item \textbf{Mathematical Bases as Filters}: Instead of letting the network output arbitrary noise, blocks use smooth polynomial curves (trend) or sinusoidal harmonics (seasonality) to produce clean, interpretable forecasts.
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine a team of artists restoring a dusty ancient scroll:
+\begin{itemize}
+    \item \textbf{Artist 1 (The Big Hill Painter)}: Looks at the mountain landscape, traces the smooth rolling hills ($\widehat{\mathbf{x}}_1$), paints them onto the future canvas ($\widehat{\mathbf{y}}_1$), and erases them from the original scroll ($\mathbf{x}_2 = \mathbf{x}_1 - \widehat{\mathbf{x}}_1$).
+    \item \textbf{Artist 2 (The Fence Painter)}: Looks at what remains (now just wooden picket fences), paints the repeating fence pattern ($\widehat{\mathbf{y}}_2$), and erases it from the scroll.
+    \item \textbf{Artist 3 (The Pebble Detailer)}: Restores the remaining fine texture.
+    \item \textbf{Master Canvas}: When you stack their paintings together, the complete restored landscape appears perfectly!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{Polynomial Trend Basis Operator}
+{\boldmath
+\begin{equation}
+V^b[t, p] = \left( \frac{t}{L-1} \right)^p, \quad t \in \{0, \dots, L-1\}, \; p \in \{0, \dots, P_b-1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Vandermonde polynomial basis matrix evaluated over normalized lookback time steps.
+    \item \textbf{What It Means}: Constrains the block to synthesize only smooth polynomial curves (constant, linear, quadratic, cubic trends).
+    \item \textbf{Why It Is Important}: Prevents high-frequency noisy fluctuations from contaminating monotonic long-term trend forecasting.
+\end{itemize}
+
+\subsection{Backcast Reconstruction and Residual Subtraction}
+{\boldmath
+\begin{equation}
+\mathbf{x}_{l+1} = \mathbf{x}_l - \sum_{p=0}^{P_b-1} \theta_{l, p}^b \mathbf{v}_p^b
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The element-wise subtraction of the reconstructed backcast signal from the input lookback window.
+    \item \textbf{What It Means}: Filters out the explained signal components, leaving only the orthogonal residual for downstream blocks.
+    \item \textbf{Why It Is Important}: Prevents downstream blocks from duplicating effort, enforcing hierarchical feature decomposition.
+\end{itemize}
+
+\subsection{Forecast Horizon Synthesis}
+{\boldmath
+\begin{equation}
+\widehat{y}_l[\tau] = \sum_{p=0}^{P_f-1} \theta_{l, p}^f \left( 1 + \frac{\tau}{\max(1, H-1)} \right)^p, \quad \tau \in \{0, \dots, H-1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The extrapolation of the learned basis coefficients over future time indices.
+    \item \textbf{What It Means}: Extends the functional basis smoothly from past history into future predictions.
+    \item \textbf{Why It Is Important}: Guarantees that future predictions are mathematically consistent continuations of the historical patterns.
+\end{itemize}
+
+\subsection{Doubly Residual Forecast Accumulation}
+{\boldmath
+\begin{equation}
+\widehat{\mathbf{y}} = \sum_{l=1}^M \widehat{\mathbf{y}}_l
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The linear superposition of partial forecast vectors generated across all blocks.
+    \item \textbf{What It Means}: Combines trend, seasonal harmonics, and non-linear residuals into the composite prediction.
+    \item \textbf{Why It Is Important}: Provides ensemble-like stability and modular interpretability without recurrent feedback drift.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\begin{itemize}
+    \item \textbf{Notation}: $L$ (lookback length), $H$ (forecast horizon), $M$ (stacked block count), $\boldsymbol{\theta}^b, \boldsymbol{\theta}^f$ (expansion weights), $\mathbf{V}^b, \mathbf{V}^f$ (basis operators).
+    \item \textbf{Epistemic Status}: Proposed by Oreshkin et al. (2019), won M4 forecasting competition benchmarks against all statistical and deep learning models.
+    \item \textbf{Dependency Graph}: $\mathbf{x}_l \to (\boldsymbol{\theta}_l^b, \boldsymbol{\theta}_l^f) \to (\widehat{\mathbf{x}}_l, \widehat{\mathbf{y}}_l) \to (\mathbf{x}_{l+1} = \mathbf{x}_l - \widehat{\mathbf{x}}_l, \; \widehat{\mathbf{y}} = \sum \widehat{\mathbf{y}}_l)$.
+    \item \textbf{Dimensions}: Lookback $\mathbf{x} \in \mathbb{R}^L$, forecast $\widehat{\mathbf{y}} \in \mathbb{R}^H$, coefficients $\boldsymbol{\theta}^b \in \mathbb{R}^{P_b}, \boldsymbol{\theta}^f \in \mathbb{R}^{P_f}$.
+    \item \textbf{Regimes}: Demand planning, electricity load prediction, traffic flow, financial volatility series.
+    \item \textbf{Invariants}: Exact conservation of input signal: $\mathbf{x} = \sum_{l=1}^M \widehat{\mathbf{x}}_l + \mathbf{x}_{M+1}$.
+    \item \textbf{Isomorphisms}: Doubly residual stacking is isomorphic to iterative orthogonal projection in Matching Pursuit / Gram-Schmidt signal decomposition.
+\end{itemize}
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Exact Conservation of Signal Decomposition]
+Let an $M$-block doubly residual network be evaluated on input series $\mathbf{x} \in \mathbb{R}^L$. The sum of all backcasts plus the final residual $\mathbf{x}_{M+1}$ exactly reconstructs the input signal:
+{\boldmath
+\begin{equation}
+\mathbf{x} = \sum_{l=1}^M \widehat{\mathbf{x}}_l + \mathbf{x}_{M+1}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition of the doubly residual transition rule:
+{\boldmath
+\begin{equation}
+\mathbf{x}_{l+1} = \mathbf{x}_l - \widehat{\mathbf{x}}_l \iff \mathbf{x}_l = \widehat{\mathbf{x}}_l + \mathbf{x}_{l+1}
+\end{equation}
+}
+Summing this recurrence from $l = 1$ to $M$:
+{\boldmath
+\begin{equation}
+\sum_{l=1}^M (\mathbf{x}_l - \mathbf{x}_{l+1}) = \sum_{l=1}^M \widehat{\mathbf{x}}_l
+\end{equation}
+}
+The left-hand side is a telescoping sum:
+{\boldmath
+\begin{equation}
+\sum_{l=1}^M (\mathbf{x}_l - \mathbf{x}_{l+1}) = (\mathbf{x}_1 - \mathbf{x}_2) + (\mathbf{x}_2 - \mathbf{x}_3) + \cdots + (\mathbf{x}_M - \mathbf{x}_{M+1}) = \mathbf{x}_1 - \mathbf{x}_{M+1}
+\end{equation}
+}
+Since $\mathbf{x}_1 \equiv \mathbf{x}$:
+{\boldmath
+\begin{equation}
+\mathbf{x} - \mathbf{x}_{M+1} = \sum_{l=1}^M \widehat{\mathbf{x}}_l \implies \mathbf{x} = \sum_{l=1}^M \widehat{\mathbf{x}}_l + \mathbf{x}_{M+1}
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\begin{theorem}[Monotonic Energy Dissipation under Optimal Orthogonal Projections]
+If each basis $\mathbf{V}_l^b$ projects $\mathbf{x}_l$ onto a linear subspace with orthogonal projection $\widehat{\mathbf{x}}_l = \mathbf{P}_l \mathbf{x}_l$, then the residual energy decreases monotonically at every block:
+{\boldmath
+\begin{equation}
+\|\mathbf{x}_{l+1}\|_2^2 = \|\mathbf{x}_l\|_2^2 - \|\widehat{\mathbf{x}}_l\|_2^2 \le \|\mathbf{x}_l\|_2^2
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{P}_l$ be an orthogonal projection matrix, so $\mathbf{P}_l^2 = \mathbf{P}_l$ and $\mathbf{P}_l^T = \mathbf{P}_l$.
+Then $\widehat{\mathbf{x}}_l = \mathbf{P}_l \mathbf{x}_l$ and $\mathbf{x}_{l+1} = (\mathbf{I} - \mathbf{P}_l) \mathbf{x}_l$.
+The squared $L_2$ norm of $\mathbf{x}_l$ decomposes as:
+{\boldmath
+\begin{align}
+\|\mathbf{x}_l\|_2^2 &= \|\widehat{\mathbf{x}}_l + \mathbf{x}_{l+1}\|_2^2 = \|\widehat{\mathbf{x}}_l\|_2^2 + \|\mathbf{x}_{l+1}\|_2^2 + 2 \widehat{\mathbf{x}}_l^T \mathbf{x}_{l+1}
+\end{align}
+}
+Evaluating the cross term:
+{\boldmath
+\begin{equation}
+\widehat{\mathbf{x}}_l^T \mathbf{x}_{l+1} = (\mathbf{P}_l \mathbf{x}_l)^T (\mathbf{I} - \mathbf{P}_l) \mathbf{x}_l = \mathbf{x}_l^T (\mathbf{P}_l - \mathbf{P}_l^2) \mathbf{x}_l = \mathbf{x}_l^T (\mathbf{P}_l - \mathbf{P}_l) \mathbf{x}_l = 0
+\end{equation}
+}
+Therefore $\|\mathbf{x}_l\|_2^2 = \|\widehat{\mathbf{x}}_l\|_2^2 + \|\mathbf{x}_{l+1}\|_2^2$, which implies $\|\mathbf{x}_{l+1}\|_2^2 = \|\mathbf{x}_l\|_2^2 - \|\widehat{\mathbf{x}}_l\|_2^2 \le \|\mathbf{x}_l\|_2^2$.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Interpretable vs Generic Basis Expansion}
+\textbf{Question:} When should one use polynomial/harmonic basis expansion versus unconstrained generic basis expansion?\\
+\textbf{Answer:} Interpretable basis expansion is essential for executive reporting and regulated domains where trend and seasonality must be isolated and inspected. Generic basis expansion (where $\mathbf{V}^b$ and $\mathbf{V}^f$ are learnable dense matrices) provides superior forecasting accuracy on complex series with arbitrary non-linear dynamics.
+
+\textbf{Meta-Question:} How does N-HiTS improve upon N-BEATS?\\
+\textbf{Answer:} N-HiTS incorporates multi-rate input pooling and hierarchical output interpolation across blocks. Early blocks pool the input coarsely to capture ultra-long horizons with tiny computational overhead, cutting memory by $10\times$ and improving long-horizon forecasting accuracy.
+
+\subsection{Architectural Question 2: Error Compounding in Autoregressive vs Direct Forecasting}
+\textbf{Question:} Why does N-BEATS forecast all $H$ horizon steps simultaneously instead of predicting step-by-step autoregressively?\\
+\textbf{Answer:} Autoregressive models (predicting $y_{t+1}$, then feeding it back to predict $y_{t+2}$) suffer from exponential error compounding, where small early errors derail long-term predictions. Direct horizon forecasting models output the full horizon $[y_{t+1}, \dots, y_{t+H}]$ in a single forward pass, completely eliminating error accumulation.
+
+\textbf{Meta-Question:} Does direct multi-step forecasting violate temporal causality?\\
+\textbf{Answer:} No. Conditioning is performed exclusively on historical observations $\mathbf{x} \le t$. Generating all future points simultaneously respects conditional causality while allowing the network to capture horizon-wide structural covariances.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{N-BEATS Basis Expansion Block Forward Pass}
+\begin{algorithmic}[1]
+\Require Lookback window $\mathbf{x} \in \mathbb{R}^L$, weights $W_b \in \mathbb{R}^{P_b \times L}$, $W_f \in \mathbb{R}^{P_f \times L}$, horizon $H$, basis type $\in \{\text{poly}, \text{gen}\}$
+\Ensure Backcast $\widehat{\mathbf{x}} \in \mathbb{R}^L$, forecast $\widehat{\mathbf{y}} \in \mathbb{R}^H$, residual $\mathbf{r} \in \mathbb{R}^L$, energy $E_f$, backcast MSE $\mathcal{L}_{\text{b}}$
+\State Initialize $\boldsymbol{\theta}_b \in \mathbb{R}^{P_b}, \quad \boldsymbol{\theta}_f \in \mathbb{R}^{P_f}$
+\For{$p = 0$ \textbf{to} $P_b-1$} \Comment{Project to Backcast Coefficients}
+    \State $\boldsymbol{\theta}_b[p] \gets \sum_{i=0}^{L-1} W_b[p][i] \cdot \mathbf{x}[i]$
+\EndFor
+\For{$p = 0$ \textbf{to} $P_f-1$} \Comment{Project to Forecast Coefficients}
+    \State $\boldsymbol{\theta}_f[p] \gets \sum_{i=0}^{L-1} W_f[p][i] \cdot \mathbf{x}[i]$
+\EndFor
+\State Initialize $\widehat{\mathbf{x}} \in \mathbb{R}^L, \quad \widehat{\mathbf{y}} \in \mathbb{R}^H, \quad \mathbf{r} \in \mathbb{R}^L$
+\For{$t = 0$ \textbf{to} $L-1$} \Comment{Synthesize Backcast}
+    \State $v \gets 0.0, \quad \tau_{\text{norm}} \gets t / (L - 1)$
+    \For{$p = 0$ \textbf{to} $P_b-1$}
+        \State $basis \gets (\text{basis} = \text{poly}) \;?\; (\tau_{\text{norm}})^p : \cos(\pi \cdot p \cdot \tau_{\text{norm}})$
+        \State $v \gets v + \boldsymbol{\theta}_b[p] \cdot basis$
+    \EndFor
+    \State $\widehat{\mathbf{x}}[t] \gets v, \quad \mathbf{r}[t] \gets \mathbf{x}[t] - v$
+\EndFor
+\For{$\tau = 0$ \textbf{to} $H-1$} \Comment{Synthesize Forecast}
+    \State $v \gets 0.0, \quad \tau_{\text{norm}} \gets \tau / \max(1, H - 1)$
+    \For{$p = 0$ \textbf{to} $P_f-1$}
+        \State $basis \gets (\text{basis} = \text{poly}) \;?\; (1.0 + \tau_{\text{norm}})^p : \cos(\pi \cdot p \cdot (1.0 + \tau_{\text{norm}}))$
+        \State $v \gets v + \boldsymbol{\theta}_f[p] \cdot basis$
+    \EndFor
+    \State $\widehat{\mathbf{y}}[\tau] \gets v$
+\EndFor
+\State $E_f \gets \sqrt{\sum_{\tau=0}^{H-1} \widehat{\mathbf{y}}[\tau]^2}, \quad \mathcal{L}_b \gets \frac{1}{L}\sum_{t=0}^{L-1} \mathbf{r}[t]^2$
+\State \Return $(\widehat{\mathbf{x}}, \widehat{\mathbf{y}}, \mathbf{r}, E_f, \mathcal{L}_b)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Coefficient Projection Time Complexity}: $\Theta(L \cdot P_b + L \cdot P_f)$ scalar operations.
+    \item \textbf{Basis Synthesis Complexity}: $\Theta(L \cdot P_b + H \cdot P_f)$ operations to evaluate functional basis products.
+    \item \textbf{Residual and Metric Assembly}: $\Theta(L + H)$ operations.
+    \item \textbf{Space Complexity}: $\Theta(L + H + P_b + P_f)$ for intermediate coefficient and signal buffers.
+    \item \textbf{Parallel Depth}: $\mathcal{D} = \Theta(\log L + \log P_b)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}

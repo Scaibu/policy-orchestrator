@@ -1,0 +1,313 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{ControlNet and Zero-Convolution Conditioning Adapters}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
+\begin{document}
+\maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Locked-Cloned Dual-Branch Architecture and Zero Convolutions):}
+Let $\mathcal{F}(\mathbf{x}; \Theta)$ denote a pre-trained neural network block with fixed parameters $\Theta$ (the \textbf{Locked Model}). A \textbf{ControlNet} augments $\mathcal{F}$ with a trainable copy $\mathcal{F}(\cdot; \Theta_{\text{clone}})$ initialized with identical weights $\Theta_{\text{clone}} = \Theta$, interconnected by two $1 \times 1$ convolution layers parameterized by weights $\Theta_{z1} = \{\mathbf{W}_{z1}, \mathbf{b}_{z1}\}$ and $\Theta_{z2} = \{\mathbf{W}_{z2}, \mathbf{b}_{z2}\}$ whose weights and biases are initialized strictly to zero (\textbf{Zero Convolutions}):
+{\boldmath
+\begin{equation}
+\mathcal{Z}(\mathbf{u}; \Theta_z) = \mathbf{W}_z \mathbf{u} + \mathbf{b}_z, \quad \mathbf{W}_z = \mathbf{0}, \quad \mathbf{b}_z = \mathbf{0}
+\end{equation}
+}
+Given an input activation $\mathbf{x} \in \mathbb{R}^D$ and an external spatial conditioning vector $\mathbf{c} \in \mathbb{R}^D$ (e.g. Canny edge, depth map, or human pose), the composite ControlNet operator is defined as:
+{\boldmath
+\begin{equation}
+\mathbf{y} = \mathcal{F}(\mathbf{x}; \Theta) + s_{\text{ctrl}} \cdot \mathcal{Z}\left( \mathcal{F}\left( \mathbf{x} + \mathcal{Z}(\mathbf{c}; \Theta_{z1}); \Theta_{\text{clone}} \right); \Theta_{z2} \right)
+\end{equation}
+}
+where $s_{\text{ctrl}} \ge 0$ is a user-adjustable conditioning strength scalar.
+
+Because $\mathbf{W}_{z2} = \mathbf{0}$ and $\mathbf{b}_{z2} = \mathbf{0}$ at step zero, $\mathcal{Z}(\cdot; \Theta_{z2}) \equiv \mathbf{0}$, ensuring that $\mathbf{y} = \mathcal{F}(\mathbf{x}; \Theta)$ identically. Consequently, no noise or random gradients can disrupt the pre-trained diffusion backbone at initialization.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+\begin{enumerate}
+    \item \textbf{The Master Painter and the Apprentice}: Imagine a world-class master painter (the frozen pre-trained diffusion model) who has spent years learning how to paint hyper-realistic lighting, faces, and materials.
+    \item \textbf{Don't Ruin the Master}: If you try to re-train the master painter to follow strict pencil sketches, you might damage their artistic instincts (catastrophic forgetting).
+    \item \textbf{The Shadow Clone}: Instead, you clone the master to create an apprentice. You freeze the master painter completely so they never change. You train only the apprentice to read sketches, wireframes, and depth maps.
+    \item \textbf{The Soundproof Door (Zero Convolution)}: At the start of school, the door between the apprentice and the master is locked shut with a volume of zero. The master works normally as if nothing happened.
+    \item \textbf{Opening the Door Gradually}: As the apprentice learns where the edges of the drawing are, the zero-convolution door cracks open smoothly. The apprentice whispers guidance into the master's ear, steering the master to paint the exact composition without losing a single drop of quality!
+\end{enumerate}
+
+\subsection{Child-Friendly Mental Model (Physical Metaphor)}
+Imagine building a train track with two engines:
+\begin{itemize}
+    \item \textbf{Engine 1 (The Big Steam Train)}: Runs on its own smoothly down the main track.
+    \item \textbf{Engine 2 (The Steering Cart)}: Attached on a parallel rail, learning to follow a laser pointer.
+    \item \textbf{The Zero-Coupler}: The tow-hitch connecting Engine 2 to Engine 1 is completely loose at first. As Engine 2 aligns with the laser pointer, the tow-hitch gently tightens, steering the big steam train onto the exact path you want!
+\end{itemize}
+
+\section{Core Mathematical Equations and Definitions}
+
+\subsection{The Zero-Convolution Forward Map}
+{\boldmath
+\begin{equation}
+\mathcal{Z}(\mathbf{u}; \Theta_z) = \mathbf{W}_z \mathbf{u} + \mathbf{b}_z, \quad \left. \mathcal{Z}(\mathbf{u}; \Theta_z) \right|_{\mathbf{W}_z = \mathbf{0}, \mathbf{b}_z = \mathbf{0}} = \mathbf{0}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: A linear mapping whose kernel weights and bias vectors are initialized to the additive identity element $\mathbf{0}$.
+    \item \textbf{What It Means}: Any input tensor passed into a zero convolution produces an exact zero tensor output.
+    \item \textbf{Why It Is Important}: Insulates downstream networks from random perturbations during the early phases of training.
+\end{itemize}
+
+\subsection{Composite ControlNet Residual Combination}
+{\boldmath
+\begin{equation}
+\mathbf{y} = \mathcal{F}_{\text{locked}}(\mathbf{x}) + s_{\text{ctrl}} \cdot \mathcal{Z}_{\text{out}}\left( \mathcal{F}_{\text{adapter}}\left( \mathbf{x} + \mathcal{Z}_{\text{in}}(\mathbf{c}) \right) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The additive assembly integrating frozen backbone representations with modulated adapter features.
+    \item \textbf{What It Means}: Adds an external spatial control signal to the backbone activations scaled by user control hyperparameter $s_{\text{ctrl}}$.
+    \item \textbf{Why It Is Important}: Allows plug-and-play stacking of multiple condition adapters (e.g., Canny edge + OpenPose pose + depth) without modifying base diffusion weights.
+\end{itemize}
+
+\subsection{Zero-Convolution Gradient Non-Degeneracy}
+{\boldmath
+\begin{equation}
+\left. \frac{\partial \mathcal{Z}}{\partial \mathbf{W}_z} \right|_{\mathbf{W}_z = \mathbf{0}} = \mathbf{u}^T \ne \mathbf{0}, \quad \left. \frac{\partial \mathcal{Z}}{\partial \mathbf{b}_z} \right|_{\mathbf{b}_z = \mathbf{0}} = \mathbf{I}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Jacobian of the zero-convolution output with respect to its own trainable parameter tensor evaluated at the zero state.
+    \item \textbf{What It Means}: Even though the output is zero, the gradient with respect to parameters is non-zero as long as input $\mathbf{u}$ is non-zero.
+    \item \textbf{Why It Is Important}: Proves that zero convolutions do not cause dead neurons; weights receive healthy gradients on the very first backpropagation step.
+\end{itemize}
+
+\subsection{Injected Residual Energy Norm}
+{\boldmath
+\begin{equation}
+\|\Delta \mathbf{y}\|_2 = s_{\text{ctrl}} \sqrt{\sum_{i=1}^D (\mathbf{y}_{\text{adapter}}[i])^2}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Definition}: The Euclidean norm of the injected adapter signal vector.
+    \item \textbf{What It Means}: Quantifies the magnitude of steering force exerted by the condition adapter on the base network.
+    \item \textbf{Why It Is Important}: Serves as a diagnostic metric to monitor adapter convergence and prevent condition overpowering.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{Notation and Symbol Semantics}
+\begin{itemize}
+    \item $\mathbf{x} \in \mathbb{R}^D$: Intermediate feature activation vector in the diffusion backbone.
+    \item $\mathbf{c} \in \mathbb{R}^D$: Processed spatial conditioning feature vector.
+    \item $\mathbf{W}_{\text{locked}}, \mathbf{W}_{\text{adapter}} \in \mathbb{R}^{D \times D}$: Frozen and cloned block weight matrices.
+    \item $\mathbf{W}_{z1}, \mathbf{W}_{z2} \in \mathbb{R}^{D \times D}$: Input and output zero-convolution matrices.
+    \item $s_{\text{ctrl}} \in \mathbb{R}_{\ge 0}$: User control scalar scale factor.
+    \item $\mathbf{y} \in \mathbb{R}^D$: Final combined feature vector.
+\end{itemize}
+
+\subsection{Epistemic Status Table}
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Quantity} & \textbf{Symbol} & \textbf{Epistemic Status} & \textbf{Operational Role} \\
+\midrule
+Frozen Backbone & $\mathcal{F}_{\text{locked}}$ & Frozen Pre-trained Prior & Retains universal generative features \\
+Cloned Adapter & $\mathcal{F}_{\text{adapter}}$ & Trainable Clone & Learns condition-to-feature mapping \\
+Zero Convolution & $\mathcal{Z}$ & Parameter-Initialized Gate & Protects backbone and unlocks training \\
+Control Scale & $s_{\text{ctrl}}$ & User Hyperparameter & Adjusts adherence to conditioning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Computational Dependency Graph}
+{\centering
+$\{\mathbf{x}, \mathbf{c}\} \longrightarrow \{\mathcal{F}_{\text{locked}}(\mathbf{x}), \mathcal{Z}_{\text{in}}(\mathbf{c})\} \longrightarrow \mathbf{x} + \mathcal{Z}_{\text{in}} \longrightarrow \mathcal{F}_{\text{adapter}} \longrightarrow \mathcal{Z}_{\text{out}} \longrightarrow \mathbf{y}$
+\par}
+
+\subsection{Dimension and Coordinate Consistency}
+All vectors $\mathbf{x}, \mathbf{c}, \mathbf{y}, \mathbf{y}_{\text{base}}, \mathbf{y}_{\text{adapter}} \in \mathbb{R}^D$. All matrices $\mathbf{W} \in \mathbb{R}^{D \times D}$.
+
+\subsection{Asymptotic Regimes}
+\begin{itemize}
+    \item \textbf{At Step 0}: $\mathbf{W}_{z2} = \mathbf{0} \implies \mathbf{y} = \mathcal{F}_{\text{locked}}(\mathbf{x})$; identical to unconditioned base model.
+    \item \textbf{At Convergence}: $\mathbf{W}_{z2} \ne \mathbf{0}$; adapter injects sharp geometric constraints without degrading high-frequency textures.
+    \item \textbf{As $s_{\text{ctrl}} \to 0$}: Condition is completely deactivated; output smoothly returns to unconditioned base generation.
+\end{itemize}
+
+\subsection{Boundary Constraints and Invariants}
+\begin{itemize}
+    \item \textbf{Zero-State Invariance}: If $\Theta_{z2} = \mathbf{0}$, then $\mathbf{y} \equiv \mathcal{F}(\mathbf{x}; \Theta)$ for all $\mathbf{c} \in \mathbb{R}^D$.
+\end{itemize}
+
+\subsection{Structural Isomorphisms}
+ControlNet is structurally isomorphic to Side-Tuning and Residual Adapter architectures used in parameter-efficient fine-tuning (PEFT) of vision models.
+
+\section{Theoretical Theorems and Formal Proofs}
+
+\begin{theorem}[Non-Vanishing Initial Gradients of Zero Convolutions]
+Let a zero-convolution layer be defined by $\mathbf{y}_z = \mathbf{W}_z \mathbf{x} + \mathbf{b}_z$ with initialization $\mathbf{W}_z = \mathbf{0}$ and $\mathbf{b}_z = \mathbf{0}$. Let $\mathcal{L}$ be a scalar loss function with non-zero upstream gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \ne \mathbf{0}$. Then on the first backward pass:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathbf{W}_z} = \left( \frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \right) \mathbf{x}^T \ne \mathbf{0}
+\end{equation}
+}
+and the weight update under gradient descent with learning rate $\eta > 0$ strictly breaks symmetry:
+{\boldmath
+\begin{equation}
+\mathbf{W}_z^{(1)} = -\eta \left( \frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \right) \mathbf{x}^T \ne \mathbf{0}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{y}_z \in \mathbb{R}^D$ and $\mathbf{x} \in \mathbb{R}^D$. Component-wise, the forward operation is:
+{\boldmath
+\begin{equation}
+y_{z, i} = \sum_{j=1}^D W_{z, ij} x_j + b_{z, i}
+\end{equation}
+}
+Taking the partial derivative of $y_{z, i}$ with respect to weight matrix element $W_{z, kl}$:
+{\boldmath
+\begin{equation}
+\frac{\partial y_{z, i}}{\partial W_{z, kl}} = \delta_{ik} x_l
+\end{equation}
+}
+where $\delta_{ik}$ is the Kronecker delta.
+By the multivariate chain rule:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial W_{z, kl}} = \sum_{i=1}^D \frac{\partial \mathcal{L}}{\partial y_{z, i}} \frac{\partial y_{z, i}}{\partial W_{z, kl}} = \sum_{i=1}^D \frac{\partial \mathcal{L}}{\partial y_{z, i}} \delta_{ik} x_l = \frac{\partial \mathcal{L}}{\partial y_{z, k}} x_l
+\end{equation}
+}
+Writing this in outer-product matrix notation:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathbf{W}_z} = \left( \frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \right) \mathbf{x}^T
+\end{equation}
+}
+Notice that this derivative depends solely on the upstream incoming gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{y}_z}$ and the incoming activation $\mathbf{x}$; it has zero dependence on $\mathbf{W}_z$ itself.
+Since $\mathbf{x} \ne \mathbf{0}$ and $\frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \ne \mathbf{0}$, the matrix $\frac{\partial \mathcal{L}}{\partial \mathbf{W}_z}$ is non-zero.
+Applying gradient descent:
+{\boldmath
+\begin{equation}
+\mathbf{W}_z^{(1)} = \mathbf{W}_z^{(0)} - \eta \frac{\partial \mathcal{L}}{\partial \mathbf{W}_z} = \mathbf{0} - \eta \left( \frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \right) \mathbf{x}^T = -\eta \left( \frac{\partial \mathcal{L}}{\partial \mathbf{y}_z} \right) \mathbf{x}^T \ne \mathbf{0}
+\end{equation}
+}
+Thus, zero convolutions immediately break symmetry and begin accumulating gradient signal from step 1 without vanishing gradients.
+\end{proof}
+
+\begin{theorem}[Preservation of Pre-trained Generative Prior Distribution]
+Let $p_{\Theta}(\mathbf{x})$ denote the output distribution generated by the pre-trained diffusion model $\mathcal{F}(\cdot; \Theta)$. At initialization of ControlNet, the conditional generative distribution $p_{\Theta, \Theta_z}(\mathbf{x} \mid \mathbf{c})$ satisfies:
+{\boldmath
+\begin{equation}
+D_{\text{KL}}\left( p_{\Theta}(\mathbf{x}) \,||\, p_{\Theta, \Theta_z}(\mathbf{x} \mid \mathbf{c}) \right) = 0
+\end{equation}
+}
+for any conditioning distribution $p(\mathbf{c})$.
+\end{theorem}
+
+\begin{proof}
+Let $\mathbf{h}_l$ denote the activation tensor at layer $l \in \{1, \dots, L\}$.
+In the pre-trained model:
+{\boldmath
+\begin{equation}
+\mathbf{h}_l = \mathcal{F}_l(\mathbf{h}_{l-1}; \Theta_l)
+\end{equation}
+}
+In ControlNet, the layer update is:
+{\boldmath
+\begin{equation}
+\mathbf{h}_l^{\text{ctrl}} = \mathcal{F}_l(\mathbf{h}_{l-1}^{\text{ctrl}}; \Theta_l) + \mathcal{Z}_{l, \text{out}}\left( \mathcal{F}_l^{\text{clone}}(\mathbf{h}_{l-1}^{\text{ctrl}} + \mathcal{Z}_{l, \text{in}}(\mathbf{c})) \right)
+\end{equation}
+}
+At step zero, $\mathcal{Z}_{l, \text{out}}(\mathbf{u}) = \mathbf{0} \cdot \mathbf{u} + \mathbf{0} = \mathbf{0}$ for all inputs $\mathbf{u}$.
+Thus:
+{\boldmath
+\begin{equation}
+\mathbf{h}_l^{\text{ctrl}} = \mathcal{F}_l(\mathbf{h}_{l-1}^{\text{ctrl}}; \Theta_l) + \mathbf{0} = \mathcal{F}_l(\mathbf{h}_{l-1}^{\text{ctrl}}; \Theta_l)
+\end{equation}
+}
+By mathematical induction, $\mathbf{h}_L^{\text{ctrl}} = \mathbf{h}_L$ identically for all inputs $\mathbf{x}_0$ and all conditions $\mathbf{c}$.
+Since the deterministic mapping is identical, the induced probability distribution $p_{\Theta, \Theta_z}(\mathbf{x} \mid \mathbf{c})$ is identical to $p_{\Theta}(\mathbf{x})$ for all $\mathbf{c}$.
+Evaluating the Kullback-Leibler divergence:
+{\boldmath
+\begin{equation}
+D_{\text{KL}}\left( p_{\Theta}(\mathbf{x}) \,||\, p_{\Theta, \Theta_z}(\mathbf{x} \mid \mathbf{c}) \right) = \int p_{\Theta}(\mathbf{x}) \log \frac{p_{\Theta}(\mathbf{x})}{p_{\Theta}(\mathbf{x})} \mathrm{d}\mathbf{x} = \int p_{\Theta}(\mathbf{x}) \cdot 0 \, \mathrm{d}\mathbf{x} = 0
+\end{equation}
+}
+This completes the proof.
+\end{proof}
+
+\section{Foundational Architectural Questions and Epistemic Meta-Questions}
+
+\subsection{Architectural Question 1: Zero Convolutions vs Standard Small Initialization}
+\textbf{Question:} Why initialize weights strictly to zero instead of standard small Gaussian noise (e.g. $\mathcal{N}(0, 0.01^2)$)?\\
+\textbf{Answer:} Even tiny random perturbations accumulate across dozens of deep residual layers, creating massive feature distribution shifts. In diffusion models, this random noise destroys fine details and introduces foggy haze into generated samples during early training epochs. Zero initialization guarantees exact zero variance perturbation.
+
+\textbf{Meta-Question:} Why doesn't zero initialization suffer from symmetry breaking failures like in standard MLPs?\\
+\textbf{Answer:} Symmetry breaking is required when hidden units in the same layer must differentiate. In zero convolutions, the weights are already applied to distinct pre-computed activations with non-zero variance. The gradients $\frac{\partial \mathcal{L}}{\partial \mathbf{W}_z} = \mathbf{g} \mathbf{x}^T$ are diverse across channels from the very first step.
+
+\subsection{Architectural Question 2: Multi-Condition Composition}
+\textbf{Question:} How does ControlNet support combining multiple spatial inputs (e.g., Canny edge + OpenPose) simultaneously?\\
+\textbf{Answer:} Multiple independent ControlNet adapters can be attached to the same frozen backbone in parallel. Their output zero-convolutions are simply summed together: $\mathbf{y} = \mathcal{F}_{\text{locked}}(\mathbf{x}) + s_1 \mathbf{y}_{\text{canny}} + s_2 \mathbf{y}_{\text{pose}}$. Each adapter steers its respective visual attribute independently.
+
+\textbf{Meta-Question:} Can multiple ControlNets produce conflicting vector forces?\\
+\textbf{Answer:} Yes. If a pose map places a human body in a region where an edge map specifies empty sky, the adapters compete in feature space, resulting in spatial artifacts. User-controllable weight multipliers ($s_1, s_2$) allow resolving semantic conflicts at inference time.
+
+\section{Algorithmic Implementation Specification}
+
+\begin{algorithm}[H]
+\caption{ControlNet Locked-Cloned Branch Forward Evaluation}
+\begin{algorithmic}[1]
+\Require Feature $\mathbf{x} \in \mathbb{R}^D$, condition $\mathbf{c} \in \mathbb{R}^D$, weights $\mathbf{W}_{\text{lock}}, \mathbf{W}_{\text{adapt}}, \mathbf{W}_{z1}, \mathbf{W}_{z2} \in \mathbb{R}^{D \times D}$, control scale $s_{\text{ctrl}} \ge 0$
+\Ensure Combined state $\mathbf{y} \in \mathbb{R}^D$, base output $\mathbf{y}_{\text{base}} \in \mathbb{R}^D$, adapter output $\mathbf{y}_{\text{adapt}} \in \mathbb{R}^D$, injection norm $\|\Delta \mathbf{y}\|_2$
+\State $\mathbf{y}_{\text{base}} \gets \mathbf{W}_{\text{lock}} \mathbf{x}$
+\State $\mathbf{c}_{\text{in}} \gets \mathbf{W}_{z1} \mathbf{c}$
+\State $\mathbf{x}_{\text{cond}} \gets \mathbf{x} + \mathbf{c}_{\text{in}}$
+\State $\mathbf{h}_{\text{adapt}} \gets \mathbf{W}_{\text{adapt}} \mathbf{x}_{\text{cond}}$
+\State $\mathbf{y}_{\text{adapt}} \gets \mathbf{W}_{z2} \mathbf{h}_{\text{adapt}}$
+\State Initialize empty array $\mathbf{y}$ of length $D$
+\State $\text{sum\_inj\_sq} \gets 0.0$
+\For{$i = 0$ \textbf{to} $D - 1$}
+    \State $inj \gets s_{\text{ctrl}} \cdot \mathbf{y}_{\text{adapt}}[i]$
+    \State $\text{sum\_inj\_sq} \gets \text{sum\_inj\_sq} + inj \cdot inj$
+    \State $\mathbf{y}[i] \gets \mathbf{y}_{\text{base}}[i] + inj$
+\EndFor
+\State $\|\Delta \mathbf{y}\|_2 \gets \sqrt{\text{sum\_inj\_sq}}$
+\State \Return $(\mathbf{y}, \mathbf{y}_{\text{base}}, \mathbf{y}_{\text{adapt}}, \|\Delta \mathbf{y}\|_2)$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Big-$\Theta$ Complexity Analysis}
+
+\begin{itemize}
+    \item \textbf{Matrix-Vector Multiplications Complexity}: 4 matrix-vector products of size $D \times D$, requiring $\Theta(D^2)$ operations per adapter block.
+    \item \textbf{Total Spatial ControlNet Complexity}: For an image grid of $N$ spatial tokens, total runtime is $\Theta(N \cdot D^2 + \mathcal{C}_{\text{NN\_Clone}})$.
+    \item \textbf{Space Complexity}: $\Theta(D)$ vector activation memory per block.
+    \item \textbf{Work \& Depth}: Work is $\mathcal{W} = \Theta(D^2)$; parallel depth across dot-product reductions is $\mathcal{D} = \Theta(\log D)$.
+\end{itemize}
+
+\section{Single Canonical Repository Reference}
+
+The complete deterministic scalar implementation, verification suite, and unit test benchmarks are published at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
+\end{document}
