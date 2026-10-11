@@ -729,8 +729,7 @@ let currentInspectorTab = "input";
 document.addEventListener("DOMContentLoaded", () => {
   setupClock();
   setupTabs();
-  renderCatalogGrid();
-  renderTransitionMatrix();
+  initProofsCatalog();
   selectAlgorithm("synth-filter");
 });
 
@@ -916,36 +915,369 @@ function renderCatalogGrid() {
   `).join("");
 }
 
-// Render Data Contract Transition Matrix
-function renderTransitionMatrix() {
-  const container = document.getElementById("matrix-rows");
-  if (!container) return;
+// ==========================================
+// PROOFS CATALOG (250 LATEX SPECIFICATIONS)
+// ==========================================
+let currentProofDomain = "all";
+let currentProofSearch = "";
+let selectedProofId = null;
 
-  container.innerHTML = ALGORITHMS.map((algo, idx) => {
-    const inputKeys = Object.keys(algo.input).map(k => `<code>${k}</code>`).join(", ");
-    const responseKeys = Object.keys(algo.response).map(k => `<code>${k}</code>`).join(", ");
+function initProofsCatalog() {
+  if (typeof PROOFS_DATA === "undefined") return;
+  renderProofDomainTabs();
+  renderProofsGrid();
+}
+
+function renderProofDomainTabs() {
+  const container = document.getElementById("proofs-domain-tabs");
+  if (!container || typeof PROOFS_DATA === "undefined") return;
+
+  const domainCounts = {};
+  PROOFS_DATA.forEach(p => {
+    domainCounts[p.domain] = (domainCounts[p.domain] || 0) + 1;
+  });
+
+  const domains = Object.keys(domainCounts).sort();
+  
+  let html = `<button class="proof-domain-btn ${currentProofDomain === 'all' ? 'active' : ''}" onclick="setProofDomainFilter('all')">ALL (${PROOFS_DATA.length})</button>`;
+  
+  domains.forEach(d => {
+    const label = d.replace(/_/g, ' ').toUpperCase();
+    const count = domainCounts[d];
+    const isActive = currentProofDomain === d ? 'active' : '';
+    html += `<button class="proof-domain-btn ${isActive}" onclick="setProofDomainFilter('${d}')">${label} (${count})</button>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function setProofDomainFilter(domain) {
+  currentProofDomain = domain;
+  renderProofDomainTabs();
+  renderProofsGrid();
+}
+
+function filterProofs() {
+  const input = document.getElementById("proofs-search");
+  currentProofSearch = input ? input.value.trim().toLowerCase() : "";
+  renderProofsGrid();
+}
+
+let currentModalProof = null;
+let currentTexViewMode = "rendered";
+
+function renderProofsGrid() {
+  const grid = document.getElementById("proofs-grid");
+  const counter = document.getElementById("proofs-counter");
+  if (!grid || typeof PROOFS_DATA === "undefined") return;
+
+  const filtered = PROOFS_DATA.filter(p => {
+    const matchDomain = currentProofDomain === "all" || p.domain === currentProofDomain;
+    if (!matchDomain) return false;
+    if (!currentProofSearch) return true;
+    const q = currentProofSearch;
+    return p.algoName.toLowerCase().includes(q) ||
+           p.title.toLowerCase().includes(q) ||
+           p.domainLabel.toLowerCase().includes(q) ||
+           p.excerpt.toLowerCase().includes(q);
+  });
+
+  if (counter) {
+    counter.textContent = `SHOWING ${filtered.length} OF ${PROOFS_DATA.length} PROOFS`;
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--ink-dim); font-family: var(--font-dspl);">NO MATHEMATICAL SPECIFICATIONS FOUND MATCHING QUERY</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => {
+    const isSelected = p.id === selectedProofId ? "active" : "";
+    const pdfBtn = p.pdf ? `<a class="proof-btn" href="${p.pdf}" target="_blank" onclick="event.stopPropagation()">[pdf ↗]</a>` : "";
     return `
-      <div class="rw" onclick="selectAlgorithm('${algo.id}'); document.getElementById('sec-arch').scrollIntoView({behavior:'smooth'});" style="cursor:pointer;">
-        <div class="n">${String(idx + 1).padStart(2, '0')}</div>
-        <div class="l"><strong>${algo.name}</strong><br><span class="n" style="font-size:10.5px;">${algo.role}</span></div>
-        <div class="n">[${algo.stageNum}] ${algo.stageName}</div>
-        <div>${inputKeys}</div>
-        <div>${responseKeys}</div>
-        <div style="color:var(--accent); font-size:11px;">PASS_STRICT</div>
+      <div class="proof-card ${isSelected}" onclick="openTexModal('${p.id}')">
+        <div class="proof-card-header">
+          <span class="proof-domain-tag">${p.domainLabel}</span>
+          <span class="proof-lines-tag">${p.lines} lines · TeX</span>
+        </div>
+        <div class="proof-card-name">${p.algoName}</div>
+        <div class="proof-card-title">${p.title}</div>
+        <div class="proof-card-excerpt">${p.excerpt}</div>
+        <div class="proof-card-actions">
+          <button class="proof-btn primary" onclick="event.stopPropagation(); openTexModal('${p.id}')">[render math 📐]</button>
+          <button class="proof-btn" onclick="event.stopPropagation(); openTexModal('${p.id}', 'source')">[source tex]</button>
+          ${pdfBtn}
+          <button class="proof-btn" onclick="event.stopPropagation(); copyText('${p.tex}')">[copy path]</button>
+        </div>
       </div>
     `;
   }).join("");
 }
 
-// Select an ER Entity to Inspect
-function selectEREntity(entityId) {
-  const entity = ER_ENTITIES.find(e => e.id === entityId);
-  if (!entity) return;
-
-  const contentBox = document.getElementById("er-inspector-box");
-  if (!contentBox) return;
-
-  const fieldsJson = entity.fields.map(f => `  "${f.name}": "${f.type}" // ${f.role}`).join("\n");
-  contentBox.innerHTML = `// ENTITY SPECIFICATION: ${entity.name}\n// ${entity.desc}\n// Primary Key: ${entity.pk}\n// Relations: ${entity.relations.join(", ")}\n\n{\n${fieldsJson}\n}`;
-  showToast(`INSPECTING ${entity.name}`);
+function selectProof(id) {
+  openTexModal(id);
 }
+
+function openTexModal(id, initialMode = "rendered") {
+  const proof = PROOFS_DATA.find(p => p.id === id);
+  if (!proof) return;
+  currentModalProof = proof;
+  selectedProofId = id;
+
+  const modal = document.getElementById("tex-modal");
+  if (!modal) return;
+
+  const tagEl = document.getElementById("modal-domain-tag");
+  const titleEl = document.getElementById("modal-title");
+  if (tagEl) tagEl.textContent = `${proof.domainLabel} · ${proof.algoName} (${proof.lines} lines)`;
+  if (titleEl) titleEl.textContent = proof.title;
+
+  setTexViewMode(initialMode);
+  modal.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function closeTexModal() {
+  const modal = document.getElementById("tex-modal");
+  if (modal) modal.style.display = "none";
+  document.body.style.overflow = "";
+}
+
+function setTexViewMode(mode) {
+  currentTexViewMode = mode;
+  const btnRender = document.getElementById("btn-mode-render");
+  const btnSource = document.getElementById("btn-mode-source");
+  const renderedView = document.getElementById("tex-rendered-view");
+  const sourceView = document.getElementById("tex-source-view");
+
+  if (mode === "rendered") {
+    if (btnRender) btnRender.classList.add("active");
+    if (btnSource) btnSource.classList.remove("active");
+    if (renderedView) {
+      renderedView.style.display = "block";
+      renderProofMath(renderedView, currentModalProof);
+    }
+    if (sourceView) sourceView.style.display = "none";
+  } else {
+    if (btnSource) btnSource.classList.add("active");
+    if (btnRender) btnRender.classList.remove("active");
+    if (renderedView) renderedView.style.display = "none";
+    if (sourceView) {
+      sourceView.style.display = "block";
+      sourceView.textContent = currentModalProof ? currentModalProof.rawTex : "";
+    }
+  }
+}
+
+function renderProofMath(container, proof) {
+  if (!proof || !proof.rawTex) return;
+  const html = parseTexToHtml(proof.rawTex);
+  container.innerHTML = html;
+
+  if (window.renderMathInElement) {
+    try {
+      window.renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\(", right: "\\)", display: false },
+          { left: "\\[", right: "\\]", display: true }
+        ],
+        throwOnError: false
+      });
+    } catch (e) {
+      console.warn("KaTeX render error:", e);
+    }
+  }
+}
+
+function parseTexToHtml(src) {
+  let body = src.includes("\\begin{document}") ? src.split("\\begin{document}")[1].split("\\end{document}")[0] : src;
+  
+  // Clean frontmatter
+  body = body.replace(/\\maketitle/g, "");
+  
+  // Clean boldmath and bracket wrappers around equations
+  body = body.replace(/\\boldmath/g, "");
+  body = body.replace(/\{\s*\\begin\{equation\*?\}/g, "\\begin{equation}");
+  body = body.replace(/\\end\{equation\*?\}\s*\}/g, "\\end{equation}");
+  body = body.replace(/\{\s*\\begin\{align\*?\}/g, "\\begin{align}");
+  body = body.replace(/\\end\{align\*?\}\s*\}/g, "\\end{align}");
+
+  // Clean labels, refs, citations and quotes
+  body = body.replace(/\\label\{[^}]*\}/g, "");
+  body = body.replace(/\\cite\{[^}]*\}/g, "[Ref]");
+  body = body.replace(/\\ref\{([^}]*)\}/g, "$1");
+  body = body.replace(/``/g, "\"").replace(/''/g, "\"");
+
+  // Display equations
+  body = body.replace(/\\begin\{equation\*?\}([\s\S]*?)\\end\{equation\*?\}/g, (match, eq) => {
+    return "\n\n<div class=\"tex-equation\">$$" + eq.trim() + "$$</div>\n\n";
+  });
+  body = body.replace(/\\begin\{align\*?\}([\s\S]*?)\\end\{align\*?\}/g, (match, eq) => {
+    return "\n\n<div class=\"tex-equation\">$$\\begin{aligned}" + eq.trim() + "\\end{aligned}$$</div>\n\n";
+  });
+
+  // Theorem/Lemma/Definition/Remark blocks
+  body = body.replace(/\\begin\{theorem\}([\s\S]*?)\\end\{theorem\}/g, "\n\n<div class=\"tex-theorem\"><strong>Theorem:</strong> $1</div>\n\n");
+  body = body.replace(/\\begin\{definition\}([\s\S]*?)\\end\{definition\}/g, "\n\n<div class=\"tex-definition\"><strong>Definition:</strong> $1</div>\n\n");
+  body = body.replace(/\\begin\{lemma\}([\s\S]*?)\\end\{lemma\}/g, "\n\n<div class=\"tex-lemma\"><strong>Lemma:</strong> $1</div>\n\n");
+  body = body.replace(/\\begin\{remark\}([\s\S]*?)\\end\{remark\}/g, "\n\n<div class=\"tex-remark\"><strong>Remark:</strong> $1</div>\n\n");
+
+  // Algorithm / Pseudocode Blocks
+  body = body.replace(/\\begin\{algorithm\}(?:\[[^\]]*\])?([\s\S]*?)\\end\{algorithm\}/g, (match, block) => {
+    const capMatch = block.match(/\\caption\{([^}]+)\}/);
+    const caption = capMatch ? capMatch[1] : "Algorithm";
+
+    const algMatch = block.match(/\\begin\{algorithmic\}(?:\[\d+\])?([\s\S]*?)\\end\{algorithmic\}/);
+    if (!algMatch) {
+      return `\n\n<div class="tex-algorithm"><div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">${caption}</strong></div></div>\n\n`;
+    }
+
+    const rawLines = algMatch[1].trim().split("\n");
+    let html = `\n\n<div class="tex-algorithm">\n  <div class="algo-header"><span class="algo-badge">ALGORITHM</span> <strong class="algo-title">${caption}</strong></div>\n  <div class="algo-body">\n`;
+    
+    let ln = 1;
+    let indent = 0;
+
+    for (let rawL of rawLines) {
+      let l = rawL.trim();
+      if (!l) continue;
+
+      if (l.startsWith("\\Require")) {
+        let req = l.slice(8).trim();
+        html += `    <div class="algo-req"><span class="algo-kw">Require:</span> ${req}</div>\n`;
+        continue;
+      }
+      if (l.startsWith("\\Ensure")) {
+        let ens = l.slice(7).trim();
+        html += `    <div class="algo-ens"><span class="algo-kw">Ensure:</span> ${ens}</div>\n`;
+        continue;
+      }
+
+      l = l.replace(/\\Comment\{([^}]+)\}/g, '<span class="algo-comment">// $1</span>');
+
+      if (l.startsWith("\\EndFor") || l.startsWith("\\EndIf") || l.startsWith("\\EndWhile")) {
+        indent = Math.max(0, indent - 1);
+        continue;
+      }
+
+      if (l.startsWith("\\Else")) {
+        let curIndent = Math.max(0, indent - 1);
+        html += `    <div class="algo-line" style="padding-left:${curIndent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">else</strong></span></div>\n`;
+        ln++;
+        continue;
+      }
+
+      if (l.startsWith("\\ElsIf")) {
+        let cond = l.slice(6).trim();
+        if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        let curIndent = Math.max(0, indent - 1);
+        html += `    <div class="algo-line" style="padding-left:${curIndent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">else if</strong> ${cond} <strong class="algo-kw">then</strong></span></div>\n`;
+        ln++;
+        continue;
+      }
+
+      if (l.startsWith("\\For")) {
+        let cond = l.slice(4).trim();
+        if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">for</strong> ${cond} <strong class="algo-kw">do</strong></span></div>\n`;
+        ln++;
+        indent++;
+        continue;
+      }
+
+      if (l.startsWith("\\If")) {
+        let cond = l.slice(3).trim();
+        if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">if</strong> ${cond} <strong class="algo-kw">then</strong></span></div>\n`;
+        ln++;
+        indent++;
+        continue;
+      }
+
+      if (l.startsWith("\\While")) {
+        let cond = l.slice(6).trim();
+        if (cond.startsWith("{") && cond.endsWith("}")) cond = cond.slice(1, -1);
+        html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code"><strong class="algo-kw">while</strong> ${cond} <strong class="algo-kw">do</strong></span></div>\n`;
+        ln++;
+        indent++;
+        continue;
+      }
+
+      if (l.startsWith("\\State")) {
+        let stmt = l.slice(6).trim();
+        stmt = stmt.replace(/\\Return\b/g, '<strong class="algo-kw">return</strong>');
+        html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code">${stmt}</span></div>\n`;
+        ln++;
+        continue;
+      }
+
+      let stmt = l.replace(/\\Return\b/g, '<strong class="algo-kw">return</strong>');
+      html += `    <div class="algo-line" style="padding-left:${indent * 20}px"><span class="algo-ln">${ln}</span> <span class="algo-code">${stmt}</span></div>\n`;
+      ln++;
+    }
+
+    html += `  </div>\n</div>\n\n`;
+    return html;
+  });
+
+  // Itemize / Enumerate Lists
+  body = body.replace(/\\begin\{itemize\}([\s\S]*?)\\end\{itemize\}/g, (match, content) => {
+    const items = content.split(/\\item\s+/).filter(i => i.trim());
+    const listHtml = items.map(it => "<li>" + it.trim() + "</li>").join("\n");
+    return "\n\n<ul class=\"tex-list\">\n" + listHtml + "\n</ul>\n\n";
+  });
+  body = body.replace(/\\begin\{enumerate\}([\s\S]*?)\\end\{enumerate\}/g, (match, content) => {
+    const items = content.split(/\\item\s+/).filter(i => i.trim());
+    const listHtml = items.map(it => "<li>" + it.trim() + "</li>").join("\n");
+    return "\n\n<ol class=\"tex-list\">\n" + listHtml + "\n</ol>\n\n";
+  });
+
+  // Section Headers
+  body = body.replace(/\\section\{([^}]+)\}/g, "<h3 class=\"tex-h3\">$1</h3>");
+  body = body.replace(/\\subsection\{([^}]+)\}/g, "<h4 class=\"tex-h4\">$1</h4>");
+  body = body.replace(/\\subsubsection\{([^}]+)\}/g, "<h5 class=\"tex-h5\">$1</h5>");
+
+  // Text formatting
+  body = body.replace(/\\textbf\{([^}]+)\}/g, "<strong>$1</strong>");
+  body = body.replace(/\\textit\{([^}]+)\}/g, "<em>$1</em>");
+  body = body.replace(/\\texttt\{([^}]+)\}/g, "<code>$1</code>");
+
+  // Clean remaining unparsed stray braces from {\boldmath ... }
+  body = body.replace(/^\s*\{\s*$/gm, "");
+  body = body.replace(/^\s*\}\s*$/gm, "");
+
+  // Paragraph splitting
+  const paras = body.split(/\n\s*\n/).filter(p => p.trim());
+  return paras.map(p => {
+    p = p.trim();
+    if (p.startsWith("<h3") || p.startsWith("<h4") || p.startsWith("<h5") || 
+        p.startsWith("<div") || p.startsWith("<ul") || p.startsWith("<ol")) {
+      return p;
+    }
+    return "<p class=\"tex-p\">" + p + "</p>";
+  }).join("\n\n");
+}
+
+function copyCurrentTex() {
+  if (currentModalProof && currentModalProof.rawTex) {
+    copyText(currentModalProof.rawTex);
+    showToast("COPIED FULL LATEX SOURCE");
+  }
+}
+
+function openCurrentPdf() {
+  if (currentModalProof && currentModalProof.pdf) {
+    window.open(currentModalProof.pdf, "_blank");
+  } else {
+    showToast("NO PDF AVAILABLE");
+  }
+}
+
+// Close modal on Escape key
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeTexModal();
+  }
+});

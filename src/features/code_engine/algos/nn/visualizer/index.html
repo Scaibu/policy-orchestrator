@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Scaibu NN — Neural Network Foundation &amp; Architecture Engine</title>
+  <title>Neural Network Architecture Engine — nn-visualizer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Zero-dependency scalar neural network architecture and frontier model execution engine. Covers pre-training curation, transformer micro-architecture, 5D hardware scaling, autodiff VJP loss optimization, post-training dual-track alignment, and paged continuous serving. Every algorithm verified by contract.">
   <link rel="icon" type="image/svg+xml" href="logo.svg">
   <link rel="apple-touch-icon" href="logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com/">
   <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
     window.mermaid = mermaid;
@@ -130,16 +132,13 @@
     <!-- Topbar (tmux-style tabs) -->
     <nav class="topbar">
       <div class="seg brand">
-        <img class="brand-mark" src="logo.svg" alt="Scaibu Logo" width="20" height="20">
-        <b>scaibu-nn</b>&nbsp;· v1.0.0
+        <img class="brand-mark" src="logo.svg" alt="NN Logo" width="20" height="20">
+        <b>nn-visualizer</b>&nbsp;· v1.0.0
       </div>
       <div class="seg tab on" data-target="sec-hero"><span class="n">1</span>home</div>
-      <div class="seg tab" data-target="sec-arch"><span class="n">2</span>architecture</div>
-      <div class="seg tab" data-target="sec-pipeline"><span class="n">3</span>data-flow</div>
-      <div class="seg tab" data-target="sec-diagrams"><span class="n">4</span>diagrams</div>
-      <div class="seg tab" data-target="sec-er"><span class="n">5</span>er-schema</div>
-      <div class="seg tab" data-target="sec-matrix"><span class="n">6</span>contracts</div>
-      <div class="seg tab" data-target="sec-catalog"><span class="n">7</span>catalog</div>
+      <div class="seg tab" data-target="sec-proofs"><span class="n">2</span>math.tex</div>
+      <div class="seg tab" data-target="sec-diagrams"><span class="n">3</span>diagrams</div>
+      <div class="seg tab" data-target="sec-slices"><span class="n">4</span>slices</div>
       <div class="spacer"></div>
       <div class="seg clock" id="clock">—</div>
       <a class="seg lic" href="javascript:void(0)" title="Zero External Dependencies">zero-deps · strict-invariants</a>
@@ -158,12 +157,12 @@
           <h1 class="hero">One graph.<br><span class="ghost">not ten</span> layers.<span class="cursor"></span></h1>
 
           <p class="sub">
-            Scaibu NN implements frontier neural network architectures from first principles with <span class="accent">zero external dependencies</span> (no torch, no numpy). Covers pre-training data curation, transformer micro-architecture, 5D hardware scaling, autodiff VJP loss optimization, post-training reasoning alignment, and paged continuous serving. <span class="accent">30 architectural slices</span>, <span class="accent">7 pipeline stages</span>, and <span class="accent">100% deterministic gradients</span>.
+            The Neural Network Architecture Engine implements frontier architectures from first principles with <span class="accent">zero external dependencies</span> (no torch, no numpy). Covers pre-training data curation, transformer micro-architecture, 5D hardware scaling, autodiff VJP loss optimization, post-training reasoning alignment, and paged continuous serving. <span class="accent">30 architectural slices</span>, <span class="accent">7 pipeline stages</span>, and <span class="accent">100% deterministic gradients</span>.
           </p>
 
           <div class="cta-row">
-            <a class="btn primary" href="#sec-arch"><b>$ view architecture</b>&nbsp;↵</a>
-            <a class="btn" href="#sec-matrix">contract matrix →</a>
+            <a class="btn primary" href="#sec-proofs"><b>$ view math proofs</b>&nbsp;↵</a>
+            <a class="btn" href="#sec-diagrams">architecture diagrams →</a>
           </div>
 
           <div class="cta-row" style="margin-top:18px;">
@@ -231,176 +230,38 @@
         </section>
       </div>
 
-      <!-- §03 · ARCHITECTURE (EXACT MATCH TO USER SCREENSHOT 2) -->
-      <section class="row" id="sec-arch">
+      <!-- §03 · THEORETICAL PROOFS & LATEX SPECIFICATIONS -->
+      <section class="row" id="sec-proofs">
         <div class="row-label">
-          <span>§03 · architecture</span>
-          <span>cat ARCHITECTURE.txt</span>
+          <span>§03 · math proofs</span>
+          <span>250 formal LaTeX specifications · 29 domains</span>
         </div>
-        <h2>Index. Compute. Scale.<br />In-process.</h2>
+        <h2>Formal Mathematical Proofs.<br />Compiled TeX specifications.</h2>
         <p class="h2lead">
-          No external dependencies. Zero torch or numpy bloat. One self-contained repository, pure first-principles scalar tensors, analytical reverse-mode vector-Jacobian products, and deterministic graph execution.
+          Every algorithm includes an accompanying formal <code>math.tex</code> document and compiled PDF proof — complete with Big-Theta algorithmic complexity, distributionally robust optimization formulations, vector-Jacobian products, and mathematical invariants.
         </p>
 
-        <!-- ASCII Architecture Diagram (Clickable Nodes) -->
-        <pre class="asciibox">
-<span class="lbl">scaibu-nn engine</span> ── single static · 0 external deps · scalar-only
-   <span class="hot">│</span>
-   ├─ CLI (unittest) ──────────────────┐
-   ├─ Computational Graph (Tape) ──────┤
-   ├─ Tensor Contracts (JSON API) ─────┤   ◀── python engine · test suite · runtime
-   ├─ Autodiff Adjoints (VJP) ─────────┤   ◀── analytical gradients, zero drift
-   └─ Paged KV Memory Daemon ──────────┤   ◀── continuous batch token serving
-                                       ▼
-                               <span class="hot">┌──────────────────────────┐</span>
-                               <span class="hot">│   In-memory graph        │</span>
-                               <span class="hot">│  nodes · tensors · edges │</span>
-                               <span class="hot">│     strict invariants    │</span>
-                               <span class="hot">└──────────────▲───────────┘</span>
-                                              <span class="hot">│</span>
-   ┌─ <span class="lbl">Curation</span> ──► <span class="node-btn active" data-id="doremi" onclick="selectAlgorithm('doremi')">[DoReMi Simplex]</span> ◀── <span class="node-btn" data-id="synth-filter" onclick="selectAlgorithm('synth-filter')">[MinHash Gate]</span> ┤   <span class="dim">quality filtering · </span><span class="node-btn" data-id="seq-packing" onclick="selectAlgorithm('seq-packing')">[Sequence Packing]</span>
-   │              + dynamic domain excess loss weights         │
-   ├─ <span class="lbl">Micro-Arch</span> ► <span class="node-btn" data-id="flash-attn" onclick="selectAlgorithm('flash-attn')">[FlashAttention]</span> · <span class="node-btn" data-id="rope" onclick="selectAlgorithm('rope')">[RoPE/YaRN]</span> ────────┤   <span class="node-btn" data-id="rmsnorm" onclick="selectAlgorithm('rmsnorm')">[RMSNorm]</span> · <span class="node-btn" data-id="swiglu" onclick="selectAlgorithm('swiglu')">[SwiGLU]</span> · <span class="node-btn" data-id="moe" onclick="selectAlgorithm('moe')">[MoE Top-k]</span>
-   │              + O(N) SRAM tiling attention                 │
-   ├─ <span class="lbl">5D Scaling</span> ► <span class="node-btn" data-id="megatron-tp" onclick="selectAlgorithm('megatron-tp')">[Megatron TP]</span> · <span class="node-btn" data-id="ring-attn" onclick="selectAlgorithm('ring-attn')">[Context Ring]</span> ──────┤   <span class="node-btn" data-id="pp-1f1b" onclick="selectAlgorithm('pp-1f1b')">[1F1B Pipeline]</span> · <span class="node-btn" data-id="zero3" onclick="selectAlgorithm('zero3')">[ZeRO-3 Sharding]</span>
-   ├─ <span class="lbl">Loss &amp; Opt</span> ► <span class="node-btn" data-id="zloss" onclick="selectAlgorithm('zloss')">[Z-Loss]</span> · <span class="node-btn" data-id="autodiff-vjp" onclick="selectAlgorithm('autodiff-vjp')">[Autodiff VJP]</span> ───────────┤   <span class="node-btn" data-id="crit-batch" onclick="selectAlgorithm('crit-batch')">[Critical B_noise]</span> · <span class="node-btn" data-id="adamw-wsd" onclick="selectAlgorithm('adamw-wsd')">[AdamW WSD]</span>
-   ├─ <span class="lbl">Alignment</span> ─► <span class="node-btn" data-id="grpo-engine" onclick="selectAlgorithm('grpo-engine')">[Sandbox GRPO]</span> · <span class="node-btn" data-id="dpo-loss" onclick="selectAlgorithm('dpo-loss')">[DPO Loss]</span> ──────────┤   <span class="node-btn" data-id="sft-loss" onclick="selectAlgorithm('sft-loss')">[SFT Mask]</span> · <span class="node-btn" data-id="prm-credit" onclick="selectAlgorithm('prm-credit')">[PRM Step Credit]</span>
-   ├─ <span class="lbl">Sparsity</span> ──► <span class="node-btn" data-id="qlora-nf4" onclick="selectAlgorithm('qlora-nf4')">[QLoRA NF4]</span> · <span class="node-btn" data-id="wanda" onclick="selectAlgorithm('wanda')">[Wanda Prune]</span> ────────┤   <span class="dim">2:4 sparse tensor cores · 4-bit</span>
-   └─ <span class="lbl">Serving</span> ───► <span class="node-btn" data-id="paged-attn" onclick="selectAlgorithm('paged-attn')">[PagedAttention]</span> · <span class="node-btn" data-id="spec-decode" onclick="selectAlgorithm('spec-decode')">[Speculative]</span> ──────┘   <span class="node-btn" data-id="cont-batch" onclick="selectAlgorithm('cont-batch')">[Continuous Batch]</span> · <span class="node-btn" data-id="fsm-grammar" onclick="selectAlgorithm('fsm-grammar')">[Grammar FSM]</span>
-</pre>
-        <p style="font-size:12px; color:var(--ink-dim); margin-top:-10px;">
-          <span class="accent">TIP:</span> Click any algorithm button in the diagram above to inspect its live JSON input &amp; response contract in Pane 2.
-        </p>
-      </section>
-
-      <!-- §02 · PIPELINE FLOW (EXACT MATCH TO USER SCREENSHOT 1) -->
-      <section class="row" id="sec-pipeline">
-        <div class="row-label">
-          <span>§05 · quickstart</span>
-          <span>three steps · runs anywhere</span>
+        <!-- Proofs Toolbar -->
+        <div class="proofs-toolbar">
+          <div class="proofs-search-row">
+            <input type="text" id="proofs-search" class="proofs-search-input" placeholder="Search 250 proofs by algorithm, domain, theorem or keyword..." oninput="filterProofs()">
+            <span id="proofs-counter" class="proofs-counter">SHOWING 250 OF 250 PROOFS</span>
+          </div>
+          <div class="proofs-domain-tabs" id="proofs-domain-tabs"></div>
         </div>
-        <h2>Running in three<br />commands.</h2>
-        <p class="h2lead">
-          macOS, Linux &amp; Windows · pure Python 3.10+. Zero compilation step, zero GPU driver lock-in to run scalar tests. Evaluates analytical vector-Jacobian products with machine precision.<br />Re-runs deterministic verification in place.
-        </p>
 
-        <div class="install-grid">
-          <div>
-            <div class="step">01 · install + test</div>
-            <pre><span class="p">$</span> git clone https://github.com/Chief-Strategist-J/llm-obs-infra
-<span class="c"># zero external dependencies:</span>
-<span class="p">$</span> python3 -m unittest discover -s tests/unit/algos</pre>
-            <p>One-time machine setup: executes <span class="accent">100% of unit tests</span> covering DoReMi, FlashAttention, RoPE, ZeRO-3, AdamW WSD, and GRPO reasoning.</p>
-          </div>
-          <div>
-            <div class="step">02 · execute pipeline</div>
-            <pre><span class="p">$</span> python3 -m policies.orchestrator.train --stage=01,02,03
-<span class="c"># executes doremi mixture optimization,</span>
-<span class="c"># 5D parallel forward-backward VJP graph</span></pre>
-            <p>Auto-detects model dimensions and shards column/row tensors — <span class="accent">Megatron TP</span>, <span class="accent">Context Ring Attention</span>, and <span class="accent">ZeRO-3 Parameter Sharding</span>.</p>
-          </div>
-          <div>
-            <div class="step">03 · serve + verify</div>
-            <pre><span class="p">$</span> python3 -m policies.orchestrator.serve --paged --grpo
-<span class="c"># paged-attention block tables</span>
-<span class="c"># step-level reasoning fallacy verifier</span></pre>
-            <p>Engine serves continuous iteration-level batches; virtual memory fragmentation strictly bounded below <span class="accent">4%</span> with <span class="accent">Structured Grammar FSM</span>.</p>
-          </div>
-        </div>
-      </section>
+        <!-- Proofs Grid -->
+        <div class="proofs-grid" id="proofs-grid"></div>
 
-      <!-- §06 · WORKS WITH / COMPONENTS GRID (FROM SCREENSHOT 1) -->
-      <section class="row">
-        <div class="row-label">
-          <span>§06 · architectural slices</span>
-          <span>30 first-class algorithms</span>
-        </div>
-        <h2>Every architectural slice<br />you need for frontier AI.</h2>
-        <p class="h2lead">
-          Scaibu NN is contract-native. Every algorithm implements a formal mathematical specification with input/output JSON validation and deterministic adjoint propagation.
-        </p>
-
-        <div class="agents-grid">
-          <div onclick="selectAlgorithm('doremi')" style="cursor:pointer;">
-            <div class="nm">DoReMi Simplex</div>
-            <div class="desc">Exponentiated excess loss domain reweighting</div>
-            <div class="ok">● verified</div>
+        <!-- Selected Proof Quick Inspector Drawer -->
+        <div id="proof-inspector-drawer" style="display:none; margin-top:16px; border:1px solid var(--rule); background:var(--panel); padding:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-family:var(--font-dspl); font-size:11px; color:var(--teal); text-transform:uppercase; letter-spacing:.08em;">ACTIVE MATHEMATICAL SPECIFICATION</span>
+            <button class="proof-btn" onclick="document.getElementById('proof-inspector-drawer').style.display='none'">[close]</button>
           </div>
-          <div onclick="selectAlgorithm('seq-packing')" style="cursor:pointer;">
-            <div class="nm">Sequence Packing</div>
-            <div class="desc">Boundary-masked 2D causal batch concatenation</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('rmsnorm')" style="cursor:pointer;">
-            <div class="nm">RMSNorm</div>
-            <div class="desc">Energy normalization without mean subtraction</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('rope')" style="cursor:pointer;">
-            <div class="nm">RoPE / YaRN</div>
-            <div class="desc">Rotary position embedding with context expansion</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('flash-attn')" style="cursor:pointer;">
-            <div class="nm">FlashAttention</div>
-            <div class="desc">O(N) SRAM tiled online softmax scaling</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('swiglu')" style="cursor:pointer;">
-            <div class="nm">SwiGLU Unit</div>
-            <div class="desc">Swish-gated non-linear feedforward expansion</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('moe')" style="cursor:pointer;">
-            <div class="nm">MoE Routing</div>
-            <div class="desc">Top-k routing with load balancing entropy loss</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('megatron-tp')" style="cursor:pointer;">
-            <div class="nm">Megatron TP</div>
-            <div class="desc">Column &amp; row intra-layer weight sharding</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('ring-attn')" style="cursor:pointer;">
-            <div class="nm">Ring Attention</div>
-            <div class="desc">Distributed context parallel ring communication</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('zero3')" style="cursor:pointer;">
-            <div class="nm">ZeRO-3 Sharding</div>
-            <div class="desc">Full parameter, gradient &amp; optimizer partitioning</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('autodiff-vjp')" style="cursor:pointer;">
-            <div class="nm">Autodiff VJP</div>
-            <div class="desc">Scalar vector-Jacobian reverse adjoint passes</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('adamw-wsd')" style="cursor:pointer;">
-            <div class="nm">AdamW WSD</div>
-            <div class="desc">Decoupled decay with Warmup-Stable-Decay schedule</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('grpo-engine')" style="cursor:pointer;">
-            <div class="nm">Sandbox GRPO</div>
-            <div class="desc">Group relative policy optimization with code execution</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('prm-credit')" style="cursor:pointer;">
-            <div class="nm">PRM Step Credit</div>
-            <div class="desc">Granular intermediate reasoning step verifier</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('qlora-nf4')" style="cursor:pointer;">
-            <div class="nm">QLoRA NF4</div>
-            <div class="desc">NormalFloat4 theoretical quantile 4-bit compression</div>
-            <div class="ok">● verified</div>
-          </div>
-          <div onclick="selectAlgorithm('paged-attn')" style="cursor:pointer;">
-            <div class="nm">PagedAttention</div>
-            <div class="desc">Non-contiguous virtual memory block-table cache</div>
-            <div class="ok">● verified</div>
-          </div>
+          <div id="proof-inspect-title" style="font-size:14px; font-weight:600; color:var(--ink); margin-bottom:4px;"></div>
+          <div id="proof-inspect-meta" style="font-size:11px; color:var(--accent); font-family:var(--font-dspl); margin-bottom:8px;"></div>
+          <pre id="proof-inspect-path" style="background:#0c0d12; border:1px solid var(--rule); padding:10px 14px; font-size:12px; color:var(--amber); margin:0; overflow-x:auto; font-family:var(--font-dspl);"></pre>
         </div>
       </section>
 
@@ -1184,112 +1045,99 @@ erDiagram
 
       </section>
 
-      <!-- §04 · ENTITY-RELATIONSHIP SCHEMA -->
-      <section class="row" id="sec-er">
+      <!-- §06 · ARCHITECTURAL SLICES -->
+      <section class="row" id="sec-slices">
         <div class="row-label">
-          <span>§04 · er-schema</span>
-          <span>relational tensor topology</span>
+          <span>§06 · architectural slices</span>
+          <span>30 first-class algorithms</span>
         </div>
-        <h2>Entity-Relationship Graph.<br />Unified data schema.</h2>
+        <h2>Every architectural slice<br />you need for frontier AI.</h2>
         <p class="h2lead">
-          Relational schema connecting raw datasets, packed sequences, layer activations, model weights, optimizer buffers, reasoning rollouts, and paged KV-cache memory blocks.
+          nn-visualizer is contract-native. Every algorithm implements a formal mathematical specification with input/output JSON validation and deterministic adjoint propagation.
         </p>
 
-        <!-- ASCII ER Diagram -->
-        <pre class="asciibox">
-<span class="hot">┌───────────────────────────┐</span>             1:N              <span class="hot">┌───────────────────────────┐</span>
-<span class="hot">│      DATASET_SAMPLE       ├─────────────────────────────►│      PACKED_SEQUENCE      │</span>
-<span class="hot">│  PK sample_id (string)    │</span>                              <span class="hot">│  PK sequence_id (string)  │</span>
-<span class="hot">│     quality_score (float) │</span>                              <span class="hot">│  FK sample_id (string)    │</span>
-<span class="hot">│     dedup_hash (uint64)   │</span>                              <span class="hot">│     token_ids [B, S]      │</span>
-<span class="hot">└───────────────────────────┘</span>                              <span class="hot">└─────────────┬─────────────┘</span>
-                                                                         │ 1:N
-                                                                         ▼
-<span class="hot">┌───────────────────────────┐</span>             N:1              <span class="hot">┌───────────────────────────┐</span>
-<span class="hot">│       LAYER_WEIGHT        │◄─────────────────────────────┤     TENSOR_ACTIVATION     │</span>
-<span class="hot">│  PK weight_id (string)    │</span>                              <span class="hot">│  PK activation_id (string)│</span>
-<span class="hot">│     dense_params [D, D]   │</span>                              <span class="hot">│     normalized [B, S, D]  │</span>
-<span class="hot">│     col/row shards [D, d] │</span>                              <span class="hot">│     rms_values [B, S]     │</span>
-<span class="hot">└───────┬─────────────────┬─┘</span>                              <span class="hot">└───────────────────────────┘</span>
-        │ 1:1             │ 1:N
-        ▼                 ▼
-<span class="hot">┌───────────────────┐</span>   <span class="hot">┌───────────────────────────┐</span>      1:N     <span class="hot">┌───────────────────────────┐</span>
-<span class="hot">│  OPTIMIZER_STATE  │</span>   <span class="hot">│     CHECKPOINT_STATE      ├─────────────►│      POLICY_ROLLOUT       │</span>
-<span class="hot">│ FK weight_id      │</span>   <span class="hot">│  PK checkpoint_id (string)│</span>              <span class="hot">│  PK rollout_id (string)   │</span>
-<span class="hot">│    exp_avg_m [...]│</span>   <span class="hot">│     global_step (int64)   │</span>              <span class="hot">│  FK checkpoint_id (string)│</span>
-<span class="hot">│    exp_avg_sq_v[.]│</span>   <span class="hot">│     model_weights (dict)  │</span>              <span class="hot">│     reasoning_trace [arr] │</span>
-<span class="hot">└───────────────────┘</span>   <span class="hot">└─────────────┬─────────────┘</span>              <span class="hot">│     reward_score (float)  │</span>
-                                      │ 1:N                        <span class="hot">└─────────────┬─────────────┘</span>
-                                      ▼                                          │ 1:1
-<span class="hot">┌───────────────────────────┐</span>   <span class="hot">┌───────────────────────────┐</span>                    ▼
-<span class="hot">│     GENERATION_TOKEN      │   │     COMPRESSED_WEIGHT     │      1:1     <span class="hot">┌───────────────────────────┐</span></span>
-<span class="hot">│  PK token_id (int32)      │   │  FK weight_id (string)    │              <span class="hot">│     ADVANTAGE_TARGET      │</span></span>
-<span class="hot">│  FK page_id (string)      │   │     nf4_indices [arr]     │              <span class="hot">│  FK rollout_id (string)   │</span></span>
-<span class="hot">│     sampling_prob (float) │   │     absmax_scale (float)  │              <span class="hot">│     group_advantage (flt) │</span></span>
-<span class="hot">└─────────────▲─────────────┘</span>   <span class="hot">└─────────────┬─────────────┘</span>              <span class="hot">│     kl_penalty (float)    │</span>
-              │ 1:N                           │ 1:N                        <span class="hot">└───────────────────────────┘</span>
-              └───────────────────────────────┘
-                                      ▼
-                        <span class="hot">┌───────────────────────────┐</span>
-                        <span class="hot">│       KV_CACHE_PAGE       │</span>
-                        <span class="hot">│  PK page_id (string)      │</span>
-                        <span class="hot">│     physical_block (int32)│</span>
-                        <span class="hot">│     key_cache [P, H, d]   │</span>
-                        <span class="hot">│     val_cache [P, H, d]   │</span>
-                        <span class="hot">└───────────────────────────┘</span>
-</pre>
-
-        <!-- Entity Inspector Box -->
-        <div class="cta-row" style="margin-bottom:14px;">
-          <span style="font-size:11px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.08em;">Inspect Schema:</span>
-          <button class="btn" onclick="selectEREntity('DATASET_SAMPLE')">DATASET_SAMPLE</button>
-          <button class="btn" onclick="selectEREntity('PACKED_SEQUENCE')">PACKED_SEQUENCE</button>
-          <button class="btn" onclick="selectEREntity('TENSOR_ACTIVATION')">TENSOR_ACTIVATION</button>
-          <button class="btn" onclick="selectEREntity('LAYER_WEIGHT')">LAYER_WEIGHT</button>
-          <button class="btn" onclick="selectEREntity('OPTIMIZER_STATE')">OPTIMIZER_STATE</button>
-          <button class="btn" onclick="selectEREntity('POLICY_ROLLOUT')">POLICY_ROLLOUT</button>
-          <button class="btn" onclick="selectEREntity('KV_CACHE_PAGE')">KV_CACHE_PAGE</button>
-        </div>
-
-        <pre class="asciibox" id="er-inspector-box" style="margin-top:0; min-height:160px;">// Click any entity button above to inspect its exact schema definition and field roles...</pre>
-      </section>
-
-      <!-- §05 · DATA CONTRACT TRANSITION MATRIX -->
-      <section class="row" id="sec-matrix">
-        <div class="row-label">
-          <span>§05 · contract matrix</span>
-          <span>interface transition contracts</span>
-        </div>
-        <h2>Data Contract Transition Matrix.</h2>
-        <p class="h2lead">
-          Exhaustive interface contracts specifying exact input fields, output fields, data types, and consumer targets across the end-to-end pipeline. Click any row to inspect.
-        </p>
-
-        <div class="langtable">
-          <div class="hd">
-            <div>#</div>
-            <div>Component · Role</div>
-            <div>Phase</div>
-            <div>Exact Input Fields</div>
-            <div>Exact Output Fields</div>
-            <div>Certificate</div>
+        <div class="agents-grid">
+          <div onclick="selectAlgorithm('doremi')" style="cursor:pointer;">
+            <div class="nm">DoReMi Simplex</div>
+            <div class="desc">Exponentiated excess loss domain reweighting</div>
+            <div class="ok">● verified</div>
           </div>
-          <div id="matrix-rows"></div>
+          <div onclick="selectAlgorithm('seq-packing')" style="cursor:pointer;">
+            <div class="nm">Sequence Packing</div>
+            <div class="desc">Boundary-masked 2D causal batch concatenation</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('rmsnorm')" style="cursor:pointer;">
+            <div class="nm">RMSNorm</div>
+            <div class="desc">Energy normalization without mean subtraction</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('rope')" style="cursor:pointer;">
+            <div class="nm">RoPE / YaRN</div>
+            <div class="desc">Rotary position embedding with context expansion</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('flash-attn')" style="cursor:pointer;">
+            <div class="nm">FlashAttention</div>
+            <div class="desc">O(N) SRAM tiled online softmax scaling</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('swiglu')" style="cursor:pointer;">
+            <div class="nm">SwiGLU Unit</div>
+            <div class="desc">Swish-gated non-linear feedforward expansion</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('moe')" style="cursor:pointer;">
+            <div class="nm">MoE Routing</div>
+            <div class="desc">Top-k routing with load balancing entropy loss</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('megatron-tp')" style="cursor:pointer;">
+            <div class="nm">Megatron TP</div>
+            <div class="desc">Column &amp; row intra-layer weight sharding</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('ring-attn')" style="cursor:pointer;">
+            <div class="nm">Ring Attention</div>
+            <div class="desc">Distributed context parallel ring communication</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('zero3')" style="cursor:pointer;">
+            <div class="nm">ZeRO-3 Sharding</div>
+            <div class="desc">Full parameter, gradient &amp; optimizer partitioning</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('autodiff-vjp')" style="cursor:pointer;">
+            <div class="nm">Autodiff VJP</div>
+            <div class="desc">Scalar vector-Jacobian reverse adjoint passes</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('adamw-wsd')" style="cursor:pointer;">
+            <div class="nm">AdamW WSD</div>
+            <div class="desc">Decoupled decay with Warmup-Stable-Decay schedule</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('grpo-engine')" style="cursor:pointer;">
+            <div class="nm">Sandbox GRPO</div>
+            <div class="desc">Group relative policy optimization with code execution</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('prm-credit')" style="cursor:pointer;">
+            <div class="nm">PRM Step Credit</div>
+            <div class="desc">Granular intermediate reasoning step verifier</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('qlora-nf4')" style="cursor:pointer;">
+            <div class="nm">QLoRA NF4</div>
+            <div class="desc">NormalFloat4 theoretical quantile 4-bit compression</div>
+            <div class="ok">● verified</div>
+          </div>
+          <div onclick="selectAlgorithm('paged-attn')" style="cursor:pointer;">
+            <div class="nm">PagedAttention</div>
+            <div class="desc">Non-contiguous virtual memory block-table cache</div>
+            <div class="ok">● verified</div>
+          </div>
         </div>
-      </section>
-
-      <!-- §06 · DOMAIN CATALOG -->
-      <section class="row" id="sec-catalog">
-        <div class="row-label">
-          <span>§06 · domain catalog</span>
-          <span>30 algorithms · 7 stages</span>
-        </div>
-        <h2>Every architectural slice.<br />Zero external dependencies.</h2>
-        <p class="h2lead">
-          All algorithms implemented from first principles in pure Python 3.10+ with accompanied LaTeX theoretical proofs in <code>math.tex</code>.
-        </p>
-
-        <div class="fgrid" id="catalog-grid"></div>
       </section>
 
     </main>
@@ -1308,6 +1156,7 @@ erDiagram
 
   </div>
 
+  <script src="proofs.js"></script>
   <script src="app.js"></script>
   <script>
     async function showDiagramPanel(id, btn) {
@@ -1382,5 +1231,29 @@ erDiagram
       }
     }
   </script>
+
+  <!-- KaTeX Live Math Modal Dialog -->
+  <div id="tex-modal" class="tex-modal" style="display:none;">
+    <div class="tex-modal-backdrop" onclick="closeTexModal()"></div>
+    <div class="tex-modal-dialog">
+      <div class="tex-modal-header">
+        <div>
+          <div class="tex-modal-tag" id="modal-domain-tag">TRAINING AT SCALE</div>
+          <div class="tex-modal-title" id="modal-title">Mathematical Specification</div>
+        </div>
+        <div class="tex-modal-actions">
+          <button class="tex-mode-btn active" id="btn-mode-render" onclick="setTexViewMode('rendered')">📐 Rendered Math</button>
+          <button class="tex-mode-btn" id="btn-mode-source" onclick="setTexViewMode('source')">📝 Raw TeX</button>
+          <button class="tex-mode-btn" id="btn-mode-pdf" onclick="openCurrentPdf()">📄 Open PDF ↗</button>
+          <button class="tex-mode-btn" onclick="copyCurrentTex()">📋 Copy TeX</button>
+          <button class="tex-modal-close" onclick="closeTexModal()">✕</button>
+        </div>
+      </div>
+      <div class="tex-modal-body">
+        <div id="tex-rendered-view" class="tex-rendered-container"></div>
+        <pre id="tex-source-view" class="tex-source-container" style="display:none;"></pre>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
