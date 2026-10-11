@@ -1448,6 +1448,63 @@ annotation {
   margin: 0;
 }
 
+.tex-diagram-container {
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.tex-diagram-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tex-diagram-title {
+  font-family: var(--font-dspl);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.tex-diagram-meta {
+  font-family: var(--font-dspl);
+  font-size: 11px;
+  color: var(--teal);
+  margin-top: 3px;
+}
+
+.tex-diagram-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tex-diagram-canvas {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 24px;
+  overflow-x: auto;
+  min-height: 360px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.tex-diagram-canvas svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .tex-table-wrap {
   margin: 20px 0;
   overflow-x: auto;

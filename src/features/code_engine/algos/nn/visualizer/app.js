@@ -1175,29 +1175,202 @@ function closeTexModal() {
   document.body.style.overflow = "";
 }
 
+let currentModalDiagramZoom = 1.0;
+
+function zoomModalDiagram(factor) {
+  currentModalDiagramZoom *= factor;
+  if (currentModalDiagramZoom < 0.4) currentModalDiagramZoom = 0.4;
+  if (currentModalDiagramZoom > 3.0) currentModalDiagramZoom = 3.0;
+  const svg = document.querySelector("#tex-diagram-canvas svg");
+  if (svg) {
+    svg.style.transform = `scale(${currentModalDiagramZoom})`;
+    svg.style.transformOrigin = "top center";
+    svg.style.transition = "transform .15s";
+  }
+}
+
+function resetModalDiagramZoom() {
+  currentModalDiagramZoom = 1.0;
+  const svg = document.querySelector("#tex-diagram-canvas svg");
+  if (svg) {
+    svg.style.transform = "scale(1)";
+  }
+}
+
+function sanitizeMermaidText(text) {
+  return String(text || "")
+    .replace(/\\gets/g, " ← ")
+    .replace(/\\to/g, " → ")
+    .replace(/\\le/g, " ≤ ")
+    .replace(/\\ge/g, " ≥ ")
+    .replace(/\\ne/g, " ≠ ")
+    .replace(/\\sum/g, "Σ")
+    .replace(/\\alpha/g, "α")
+    .replace(/\\beta/g, "β")
+    .replace(/\\gamma/g, "γ")
+    .replace(/\\delta/g, "δ")
+    .replace(/\\epsilon/g, "ε")
+    .replace(/\\theta/g, "θ")
+    .replace(/\\pi/g, "π")
+    .replace(/\\tau/g, "τ")
+    .replace(/\\mathcal\{([A-Za-z])\}/g, "$1")
+    .replace(/\\mathbf\{([A-Za-z0-9]+)\}/g, "$1")
+    .replace(/\\hat\{([A-Za-z0-9]+)\}/g, "$1^")
+    .replace(/\\tilde\{([A-Za-z0-9]+)\}/g, "$1~")
+    .replace(/\\text\{([^\}]+)\}/g, "$1")
+    .replace(/\\textbf\{([^\}]+)\}/g, "$1")
+    .replace(/\\[a-zA-Z]+/g, "")
+    .replace(/["#\(\)\[\]\{\};]/g, "")
+    .replace(/[{}$_\\~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 55);
+}
+
+function generateProofMermaidCode(proof) {
+  const tex = proof.rawTex || "";
+  let inputs = [];
+  let outputs = [];
+  let steps = [];
+
+  const reqMatch = tex.match(/\\Require\s+([^\n\r]+)/);
+  if (reqMatch) {
+    inputs = reqMatch[1].split(/,|;/).map(sanitizeMermaidText).filter(s => s.length > 1).slice(0, 4);
+  }
+
+  const ensMatch = tex.match(/\\Ensure\s+([^\n\r]+)/);
+  if (ensMatch) {
+    outputs = ensMatch[1].split(/,|;/).map(sanitizeMermaidText).filter(s => s.length > 1).slice(0, 4);
+  }
+
+  const algoMatch = tex.match(/\\begin\{algorithmic\}[\s\S]*?\\end\{algorithmic\}/);
+  if (algoMatch) {
+    const lines = algoMatch[0].split("\n");
+    for (const line of lines) {
+      if (line.includes("\\State") || line.includes("\\For") || line.includes("\\If")) {
+        const clean = sanitizeMermaidText(line.replace(/\\(State|For|If|Ensure|Require)/g, ""));
+        if (clean.length > 2 && !clean.toLowerCase().startsWith("return") && steps.length < 6) {
+          steps.push(clean);
+        }
+      }
+    }
+  }
+
+  if (steps.length === 0 && tex.includes("Dependency Graph")) {
+    const depMatch = tex.match(/Dependency Graph\}?:\s*([^\n\r\\]+)/);
+    if (depMatch) {
+      const parts = depMatch[1].split(/\\to|->/).map(sanitizeMermaidText).filter(s => s.length > 1);
+      if (parts.length > 1) {
+        if (inputs.length === 0) inputs = [parts[0]];
+        steps = parts.slice(1, -1).slice(0, 5);
+        if (outputs.length === 0) outputs = [parts[parts.length - 1]];
+      }
+    }
+  }
+
+  if (steps.length === 0) {
+    const subs = (tex.match(/\\subsection\{([^}]+)\}/g) || [])
+      .map(s => sanitizeMermaidText(s.replace(/\\subsection\{|\}/g, "")))
+      .filter(s => !s.toLowerCase().includes("question") && !s.toLowerCase().includes("mental"));
+    if (subs.length > 0) {
+      steps = subs.slice(0, 4);
+    }
+  }
+
+  if (inputs.length === 0) inputs = ["Input Feature Tensor X", "Model Parameters Theta"];
+  if (steps.length === 0) steps = ["Initialize Forward State", "Compute Loss & Invariants", "Backpropagate Gradients"];
+  if (outputs.length === 0) outputs = ["Optimized Parameters Theta*", "Convergence Certificate"];
+
+  let m = "flowchart TD\n";
+  m += "    classDef input fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;\n";
+  m += "    classDef step fill:#151713,stroke:#7bf37b,stroke-width:1.5px,color:#d9d6cb;\n";
+  m += "    classDef output fill:#204040,stroke:#94e2d5,stroke-width:2px,color:#cdd6f4;\n\n";
+
+  m += "    subgraph IN [\"Inputs & Preconditions\"]\n";
+  inputs.forEach((inp, idx) => {
+    m += `        in_${idx}[\"${inp}\"]:::input\n`;
+  });
+  m += "    end\n\n";
+
+  m += "    subgraph PIPE [\"Algorithmic Execution Pipeline\"]\n";
+  steps.forEach((st, idx) => {
+    m += `        st_${idx}[\"${idx + 1}. ${st}\"]:::step\n`;
+  });
+  m += "    end\n\n";
+
+  m += "    subgraph OUT [\"Outputs & Guarantees\"]\n";
+  outputs.forEach((out, idx) => {
+    m += `        out_${idx}[\"${out}\"]:::output\n`;
+  });
+  m += "    end\n\n";
+
+  m += "    IN --> st_0\n";
+  for (let i = 0; i < steps.length - 1; i++) {
+    m += `    st_${i} --> st_${i + 1}\n`;
+  }
+  m += `    st_${steps.length - 1} --> OUT\n`;
+
+  return m;
+}
+
+async function renderProofDiagram(container, proof) {
+  if (!proof) return;
+  currentModalDiagramZoom = 1.0;
+  const mermaidCode = generateProofMermaidCode(proof);
+
+  container.innerHTML = `
+    <div class="tex-diagram-header">
+      <div>
+        <div class="tex-diagram-title">${escapeHtml(proof.algoName)} · Architecture Flow</div>
+        <div class="tex-diagram-meta">${escapeHtml(proof.domainLabel)} · Algorithm Execution DAG</div>
+      </div>
+      <div class="tex-diagram-controls">
+        <button class="proof-btn" onclick="zoomModalDiagram(1.2)">＋ Zoom In</button>
+        <button class="proof-btn" onclick="zoomModalDiagram(0.8)">− Zoom Out</button>
+        <button class="proof-btn" onclick="resetModalDiagramZoom()">Reset</button>
+      </div>
+    </div>
+    <div class="tex-diagram-canvas" id="tex-diagram-canvas">
+      <div class="mermaid" id="modal-mermaid-graph">${mermaidCode}</div>
+    </div>
+  `;
+
+  if (window.mermaid) {
+    try {
+      const graphNode = document.getElementById("modal-mermaid-graph");
+      if (graphNode) {
+        await window.mermaid.run({ nodes: [graphNode] });
+      }
+    } catch (e) {
+      console.warn("Mermaid modal render error:", e);
+    }
+  }
+}
+
 function setTexViewMode(mode) {
   currentTexViewMode = mode;
   const btnRender = document.getElementById("btn-mode-render");
+  const btnDiagram = document.getElementById("btn-mode-diagram");
   const btnSource = document.getElementById("btn-mode-source");
   const renderedView = document.getElementById("tex-rendered-view");
+  const diagramView = document.getElementById("tex-diagram-view");
   const sourceView = document.getElementById("tex-source-view");
 
-  if (mode === "rendered") {
-    if (btnRender) btnRender.classList.add("active");
-    if (btnSource) btnSource.classList.remove("active");
-    if (renderedView) {
-      renderedView.style.display = "block";
-      renderProofMath(renderedView, currentModalProof);
-    }
-    if (sourceView) sourceView.style.display = "none";
-  } else {
-    if (btnSource) btnSource.classList.add("active");
-    if (btnRender) btnRender.classList.remove("active");
-    if (renderedView) renderedView.style.display = "none";
-    if (sourceView) {
-      sourceView.style.display = "block";
-      sourceView.textContent = currentModalProof ? currentModalProof.rawTex : "";
-    }
+  if (btnRender) btnRender.classList.toggle("active", mode === "rendered");
+  if (btnDiagram) btnDiagram.classList.toggle("active", mode === "diagram");
+  if (btnSource) btnSource.classList.toggle("active", mode === "source");
+
+  if (renderedView) {
+    renderedView.style.display = mode === "rendered" ? "block" : "none";
+    if (mode === "rendered") renderProofMath(renderedView, currentModalProof);
+  }
+  if (diagramView) {
+    diagramView.style.display = mode === "diagram" ? "block" : "none";
+    if (mode === "diagram") renderProofDiagram(diagramView, currentModalProof);
+  }
+  if (sourceView) {
+    sourceView.style.display = mode === "source" ? "block" : "none";
+    if (mode === "source") sourceView.textContent = currentModalProof ? currentModalProof.rawTex : "";
   }
 }
 

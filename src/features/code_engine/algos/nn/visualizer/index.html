@@ -1244,6 +1244,8 @@ erDiagram
         </div>
         <div class="tex-modal-actions">
           <button class="tex-mode-btn active" id="btn-mode-render" onclick="setTexViewMode('rendered')">Rendered Math</button>
+          <button class="tex-mode-btn" id="btn-mode-diagram" onclick="setTexViewMode('diagram')">Architecture Diagram</button>
+          <button class="tex-mode-btn" id="btn-mode-source" onclick="setTexViewMode('source')">TeX Source</button>
           <button class="tex-mode-btn" id="btn-mode-pdf" onclick="openCurrentPdf()">PDF ↗</button>
           <button class="tex-modal-close" onclick="closeTexModal()">✕</button>
         </div>
@@ -1251,6 +1253,7 @@ erDiagram
       </div>
       <div class="tex-modal-body">
         <div id="tex-rendered-view" class="tex-rendered-container"></div>
+        <div id="tex-diagram-view" class="tex-diagram-container" style="display:none;"></div>
         <pre id="tex-source-view" class="tex-source-container" style="display:none;"></pre>
       </div>
     </div>
