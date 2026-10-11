@@ -175,8 +175,8 @@ flowchart TD
     classDef pack fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
 
     subgraph CurationTrack ["Data Quality & Deduplication"]
-        RawCorpus["Raw Web & Synthetic Corpus"]:::source --> FilterAlgo["Synthetic Data Quality Filtering\n• Threshold: quality >= 0.70\n• Bounds: 10 <= tokens <= 1000"]:::filter
-        FilterAlgo --> DedupAlgo["N-Gram Jaccard Deduplication\n• Discards overlap > 0.80"]:::filter
+        RawCorpus["Raw Web & Synthetic Corpus"]:::source --> FilterAlgo["Synthetic Data Quality Filtering<br/>• Threshold: quality >= 0.70<br/>• Bounds: 10 <= tokens <= 1000"]:::filter
+        FilterAlgo --> DedupAlgo["N-Gram Jaccard Deduplication<br/>• Discards overlap > 0.80"]:::filter
     end
 
     subgraph MixtureTrack ["DoReMi Dynamic Mixture Optimization"]
@@ -184,15 +184,15 @@ flowchart TD
         DomainSplits --> ProxyLoss["Proxy Model Domain Losses"]:::mixture
         DomainSplits --> RefLoss["Reference Baseline Losses"]:::mixture
         ProxyLoss & RefLoss --> ExcessLoss["Compute Excess Loss: Delta_d = L_proxy - L_ref"]:::mixture
-        ExcessLoss --> MirrorDescent["DoReMi Exponentiated Gradient Mirror Descent\n• Updates domain sampling weights on simplex"]:::mixture
+        ExcessLoss --> MirrorDescent["DoReMi Exponentiated Gradient Mirror Descent<br/>• Updates domain sampling weights on simplex"]:::mixture
     end
 
     subgraph PackingTrack ["Sequence Packing & Mask Synthesis"]
         MirrorDescent --> WeightedSampler["Dynamic Domain Data Sampler"]:::mixture
         WeightedSampler --> DocSequences["Variable-Length Document Sequences"]:::source
-        DocSequences --> BinPack["Sequence Packing (First-Fit Decreasing)\n• Capacity: max_sequence_length"]:::pack
+        DocSequences --> BinPack["Sequence Packing (First-Fit Decreasing)<br/>• Capacity: max_sequence_length"]:::pack
         BinPack --> SegmentIDs["Generate Segment IDs & Monotonic Position IDs"]:::pack
-        BinPack --> MaskGen["2D Block-Diagonal Causal Attention Mask Generator\n• Zero cross-document attention leakage"]:::pack
+        BinPack --> MaskGen["2D Block-Diagonal Causal Attention Mask Generator<br/>• Zero cross-document attention leakage"]:::pack
     end
 
     SegmentIDs & MaskGen --> DataLoaderOut["Distributed DataLoader Batch to Embedding Layer"]:::pack
@@ -371,7 +371,7 @@ flowchart TD
 
     subgraph PruneSparse ["One-Shot Pruning & Hardware Sparsity"]
         RetainedWeights --> WandaPruning["Wanda One-Shot Activation-Weighted Weight Pruning"]:::prune
-        WandaPruning --> Sparse24_Tensors["Semi-Structured 2:4 Sparse Tensor Cores Projector\n• Exactly 2 non-zeros per 4 contiguous elements\n• 50% physical weight reduction"]:::prune
+        WandaPruning --> Sparse24_Tensors["Semi-Structured 2:4 Sparse Tensor Cores Projector<br/>• Exactly 2 non-zeros per 4 contiguous elements<br/>• 50% physical weight reduction"]:::prune
     end
 
     Sparse24_Tensors --> ProductionWeights["Hardware-Optimized Compact Weights Ready for Serving"]:::deploy
@@ -576,21 +576,21 @@ flowchart TD
     classDef learn fill:#1a3300,stroke:#a6e3a1,stroke-width:2px,color:#cdd6f4;
 
     subgraph ForwardPass ["1. Forward Pass (Processing Words into Smarter Meanings)"]
-        WordInputs["Input Word Representations"]:::input --> CleanNumbers["1. Normalize Values with RMSNorm\n(Keeps numbers stable so they don't explode)"]:::step
-        CleanNumbers --> AddPositions["2. Add Word Order with RoPE\n(Tells the model which word came first, second, etc.)"]:::step
-        AddPositions --> AttentionCompare["3. Multi-Head Attention\n(Lets words look at and compare each other)"]:::step
-        AttentionCompare --> CombineAttn["4. Combine Attention Output\n(Puts all head discoveries back together)"]:::step
-        CombineAttn --> AddSkip1["5. Add Skip Connection\n(Adds input back so the model never forgets original context)"]:::step
-        AddSkip1 --> CleanNumbers2["6. Second Normalization (RMSNorm)\n(Prepares numbers for feed-forward knowledge lookup)"]:::step
-        CleanNumbers2 --> ExpertLookup["7. Feed-Forward / Expert Networks (MLP / MoE)\n(Looks up facts and deeper linguistic concepts)"]:::step
-        ExpertLookup --> AddSkip2["8. Second Skip Connection\n(Adds previous layer output back for stable gradient flow)"]:::step
+        WordInputs["Input Word Representations"]:::input --> CleanNumbers["1. Normalize Values with RMSNorm<br/>(Keeps numbers stable so they don't explode)"]:::step
+        CleanNumbers --> AddPositions["2. Add Word Order with RoPE<br/>(Tells the model which word came first, second, etc.)"]:::step
+        AddPositions --> AttentionCompare["3. Multi-Head Attention<br/>(Lets words look at and compare each other)"]:::step
+        AttentionCompare --> CombineAttn["4. Combine Attention Output<br/>(Puts all head discoveries back together)"]:::step
+        CombineAttn --> AddSkip1["5. Add Skip Connection<br/>(Adds input back so the model never forgets original context)"]:::step
+        AddSkip1 --> CleanNumbers2["6. Second Normalization (RMSNorm)<br/>(Prepares numbers for feed-forward knowledge lookup)"]:::step
+        CleanNumbers2 --> ExpertLookup["7. Feed-Forward / Expert Networks (MLP / MoE)<br/>(Looks up facts and deeper linguistic concepts)"]:::step
+        ExpertLookup --> AddSkip2["8. Second Skip Connection<br/>(Adds previous layer output back for stable gradient flow)"]:::step
         AddSkip2 --> WordOutputs["Output Representations Ready for Next Layer"]:::input
     end
 
     subgraph BackwardPass ["2. Backward Pass (Learning from Mistakes)"]
-        LossError["Calculate Error at Output\n(How wrong was the model's guess?)"]:::learn --> SendBackErrors["Send Gradients Backward\n(Reverse-mode autodiff calculates each step's blame)"]:::learn
-        SendBackErrors --> SyncAcrossGPUs["Synchronize Gradients Across GPUs\n(Share what every GPU learned across the cluster)"]:::network
-        SyncAcrossGPUs --> UpdateWeights["Update Weights with AdamW\n(Nudge parameters in the right direction)"]:::learn
+        LossError["Calculate Error at Output<br/>(How wrong was the model's guess?)"]:::learn --> SendBackErrors["Send Gradients Backward<br/>(Reverse-mode autodiff calculates each step's blame)"]:::learn
+        SendBackErrors --> SyncAcrossGPUs["Synchronize Gradients Across GPUs<br/>(Share what every GPU learned across the cluster)"]:::network
+        SyncAcrossGPUs --> UpdateWeights["Update Weights with AdamW<br/>(Nudge parameters in the right direction)"]:::learn
     end
 
     WordOutputs -.->|"Feeds Loss Function"| LossError
@@ -807,34 +807,35 @@ flowchart TD
     classDef align fill:#4a154b,stroke:#f5c2e7,stroke-width:2px,color:#cdd6f4;
     classDef peft fill:#204040,stroke:#94e2d5,stroke-width:2px,color:#cdd6f4;
     classDef serve fill:#2b2c3b,stroke:#f9e2af,stroke-width:2px,color:#cdd6f4;
+    classDef decode fill:#3a203a,stroke:#eba0ac,stroke-width:2px,color:#cdd6f4;
 
     %% -------------------------------------------------------------------------
-    %% 1. DATA CURATION & SEQUENCE PREPARATION
+    %% 1. DATA CURATION & DYNAMIC MIXTURE INGESTION
     %% -------------------------------------------------------------------------
     subgraph S1 ["1. Data Curation & Dynamic Mixture Ingestion"]
-        Curation["Synthetic Data Quality Filtering and Deduplication\n• JSON Input: { candidate_samples, min_quality_score, jaccard_dedup_threshold }\n• JSON Response: { accepted_samples, rejection_breakdown, acceptance_rate, total_candidates }"]:::curation
-        DoReMi["DoReMi Dynamic Domain Reweighting\n• JSON Input: { domain_losses_proxy, domain_losses_reference, current_domain_weights }\n• JSON Response: { updated_domain_weights, excess_losses, worst_case_domain_idx }"]:::curation
-        Packing["Sequence Packing with Causal Document Masking\n• JSON Input: { document_lengths, max_sequence_length }\n• JSON Response: { packed_sequences, position_ids, document_boundary_masks }"]:::curation
+        Curation["<strong>Synthetic Data Quality Filtering and Deduplication</strong><br/>📥 <b>JSON Input:</b> <code>{ candidate_samples, min_quality_score, jaccard_threshold }</code><br/>📤 <b>JSON Response:</b> <code>{ accepted_samples, rejection_breakdown, acceptance_ratio }</code>"]:::curation
+        DoReMi["<strong>DoReMi Dynamic Domain Reweighting</strong><br/>📥 <b>JSON Input:</b> <code>{ domain_losses_proxy, domain_losses_reference, current_weights }</code><br/>📤 <b>JSON Response:</b> <code>{ updated_domain_weights, excess_losses, worst_domain_idx }</code>"]:::curation
+        Packing["<strong>Sequence Packing with Causal Document Masking</strong><br/>📥 <b>JSON Input:</b> <code>{ document_token_sequences, max_sequence_length, padding_token_id }</code><br/>📤 <b>JSON Response:</b> <code>{ packed_sequences, segment_ids, position_ids, boundary_masks }</code>"]:::curation
 
-        Curation -->|"transmits JSON: { accepted_samples, acceptance_rate }"| DoReMi
+        Curation -->|"transmits JSON: { accepted_samples, acceptance_ratio }"| DoReMi
         DoReMi -->|"transmits JSON: { updated_domain_weights }"| Packing
     end
 
     %% -------------------------------------------------------------------------
-    %% 2. TRANSFORMER BLOCK MICRO-ARCHITECTURE
+    %% 2. TRANSFORMER BLOCK MICRO-ARCHITECTURE & ACTIVATION DYNAMICS
     %% -------------------------------------------------------------------------
     subgraph S2 ["2. Transformer Layer Activations & Attention Dynamics"]
-        Emb["Embedding Lookup & High-Dimensional Projection\n• JSON Input: { token_ids, embedding_table }\n• JSON Response: { embedded_representations }"]:::arch
-        RMSNorm["Root Mean Square Normalization (RMSNorm)\n• JSON Input: { input_tensor, gamma, eps }\n• JSON Response: { normalized_tensor, rms_values }"]:::arch
-        RoPE["Rotary Position Embeddings (RoPE) & YaRN\n• JSON Input: { vectors, positions, base }\n• JSON Response: { rotated_vectors, dim }"]:::arch
-        MHA["Multi-Head Attention & Attention Sinks\n• JSON Input: { query, key, value, num_heads, mask }\n• JSON Response: { output, head_outputs, head_dim }"]:::arch
-        MoERoute["Top-K Mixture-of-Experts Router\n• JSON Input: { input_activations, routing_weights }\n• JSON Response: { expert_dispatch_indices, routing_probabilities }"]:::arch
-        SwiGLU["SwiGLU Gated Feedforward Networks\n• JSON Input: { gate_tensor, up_tensor, down_tensor }\n• JSON Response: { expert_output_activations }"]:::arch
-        Residual["Residual Addition & Highway Connections\n• JSON Input: { identity_tensor, transformed_tensor }\n• JSON Response: { output_hidden_states }"]:::arch
+        Emb["<strong>Embedding Lookup & High-Dimensional Projection</strong><br/>📥 <b>JSON Input:</b> <code>{ token_ids, embedding_table }</code><br/>📤 <b>JSON Response:</b> <code>{ embedded_representations }</code>"]:::arch
+        RMSNorm["<strong>Root Mean Square Normalization (RMSNorm)</strong><br/>📥 <b>JSON Input:</b> <code>{ input_tensor, gamma, eps }</code><br/>📤 <b>JSON Response:</b> <code>{ normalized_tensor, rms_values }</code>"]:::arch
+        RoPE["<strong>Rotary Position Embeddings (RoPE) & YaRN</strong><br/>📥 <b>JSON Input:</b> <code>{ vectors, positions, base }</code><br/>📤 <b>JSON Response:</b> <code>{ rotated_vectors, dim }</code>"]:::arch
+        MHA["<strong>Multi-Head Attention & Attention Sinks</strong><br/>📥 <b>JSON Input:</b> <code>{ query, key, value, num_heads, mask }</code><br/>📤 <b>JSON Response:</b> <code>{ output, head_outputs, head_dim }</code>"]:::arch
+        MoERoute["<strong>Top-K Mixture-of-Experts Router</strong><br/>📥 <b>JSON Input:</b> <code>{ input_activations, routing_weights }</code><br/>📤 <b>JSON Response:</b> <code>{ expert_dispatch_indices, routing_probabilities }</code>"]:::arch
+        SwiGLU["<strong>SwiGLU Gated Feedforward Networks</strong><br/>📥 <b>JSON Input:</b> <code>{ gate_tensor, up_tensor, down_tensor }</code><br/>📤 <b>JSON Response:</b> <code>{ expert_output_activations }</code>"]:::arch
+        Residual["<strong>Residual Addition & Highway Connections</strong><br/>📥 <b>JSON Input:</b> <code>{ identity_tensor, transformed_tensor }</code><br/>📤 <b>JSON Response:</b> <code>{ output_hidden_states }</code>"]:::arch
 
         Packing -->|"transmits JSON: { packed_sequences }"| Emb
         Packing -.->|"transmits JSON: { position_ids }"| RoPE
-        Packing -.->|"transmits JSON: { document_boundary_masks }"| MHA
+        Packing -.->|"transmits JSON: { boundary_masks }"| MHA
         Emb -->|"transmits JSON: { embedded_representations }"| RMSNorm
         RMSNorm -->|"transmits JSON: { normalized_tensor }"| RoPE
         RoPE -->|"transmits JSON: { rotated_vectors }"| MHA
@@ -844,14 +845,14 @@ flowchart TD
     end
 
     %% -------------------------------------------------------------------------
-    %% 3. 5D DISTRIBUTED HARDWARE PARALLELISM
+    %% 3. 5D DISTRIBUTED HARDWARE PARALLEL EXECUTION
     %% -------------------------------------------------------------------------
     subgraph S3 ["3. 5D Distributed Hardware Parallel Execution"]
-        TP["Megatron Tensor Parallelism (Column/Row GEMM)\n• JSON Input: { input_vector, column_shards, row_shards }\n• JSON Response: { output_vector, shard_hidden_activations, tp_degree }"]:::scale
-        CP["Context Parallelism (Ring Attention)\n• JSON Input: { local_q_chunks, local_k_chunks, local_v_chunks }\n• JSON Response: { context_attended_hidden_states }"]:::scale
-        PP["Pipeline Parallelism (1F1B Micro-Batches)\n• JSON Input: { microbatch_activations, stage_id }\n• JSON Response: { forward_activations, backward_gradients }"]:::scale
-        ZeRO["ZeRO-3 / FSDP Memory Sharding\n• JSON Input: { sharded_weights, sharded_gradients, sharded_optimizer_states }\n• JSON Response: { all_gathered_weights, partitioned_updates }"]:::scale
-        FP8["FP8 Mixed-Precision Tensor Core Scaling\n• JSON Input: { fp32_tensors, dynamic_scale_factor_S }\n• JSON Response: { fp8_e4m3_forward, fp8_e5m2_backward }"]:::scale
+        TP["<strong>Megatron Tensor Parallelism (Column/Row GEMM)</strong><br/>📥 <b>JSON Input:</b> <code>{ input_vector, column_shards, row_shards }</code><br/>📤 <b>JSON Response:</b> <code>{ output_vector, shard_hidden_activations, tp_degree }</code>"]:::scale
+        CP["<strong>Context Parallelism (Ring Attention)</strong><br/>📥 <b>JSON Input:</b> <code>{ local_q_chunks, local_k_chunks, local_v_chunks }</code><br/>📤 <b>JSON Response:</b> <code>{ context_attended_hidden_states }</code>"]:::scale
+        PP["<strong>Pipeline Parallelism (1F1B Micro-Batches)</strong><br/>📥 <b>JSON Input:</b> <code>{ microbatch_activations, stage_id }</code><br/>📤 <b>JSON Response:</b> <code>{ forward_activations, backward_gradients }</code>"]:::scale
+        ZeRO["<strong>ZeRO-3 / FSDP Memory Sharding</strong><br/>📥 <b>JSON Input:</b> <code>{ sharded_weights, sharded_gradients, sharded_optimizer_states }</code><br/>📤 <b>JSON Response:</b> <code>{ all_gathered_weights, partitioned_updates }</code>"]:::scale
+        FP8["<strong>FP8 Mixed-Precision Tensor Core Scaling</strong><br/>📥 <b>JSON Input:</b> <code>{ fp32_tensors, dynamic_scale_factor_S }</code><br/>📤 <b>JSON Response:</b> <code>{ fp8_e4m3_forward, fp8_e5m2_backward }</code>"]:::scale
 
         Residual -->|"transmits JSON: { output_hidden_states }"| TP
         TP -->|"transmits JSON: { output_vector }"| CP
@@ -861,15 +862,15 @@ flowchart TD
     end
 
     %% -------------------------------------------------------------------------
-    %% 4. LOSS OPTIMIZATION & AUTODIFF DYNAMICS
+    %% 4. LOSS COMPUTATION, AUTODIFF & GRADIENT OPTIMIZATION
     %% -------------------------------------------------------------------------
     subgraph S4 ["4. Loss Computation, Autodiff & Gradient Optimization"]
-        Loss["Cross-Entropy Loss with Label Smoothing & Z-Loss\n• JSON Input: { logits, targets, label_smoothing, z_loss_tau }\n• JSON Response: { cross_entropy_loss, z_loss_term, total_objective }"]:::opt
-        VJP["Reverse-Mode Autodiff Vector-Jacobian Products\n• JSON Input: { objective_loss, saved_activation_graph }\n• JSON Response: { parameter_gradients, activation_adjoints }"]:::opt
-        NoiseScale["Critical Batch Size Noise Scale Estimator\n• JSON Input: { per_sample_gradients, current_step, total_steps }\n• JSON Response: { recommended_batch_size, estimated_noise_scale_b_noise }"]:::opt
-        AdamW["AdamW Decoupled Weight Decay Optimizer\n• JSON Input: { parameters, gradients, exp_avg, exp_avg_sq, lr, weight_decay }\n• JSON Response: { updated_parameters, updated_exp_avg, updated_exp_avg_sq }"]:::opt
-        WSD["Warmup-Stable-Decay Learning Rate Scheduler\n• JSON Input: { step, total_steps, warmup_ratio, decay_ratio }\n• JSON Response: { scheduled_learning_rate }"]:::opt
-        Watchdog["Loss Spike Divergence Watchdog\n• JSON Input: { current_step_loss, moving_average, moving_std }\n• JSON Response: { is_anomaly_detected, rollback_trigger }"]:::opt
+        Loss["<strong>Cross-Entropy Loss with Label Smoothing & Z-Loss</strong><br/>📥 <b>JSON Input:</b> <code>{ logits, targets, label_smoothing, z_loss_tau }</code><br/>📤 <b>JSON Response:</b> <code>{ cross_entropy_loss, z_loss_term, total_objective }</code>"]:::opt
+        VJP["<strong>Reverse-Mode Autodiff Vector-Jacobian Products</strong><br/>📥 <b>JSON Input:</b> <code>{ objective_loss, saved_activation_graph }</code><br/>📤 <b>JSON Response:</b> <code>{ parameter_gradients, activation_adjoints }</code>"]:::opt
+        NoiseScale["<strong>Critical Batch Size Noise Scale Estimator</strong><br/>📥 <b>JSON Input:</b> <code>{ per_sample_gradients, current_step, total_steps }</code><br/>📤 <b>JSON Response:</b> <code>{ recommended_batch_size, estimated_noise_scale_b_noise }</code>"]:::opt
+        AdamW["<strong>AdamW Decoupled Weight Decay Optimizer</strong><br/>📥 <b>JSON Input:</b> <code>{ parameters, gradients, exp_avg, exp_avg_sq, lr, weight_decay }</code><br/>📤 <b>JSON Response:</b> <code>{ updated_parameters, updated_exp_avg, updated_exp_avg_sq }</code>"]:::opt
+        WSD["<strong>Warmup-Stable-Decay Learning Rate Scheduler</strong><br/>📥 <b>JSON Input:</b> <code>{ step, total_steps, warmup_ratio, decay_ratio }</code><br/>📤 <b>JSON Response:</b> <code>{ scheduled_learning_rate }</code>"]:::opt
+        Watchdog["<strong>Loss Spike Divergence Watchdog</strong><br/>📥 <b>JSON Input:</b> <code>{ current_step_loss, moving_average, moving_std }</code><br/>📤 <b>JSON Response:</b> <code>{ is_anomaly_detected, rollback_trigger }</code>"]:::opt
 
         FP8 -->|"transmits JSON: { forward_activations }"| Loss
         Loss -->|"transmits JSON: { total_objective }"| VJP
@@ -877,26 +878,24 @@ flowchart TD
         NoiseScale -->|"transmits JSON: { recommended_batch_size }"| AdamW
         WSD -->|"transmits JSON: { scheduled_learning_rate }"| AdamW
         VJP -->|"transmits JSON: { per_sample_gradients }"| Watchdog
-        AdamW -->|"transmits JSON: { updated_parameters }"| CheckpointSave["Elastic Distributed Checkpoint State"]:::opt
+        AdamW -->|"transmits JSON: { updated_parameters }"| CheckpointSave["<strong>Elastic Distributed Checkpoint State</strong>"]:::opt
     end
 
     %% -------------------------------------------------------------------------
-    %% 5. POST-TRAINING ALIGNMENT & REASONING SELF-PLAY
+    %% 5. POST-TRAINING DUAL-TRACK ALIGNMENT & REASONING ENGINE
     %% -------------------------------------------------------------------------
     subgraph S5 ["5. Post-Training Dual-Track Alignment & Reasoning Engine"]
-        SFT["Supervised Fine-Tuning (SFT) Core\n• JSON Input: { base_weights, instruction_demonstrations }\n• JSON Response: { instruction_tuned_weights }"]:::align
+        SFT["<strong>Supervised Fine-Tuning (SFT) Core</strong><br/>📥 <b>JSON Input:</b> <code>{ base_weights, instruction_demonstrations }</code><br/>📤 <b>JSON Response:</b> <code>{ instruction_tuned_weights }</code>"]:::align
         
-        %% Human Preference Track
-        BT["Bradley-Terry Reward Modeling\n• JSON Input: { pairwise_comparisons, reward_network_weights }\n• JSON Response: { winning_scalar_rewards, losing_scalar_rewards }"]:::align
-        RLHF["RLHF PPO with Adaptive KL Penalty\n• JSON Input: { policy_rollouts, reward_scores, reference_log_probs }\n• JSON Response: { ppo_policy_gradient_loss, kl_penalty_metric }"]:::align
-        DPO["Direct Preference Optimization & SimPO/KTO\n• JSON Input: { winning_log_probs, losing_log_probs, ref_log_probs }\n• JSON Response: { dpo_loss, implicit_reward_margins }"]:::align
+        BT["<strong>Bradley-Terry Reward Modeling</strong><br/>📥 <b>JSON Input:</b> <code>{ pairwise_comparisons, reward_network_weights }</code><br/>📤 <b>JSON Response:</b> <code>{ winning_scalar_rewards, losing_scalar_rewards }</code>"]:::align
+        RLHF["<strong>RLHF PPO with Adaptive KL Penalty</strong><br/>📥 <b>JSON Input:</b> <code>{ policy_rollouts, reward_scores, reference_log_probs }</code><br/>📤 <b>JSON Response:</b> <code>{ ppo_policy_gradient_loss, kl_penalty_metric }</code>"]:::align
+        DPO["<strong>Direct Preference Optimization & SimPO/KTO</strong><br/>📥 <b>JSON Input:</b> <code>{ winning_log_probs, losing_log_probs, ref_log_probs }</code><br/>📤 <b>JSON Response:</b> <code>{ dpo_loss, implicit_reward_margins }</code>"]:::align
 
-        %% Reasoning Track
-        Rollouts["Group Policy Rollout Sampler\n• JSON Input: { reasoning_prompts, rollout_group_size_G }\n• JSON Response: { candidate_reasoning_traces }"]:::align
-        Sandbox["Deterministic Execution Sandbox (Python / Sympy / Unit Tests)\n• JSON Input: { candidate_reasoning_traces, test_assertions }\n• JSON Response: { binary_outcome_rewards, execution_logs }"]:::align
-        GRPO["Group Relative Policy Optimization (GRPO)\n• JSON Input: { group_rewards, group_policy_log_probs, group_ref_log_probs }\n• JSON Response: { group_advantages, grpo_loss, approx_kl }"]:::align
-        PRM["Process Reward Models (Step-Level Credit PRM)\n• JSON Input: { step_decomposed_solutions, step_verifier }\n• JSON Response: { step_credit_scores, best_of_n_selection }"]:::align
-        Merge["TIES & DARE Multi-Task Model Merging\n• JSON Input: { preference_model_weights, reasoning_model_weights }\n• JSON Response: { unified_frontier_aligned_weights }"]:::align
+        Rollouts["<strong>Group Policy Rollout Sampler</strong><br/>📥 <b>JSON Input:</b> <code>{ reasoning_prompts, rollout_group_size_G }</code><br/>📤 <b>JSON Response:</b> <code>{ candidate_reasoning_traces }</code>"]:::align
+        Sandbox["<strong>Deterministic Execution Sandbox (Python / Sympy / Unit Tests)</strong><br/>📥 <b>JSON Input:</b> <code>{ candidate_reasoning_traces, test_assertions }</code><br/>📤 <b>JSON Response:</b> <code>{ binary_outcome_rewards, execution_logs }</code>"]:::align
+        GRPO["<strong>Group Relative Policy Optimization (GRPO)</strong><br/>📥 <b>JSON Input:</b> <code>{ group_rewards, group_policy_log_probs, group_ref_log_probs }</code><br/>📤 <b>JSON Response:</b> <code>{ group_advantages, grpo_loss, approx_kl }</code>"]:::align
+        PRM["<strong>Process Reward Models (Step-Level Credit PRM)</strong><br/>📥 <b>JSON Input:</b> <code>{ step_decomposed_solutions, step_verifier }</code><br/>📤 <b>JSON Response:</b> <code>{ step_credit_scores, best_of_n_selection }</code>"]:::align
+        Merge["<strong>TIES & DARE Multi-Task Model Merging</strong><br/>📥 <b>JSON Input:</b> <code>{ preference_model_weights, reasoning_model_weights }</code><br/>📤 <b>JSON Response:</b> <code>{ unified_frontier_aligned_weights }</code>"]:::align
 
         CheckpointSave -->|"transmits JSON: { updated_parameters }"| SFT
         SFT -->|"transmits JSON: { instruction_tuned_weights }"| BT
@@ -906,19 +905,21 @@ flowchart TD
         Rollouts -->|"transmits JSON: { candidate_reasoning_traces }"| Sandbox
         Sandbox -->|"transmits JSON: { binary_outcome_rewards }"| GRPO
         Rollouts -->|"transmits JSON: { candidate_reasoning_traces }"| PRM
-        RLHF & DPO -->|"transmits JSON: { preference_checkpoint }"| Merge
-        GRPO & PRM -->|"transmits JSON: { reasoning_checkpoint }"| Merge
+        RLHF -->|"transmits JSON: { preference_checkpoint }"| Merge
+        DPO -->|"transmits JSON: { preference_checkpoint }"| Merge
+        GRPO -->|"transmits JSON: { reasoning_checkpoint }"| Merge
+        PRM -->|"transmits JSON: { reasoning_checkpoint }"| Merge
     end
 
     %% -------------------------------------------------------------------------
-    %% 6. PEFT, COMPRESSION & HARDWARE PRUNING
+    %% 6. PARAMETER-EFFICIENCY, COMPRESSION & HARDWARE SPARSITY
     %% -------------------------------------------------------------------------
     subgraph S6 ["6. Parameter-Efficiency, Compression & Hardware Sparsity"]
-        LoRA["LoRA, QLoRA NF4 & DoRA Low-Rank Adaptation\n• JSON Input: { frozen_dense_weights, adapter_matrices_A_B }\n• JSON Response: { low_rank_adapted_weights }"]:::peft
-        Distill["Knowledge Distillation (Soft Targets & On-Policy)\n• JSON Input: { teacher_logits, student_logits, temperature }\n• JSON Response: { distillation_kl_loss, student_parameter_updates }"]:::peft
-        EWC["Elastic Weight Consolidation (EWC)\n• JSON Input: { previous_task_weights, fisher_information_matrix }\n• JSON Response: { continual_retention_loss }"]:::peft
-        Wanda["Wanda One-Shot Activation-Weighted Pruning\n• JSON Input: { weight_matrix, activation_norm_vector }\n• JSON Response: { structured_sparse_weight_matrix }"]:::peft
-        Sparse24["Semi-Structured 2:4 Sparse Tensor Cores\n• JSON Input: { dense_vector, importance_metric }\n• JSON Response: { sparse_vector, compressed_values, group_2bit_indices }"]:::peft
+        LoRA["<strong>LoRA, QLoRA NF4 & DoRA Low-Rank Adaptation</strong><br/>📥 <b>JSON Input:</b> <code>{ frozen_dense_weights, adapter_matrices_A_B }</code><br/>📤 <b>JSON Response:</b> <code>{ low_rank_adapted_weights }</code>"]:::peft
+        Distill["<strong>Knowledge Distillation (Soft Targets & On-Policy)</strong><br/>📥 <b>JSON Input:</b> <code>{ teacher_logits, student_logits, temperature }</code><br/>📤 <b>JSON Response:</b> <code>{ distillation_kl_loss, student_parameter_updates }</code>"]:::peft
+        EWC["<strong>Elastic Weight Consolidation (EWC)</strong><br/>📥 <b>JSON Input:</b> <code>{ previous_task_weights, fisher_information_matrix }</code><br/>📤 <b>JSON Response:</b> <code>{ continual_retention_loss }</code>"]:::peft
+        Wanda["<strong>Wanda One-Shot Activation-Weighted Pruning</strong><br/>📥 <b>JSON Input:</b> <code>{ weight_matrix, activation_norm_vector }</code><br/>📤 <b>JSON Response:</b> <code>{ structured_sparse_weight_matrix }</code>"]:::peft
+        Sparse24["<strong>Semi-Structured 2:4 Sparse Tensor Cores</strong><br/>📥 <b>JSON Input:</b> <code>{ dense_vector, importance_metric }</code><br/>📤 <b>JSON Response:</b> <code>{ sparse_vector, compressed_values, group_2bit_indices }</code>"]:::peft
 
         Merge -->|"transmits JSON: { unified_frontier_aligned_weights }"| LoRA
         LoRA -->|"transmits JSON: { low_rank_adapted_weights }"| Distill
@@ -928,15 +929,15 @@ flowchart TD
     end
 
     %% -------------------------------------------------------------------------
-    %% 7. ULTRA-FAST INFERENCE SERVING & CONSTRAINED DECODING
+    %% 7. PRODUCTION SERVING, PAGEDATTENTION & GRAMMAR DECODING
     %% -------------------------------------------------------------------------
     subgraph S7 ["7. Production Serving, PagedAttention & Grammar Decoding"]
-        Continuous["Continuous Dynamic Batching Scheduler\n• JSON Input: { incoming_requests, max_batch_slots }\n• JSON Response: { active_generation_batch }"]:::serve
-        PagedKV["PagedAttention Virtual Memory Block Manager\n• JSON Input: { block_table, logical_kv_cache, physical_pages }\n• JSON Response: { paged_attention_context }"]:::serve
-        FlashDecode["FlashDecoding Parallel Split-K Attention\n• JSON Input: { split_k_queries, paged_keys, paged_values }\n• JSON Response: { reduced_attention_activations }"]:::serve
-        Speculative["Speculative Draft-Verify Decoding\n• JSON Input: { draft_tokens_K, target_model_verification_logits }\n• JSON Response: { accepted_tokens, rollback_token_count }"]:::decode
-        Grammar["Constrained Grammar FSM (JSON / CFG Masking)\n• JSON Input: { raw_next_token_logits, schema_grammar_fsm }\n• JSON Response: { grammar_constrained_logits }"]:::serve
-        Sampling["Greedy Temperature Sampling\n• JSON Input: { logits, temperature }\n• JSON Response: { selected_token, probabilities, is_greedy }"]:::serve
+        Continuous["<strong>Continuous Dynamic Batching Scheduler</strong><br/>📥 <b>JSON Input:</b> <code>{ incoming_requests, max_batch_slots }</code><br/>📤 <b>JSON Response:</b> <code>{ active_generation_batch }</code>"]:::serve
+        PagedKV["<strong>PagedAttention Virtual Memory Block Manager</strong><br/>📥 <b>JSON Input:</b> <code>{ block_table, logical_kv_cache, physical_pages }</code><br/>📤 <b>JSON Response:</b> <code>{ paged_attention_context }</code>"]:::serve
+        FlashDecode["<strong>FlashDecoding Parallel Split-K Attention</strong><br/>📥 <b>JSON Input:</b> <code>{ split_k_queries, paged_keys, paged_values }</code><br/>📤 <b>JSON Response:</b> <code>{ reduced_attention_activations }</code>"]:::serve
+        Speculative["<strong>Speculative Draft-Verify Decoding</strong><br/>📥 <b>JSON Input:</b> <code>{ draft_tokens_K, target_model_verification_logits }</code><br/>📤 <b>JSON Response:</b> <code>{ accepted_tokens, rollback_token_count }</code>"]:::decode
+        Grammar["<strong>Constrained Grammar FSM (JSON / CFG Masking)</strong><br/>📥 <b>JSON Input:</b> <code>{ raw_next_token_logits, schema_grammar_fsm }</code><br/>📤 <b>JSON Response:</b> <code>{ grammar_constrained_logits }</code>"]:::serve
+        Sampling["<strong>Greedy Temperature Sampling</strong><br/>📥 <b>JSON Input:</b> <code>{ logits, temperature }</code><br/>📤 <b>JSON Response:</b> <code>{ selected_token, probabilities, is_greedy }</code>"]:::serve
 
         Sparse24 -->|"transmits JSON: { compressed_values, group_2bit_indices }"| PagedKV
         Continuous -->|"transmits JSON: { active_generation_batch }"| PagedKV
@@ -944,7 +945,7 @@ flowchart TD
         FlashDecode -->|"transmits JSON: { reduced_attention_activations }"| Speculative
         Speculative -->|"transmits JSON: { accepted_tokens }"| Grammar
         Grammar -->|"transmits JSON: { grammar_constrained_logits }"| Sampling
-        Sampling -->|"transmits JSON: { selected_token } to client streaming socket"| ClientOut["Streamed Token Output Stream"]:::serve
+        Sampling -->|"transmits JSON: { selected_token } to client streaming socket"| ClientOut["<strong>Streamed Token Output Stream</strong>"]:::serve
     end
 ```
 
