@@ -81,7 +81,7 @@
   <link rel="apple-touch-icon" href="logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com/">
   <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=307.0">
+  <link rel="stylesheet" href="styles.css?v=308.0">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
@@ -293,7 +293,24 @@
 
           <div class="inspector-code-box">
             <button class="inspector-copy-btn" onclick="copyActivePayload()">[copy json]</button>
-            <pre id="inspector-code-content">// Select an algorithm from the architecture diagram below to inspect...</pre>
+            <pre id="inspector-code-content">{
+  <span class="key">"candidate_samples":</span> [
+    {
+      <span class="key">"text":</span> <span class="str">"Proof of Fermat Last Theorem for n=3 using algebraic integers."</span>,
+      <span class="key">"quality_score":</span> <span class="num">0.88</span>,
+      <span class="key">"token_count":</span> <span class="num">12</span>
+    },
+    {
+      <span class="key">"text":</span> <span class="str">"Click here for discount tickets!"</span>,
+      <span class="key">"quality_score":</span> <span class="num">0.35</span>,
+      <span class="key">"token_count":</span> <span class="num">8</span>
+    }
+  ],
+  <span class="key">"min_quality_score":</span> <span class="num">0.7</span>,
+  <span class="key">"min_token_length":</span> <span class="num">10</span>,
+  <span class="key">"max_token_length":</span> <span class="num">1000</span>,
+  <span class="key">"jaccard_dedup_threshold":</span> <span class="num">0.8</span>
+}</pre>
           </div>
 
           <div style="margin-top:14px; font-size:11px; color:var(--ink-dim); border-top:1px dashed var(--rule); padding-top:10px;">
@@ -1228,8 +1245,8 @@ erDiagram
 
   </div>
 
-  <script src="proofs.js?v=307.0"></script>
-  <script src="app.js?v=307.0"></script>
+  <script src="proofs.js?v=308.0"></script>
+  <script src="app.js?v=308.0"></script>
   <script>
     async function showDiagramPanel(id, btn) {
       document.querySelectorAll('.diagram-panel').forEach(p => {
