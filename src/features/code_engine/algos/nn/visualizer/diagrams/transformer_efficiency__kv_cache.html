@@ -2,123 +2,172 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Kv Cache — Dedicated Architecture Diagram</title>
+  <title>Kv Cache — Architecture &amp; Mathematical Specification</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Dedicated high-fidelity architectural diagram and computational graph for Kv Cache (Transformer Efficiency).">
+  <meta name="description" content="Distill-style computational graph, execution lifecycle, and mathematical guarantees for Kv Cache.">
   <link rel="icon" type="image/svg+xml" href="../logo.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com/">
-  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="diagram.css">
   <script src="_layout.js"></script>
   <style>
-    .page-main {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 30px 24px;
+    body {
+      background: #060911;
+      color: #e2e8f0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
     }
-    .diag-hero {
+    .distill-container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px 64px 24px;
+    }
+    .distill-header {
       margin-bottom: 24px;
-      border-bottom: 1px solid var(--rule, #1e2235);
+      border-bottom: 1px solid #1e293b;
       padding-bottom: 20px;
     }
-    .diag-hero-badge {
+    .distill-badge {
       display: inline-block;
       font-size: 11px;
       font-weight: 700;
       color: #38bdf8;
-      background: rgba(56, 189, 248, 0.1);
+      background: rgba(56, 189, 248, 0.08);
       border: 1px solid rgba(56, 189, 248, 0.25);
       padding: 4px 10px;
       border-radius: 4px;
       letter-spacing: .08em;
       text-transform: uppercase;
-      margin-bottom: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 12px;
     }
-    .diag-hero-title {
-      font-size: 26px;
+    .distill-title {
+      font-size: 28px;
       font-weight: 700;
       color: #ffffff;
-      margin: 0 0 8px 0;
+      margin: 0 0 10px 0;
       letter-spacing: -0.02em;
     }
-    .diag-hero-desc {
-      font-size: 14px;
+    .distill-excerpt {
+      font-size: 14.5px;
       color: #94a3b8;
+      max-width: 950px;
       line-height: 1.6;
-      max-width: 900px;
     }
-    .svg-container-box {
+    .diagram-panel-box {
       background: #080c16;
       border: 1px solid #1e293b;
       border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 28px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+      padding: 24px;
+      margin-bottom: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
-    .cards-grid {
+    .distill-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
       gap: 20px;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
-    .info-card {
-      background: #111422;
-      border: 1px solid #1e2235;
-      border-radius: 8px;
-      padding: 20px;
+    .distill-card {
+      background: #0d121f;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 22px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
-    .info-card-title {
+    .distill-card-title {
       font-size: 12px;
       font-weight: 700;
       letter-spacing: .08em;
       text-transform: uppercase;
       color: #38bdf8;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
       gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
     }
-    .info-pill {
+    .spec-item {
       display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.03);
+      align-items: flex-start;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.02);
       border: 1px solid #1e293b;
       border-radius: 6px;
-      padding: 8px 12px;
-      margin-bottom: 8px;
-      font-size: 12.5px;
+      padding: 9px 13px;
+      margin-bottom: 9px;
+      font-size: 13px;
       color: #cbd5e1;
     }
-    .step-number {
+    .spec-dot-cyan { color: #38bdf8; font-weight: bold; }
+    .spec-dot-emerald { color: #10b981; font-weight: bold; }
+    .spec-step-num {
       color: #10b981;
-      font-weight: bold;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
     }
-    .nav-actions-bar {
+    .theorem-box {
+      background: rgba(168, 85, 247, 0.05);
+      border-left: 3px solid #a855f7;
+      padding: 12px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 12px;
+    }
+    .theorem-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f3e8ff;
+      margin-bottom: 4px;
+    }
+    .theorem-desc {
+      font-size: 12.5px;
+      color: #c084fc;
+      line-height: 1.5;
+    }
+    .comp-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+    .comp-bullet { color: #38bdf8; }
+    .nav-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-top: 20px;
-      border-top: 1px solid #1e2235;
+      padding-top: 24px;
+      border-top: 1px solid #1e293b;
     }
-    .btn-nav {
+    .btn-action {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       background: #1e293b;
-      color: #e2e8f0;
+      color: #f1f5f9;
       text-decoration: none;
       padding: 10px 18px;
       border-radius: 6px;
       font-size: 13px;
       font-weight: 500;
-      transition: background 0.15s;
+      transition: all 0.15s;
     }
-    .btn-nav:hover {
+    .btn-action:hover {
       background: #334155;
       color: #ffffff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+    }
+    .btn-primary {
+      background: #0284c7;
+    }
+    .btn-primary:hover {
+      background: #0369a1;
     }
   </style>
 </head>
@@ -131,84 +180,195 @@
     <a class="seg back" href="../index.html">← Return to Algorithm Hub</a>
     <div class="spacer"></div>
     <div class="seg clock" id="clock">—</div>
-    <div class="seg lic">dedicated architectural spec</div>
+    <div class="seg lic">distill visual standards</div>
   </div>
 
-  <div class="page-main">
-    <div class="diag-hero">
-      <div class="diag-hero-badge">Transformer Efficiency</div>
-      <h1 class="diag-hero-title">Kv Cache</h1>
-      <div class="diag-hero-desc">During autoregressive transformer inference, token generation proceeds one token per step. Recomputing key and value vectors across all previously processed tokens incurs quadratic (T^2) time complexi...</div>
+  <div class="distill-container">
+    <div class="distill-header">
+      <div class="distill-badge">Transformer Efficiency</div>
+      <h1 class="distill-title">Kv Cache</h1>
+      <div class="distill-excerpt">During autoregressive transformer inference, token generation proceeds one token per step. Recomputing key and value vectors across all previously processed tokens incurs quadratic (T^2) time complexi...</div>
     </div>
 
-    <!-- High-Fidelity SVG Diagram -->
-    <div class="svg-container-box">
+    <!-- High-Fidelity Distill Computational Graph Art -->
+    <div class="diagram-panel-box">
       
-        <svg viewBox="0 0 960 380" width="100%" height="auto" class="master-arch-svg" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <marker id="arr-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
-            </marker>
-          </defs>
-          <rect width="960" height="380" rx="12" fill="#080c16" stroke="#1e293b" stroke-width="1.5"/>
+    <svg viewBox="0 0 1020 400" width="100%" height="auto" class="distill-svg-art" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Marker Arrows -->
+        <marker id="arr-flow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+        </marker>
+        <marker id="arr-emerald" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+        </marker>
+        <marker id="arr-amber" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+        </marker>
 
-          <rect x="40" y="130" width="150" height="100" rx="8" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
-          <text x="115" y="165" fill="#38bdf8" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 01</text>
-          <text x="115" y="188" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">Input Ingestion</text>
-          <text x="115" y="210" fill="#94a3b8" font-size="11" font-family="monospace" text-anchor="middle">Data Tensors</text>
+        <!-- Premium Glass Gradients -->
+        <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#090d16" />
+          <stop offset="100%" stop-color="#05070d" />
+        </linearGradient>
+        <linearGradient id="g-tensor" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#1e293b" />
+          <stop offset="100%" stop-color="#0f172a" />
+        </linearGradient>
+        <linearGradient id="g-kernel" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#064e3b" />
+          <stop offset="100%" stop-color="#047857" />
+        </linearGradient>
+        <linearGradient id="g-act" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#1e3a8a" />
+          <stop offset="100%" stop-color="#2563eb" />
+        </linearGradient>
+        <linearGradient id="g-inv" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#311042" />
+          <stop offset="100%" stop-color="#4c1d95" />
+        </linearGradient>
 
-          <line x1="190" y1="180" x2="260" y2="180" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arr-cyan)"/>
+        <!-- Drop Shadows for 3D Layer Elevation -->
+        <filter id="shadow-elev" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
+        </filter>
+      </defs>
 
-          <rect x="260" y="130" width="190" height="100" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="2"/>
-          <text x="355" y="165" fill="#34d399" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 02</text>
-          <text x="355" y="188" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">Mathematical Core</text>
-          <text x="355" y="210" fill="#a7f3d0" font-size="11" font-family="monospace" text-anchor="middle">Transformation Kernel</text>
+      <!-- Background Canvas with Subtle Sub-grid -->
+      <rect width="1020" height="400" rx="14" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5"/>
+      <line x1="40" y1="55" x2="980" y2="55" stroke="#1e2235" stroke-dasharray="4 4"/>
 
-          <line x1="450" y1="180" x2="520" y2="180" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arr-cyan)"/>
+      <!-- Header Information -->
+      <text x="50" y="38" fill="#38bdf8" font-size="12" font-family="'JetBrains Mono', monospace" font-weight="bold">◈ COMPUTATIONAL GRAPH ARCHITECTURE &amp; DATA-FLOW DYNAMICS</text>
+      <text x="970" y="38" fill="#64748b" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="end">Transformer Efficiency</text>
 
-          <rect x="520" y="130" width="190" height="100" rx="8" fill="#312e81" stroke="#818cf8" stroke-width="2"/>
-          <text x="615" y="165" fill="#a5b4fc" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 03</text>
-          <text x="615" y="188" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">Invariant Bounds</text>
-          <text x="615" y="210" fill="#c7d2fe" font-size="11" font-family="monospace" text-anchor="middle">Stability &amp; Loss</text>
+      <!-- STAGE 1: TENSOR INPUT COHORT (LEFT COLUMN) -->
+      <g filter="url(#shadow-elev)">
+        <!-- Input 1 Node -->
+        <rect x="50" y="80" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
+        <circle cx="75" cy="112" r="14" fill="#0284c7"/>
+        <text x="75" y="117" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">x₁</text>
+        <text x="100" y="105" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">New key k_t ∈ ℝ^d_k</text>
+        <text x="100" y="125" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Batch Tensor</text>
 
-          <line x1="710" y1="180" x2="780" y2="180" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arr-cyan)"/>
+        <!-- Input 2 Node -->
+        <rect x="50" y="165" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#38bdf8" stroke-width="1.8"/>
+        <circle cx="75" cy="197" r="14" fill="#0284c7"/>
+        <text x="75" y="202" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">w</text>
+        <text x="100" y="190" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">new value v_t ∈ ℝ^d_</text>
+        <text x="100" y="210" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">Weights Matrix</text>
 
-          <rect x="780" y="130" width="140" height="100" rx="8" fill="#1e1b4b" stroke="#c084fc" stroke-width="2"/>
-          <text x="850" y="165" fill="#e879f9" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 04</text>
-          <text x="850" y="188" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">Synthesis</text>
-          <text x="850" y="210" fill="#f5d0fe" font-size="11" font-family="monospace" text-anchor="middle">Verified Returns</text>
+        <!-- Input 3 Node -->
+        <rect x="50" y="250" width="160" height="64" rx="8" fill="url(#g-tensor)" stroke="#f59e0b" stroke-width="1.8"/>
+        <circle cx="75" cy="282" r="14" fill="#d97706"/>
+        <text x="75" y="287" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">b</text>
+        <text x="100" y="275" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="600">cached keys K</text>
+        <text x="100" y="295" fill="#f59e0b" font-size="10" font-family="'JetBrains Mono', monospace">Bias / Param</text>
+      </g>
 
-          <path d="M 615 230 L 615 285 L 355 285 L 355 230" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arr-cyan)"/>
-          <text x="485" y="305" fill="#f59e0b" font-size="12" font-family="monospace" text-anchor="middle">Convergence &amp; Dynamic Loss Feedback Loop</text>
+      <!-- Connecting Synaptic Lines to Stage 2 -->
+      <path d="M 210 112 C 260 112, 270 160, 310 180" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
+      <path d="M 210 197 C 260 197, 270 200, 310 200" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arr-flow)"/>
+      <path d="M 210 282 C 260 282, 270 230, 310 215" fill="none" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)"/>
 
-          <rect x="280" y="338" width="400" height="32" rx="6" fill="#111827" stroke="#374151"/>
-          <text x="480" y="359" fill="#38bdf8" font-size="14" font-family="monospace" text-anchor="middle" font-weight="bold">Pipeline: Ingest ➔ Forward Operator ➔ Invariant ➔ Return</text>
-        </svg>
+      <!-- STAGE 2: MATHEMATICAL ACCUMULATOR & OPERATOR KERNEL -->
+      <g filter="url(#shadow-elev)">
+        <rect x="320" y="110" width="180" height="175" rx="10" fill="url(#g-kernel)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="410" cy="165" r="32" fill="#065f46" stroke="#34d399" stroke-width="2"/>
+        <text x="410" y="176" fill="#ffffff" font-size="28" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
+        <text x="410" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">K&#x27; ≥ts \operatornameCopy</text>
+        <rect x="340" y="235" width="140" height="24" rx="4" fill="#022c22" stroke="#059669"/>
+        <text x="410" y="251" fill="#6ee7b7" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">z = Wᵀx + b</text>
+      </g>
+
+      <!-- Forward Line to Stage 3 -->
+      <line x1="500" y1="197" x2="570" y2="197" stroke="#10b981" stroke-width="2.5" marker-end="url(#arr-emerald)"/>
+
+      <!-- STAGE 3: NONLINEAR ACTIVATION / ATTENTION LAYER -->
+      <g filter="url(#shadow-elev)">
+        <rect x="580" y="110" width="180" height="175" rx="10" fill="url(#g-act)" stroke="#3b82f6" stroke-width="2"/>
+        <circle cx="670" cy="165" r="32" fill="#1d4ed8" stroke="#60a5fa" stroke-width="2"/>
+        <text x="670" y="173" fill="#ffffff" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">g(·)</text>
+        <text x="670" y="220" fill="#ffffff" font-size="12.5" font-family="sans-serif" text-anchor="middle" font-weight="bold">Append k_t to K&#x27;</text>
+        <rect x="600" y="235" width="140" height="24" rx="4" fill="#0f172a" stroke="#2563eb"/>
+        <text x="670" y="251" fill="#93c5fd" font-size="10" font-family="'JetBrains Mono', monospace" text-anchor="middle">Nonlinear Gate</text>
+      </g>
+
+      <!-- Forward Line to Output Stage -->
+      <line x1="760" y1="197" x2="830" y2="197" stroke="#3b82f6" stroke-width="2.5" marker-end="url(#arr-flow)"/>
+
+      <!-- STAGE 4: OUTPUT SIGNALS & CONVERGENCE CERTIFICATE -->
+      <g filter="url(#shadow-elev)">
+        <rect x="840" y="125" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#10b981" stroke-width="2"/>
+        <circle cx="865" cy="157" r="14" fill="#047857"/>
+        <text x="865" y="163" fill="#ffffff" font-size="12" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
+        <text x="890" y="150" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">Updated keys K&#x27;</text>
+        <text x="890" y="170" fill="#10b981" font-size="10" font-family="'JetBrains Mono', monospace">Target State</text>
+
+        <rect x="840" y="210" width="140" height="64" rx="8" fill="url(#g-tensor)" stroke="#a855f7" stroke-width="2"/>
+        <circle cx="865" cy="242" r="14" fill="#7e22ce"/>
+        <text x="865" y="247" fill="#ffffff" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">ℒ</text>
+        <text x="890" y="235" fill="#f8fafc" font-size="12" font-family="sans-serif" font-weight="bold">updated values V&#x27;</text>
+        <text x="890" y="255" fill="#c084fc" font-size="10" font-family="'JetBrains Mono', monospace">Invariant Bound</text>
+      </g>
+
+      <!-- Feedback Gradient Arrow from Output back to Operator Kernel -->
+      <path d="M 910 274 L 910 320 L 410 320 L 410 285" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#arr-amber)"/>
+      <rect x="560" y="308" width="200" height="22" rx="4" fill="#111827" stroke="#374151"/>
+      <text x="660" y="323" fill="#f59e0b" font-size="10.5" font-family="'JetBrains Mono', monospace" text-anchor="middle">Reverse-Mode Gradient ∇L(θ)</text>
+
+      <!-- Footer Formula Banner -->
+      <rect x="180" y="352" width="660" height="34" rx="6" fill="#0f172a" stroke="#1e293b"/>
+      <text x="510" y="374" fill="#38bdf8" font-size="13" font-family="'JetBrains Mono', monospace" text-anchor="middle" font-weight="bold">Primary Formulation: Memory_KV = 2 × n_layers × n_heads × d_head × T × B × P bytes</text>
+    </svg>
+    
+    </div>
+
+    <!-- Multi-Column Technical Breakdown Grid -->
+    <div class="distill-grid">
+      <!-- Inputs Column -->
+      <div class="distill-card">
+        <div class="distill-card-title"><span>◈</span> Input Tensors &amp; Parameter Signatures</div>
+        <div class="spec-item"><span class="spec-dot-cyan">●</span> <span>New key k_t ∈ ℝ^d_k</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>new value v_t ∈ ℝ^d_v</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>cached keys K</span></div><div class="spec-item"><span class="spec-dot-cyan">●</span> <span>cached values V</span></div>
+      </div>
+
+      <!-- Execution Lifecycle Steps Column -->
+      <div class="distill-card">
+        <div class="distill-card-title"><span>◈</span> Internal Execution Lifecycle (6 Passes)</div>
+        <div class="spec-item"><span class="spec-step-num">PASS [01]</span> <span>K&#x27; ≥ts \operatornameCopy(K), V&#x27; ≥ts \operatornameCopy(V)</span></div><div class="spec-item"><span class="spec-step-num">PASS [02]</span> <span>Append k_t to K&#x27;</span></div><div class="spec-item"><span class="spec-step-num">PASS [03]</span> <span>Append v_t to V&#x27;</span></div><div class="spec-item"><span class="spec-step-num">PASS [04]</span> <span>t ≥ts rows(K&#x27;)</span></div><div class="spec-item"><span class="spec-step-num">PASS [05]</span> <span>M_bytes ≥ts t \cdot (d_k + d_v) \cdot 2</span></div><div class="spec-item"><span class="spec-step-num">PASS [06]</span> <span>\Return \updated\_keys: K&#x27;, updated\_values: V&#x27;, sequence\_length: t, memory\_bytes: M_bytes\</span></div>
+      </div>
+
+      <!-- Outputs Column -->
+      <div class="distill-card">
+        <div class="distill-card-title"><span>◈</span> Verified Target Outputs</div>
+        <div class="spec-item"><span class="spec-dot-emerald">■</span> <span>Updated keys K&#x27;</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>updated values V&#x27;</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>sequence length t</span></div><div class="spec-item"><span class="spec-dot-emerald">■</span> <span>memory bytes M_bytes</span></div>
+      </div>
+    </div>
+
+    <!-- Theoretical Guarantees and Complexity Grid -->
+    <div class="distill-grid">
+      
+        <div class="distill-card">
+          <div class="distill-card-title"><span>★</span> Theoretical Guarantees &amp; Invariant Bounds</div>
+          <div class="theorem-box"><div class="theorem-title">KV Cache Memory Footprint</div><div class="theorem-desc">For a model with n_layers layers, n_heads heads, head dimension d_head, precision P bytes per element (e.</div></div>
+        </div>
         
+      
+    <div class="distill-card">
+      <div class="distill-card-title"><span>⚙</span> Asymptotic Complexity &amp; Hardware Target</div>
+      <div class="comp-item"><span class="comp-bullet">▸</span> <span>bfWithout KV Cache: Generating T tokens requires ∑_t=1^T O(t) = O(T^2) FLOPs.</span></div><div class="comp-item"><span class="comp-bullet">▸</span> <span>bfWith KV Cache: Generating step t requires O(t) attention FLOPs; total decoding requires O(T^2) attention plus O(T) linear projections (amortized O(1) projection per step).</span></div>
+    </div>
+    
     </div>
 
-    <!-- Architectural Deep-Dive Grid -->
-    <div class="cards-grid">
-      <div class="info-card">
-        <div class="info-card-title"><span>◈</span> Input Tensors &amp; Parameter Arrays</div>
-        <div class="info-card-pill info-pill"><span style="color:#38bdf8">●</span> <span>New key k_t \in \mathbbR^d_k</span></div><div class="info-card-pill info-pill"><span style="color:#38bdf8">●</span> <span>new value v_t \in \mathbbR^d_v</span></div><div class="info-card-pill info-pill"><span style="color:#38bdf8">●</span> <span>cached keys K</span></div><div class="info-card-pill info-pill"><span style="color:#38bdf8">●</span> <span>cached values V</span></div>
+    <!-- Navigation Footer -->
+    <div class="nav-bar">
+      <a href="transformer_efficiency__grouped_query_attention.html" class="btn-action">← Previous Algorithm</a>
+      <div>
+        <a href="../index.html" class="btn-action">Overview Hub ⌂</a>
+        <a href="../../transformer_efficiency/kv_cache/math.pdf" target="_blank" class="btn-action btn-primary">PDF Specification ↗</a>
       </div>
-
-      <div class="info-card">
-        <div class="info-card-title"><span>◈</span> Execution Lifecycle &amp; Transformations</div>
-        <div class="info-card-pill info-pill"><span class="step-number">[01]</span> <span>K' \gets \operatornameCopy(K), \quad V' \gets \operatornameCopy(V)</span></div><div class="info-card-pill info-pill"><span class="step-number">[02]</span> <span>Append k_t to K'</span></div><div class="info-card-pill info-pill"><span class="step-number">[03]</span> <span>Append v_t to V'</span></div><div class="info-card-pill info-pill"><span class="step-number">[04]</span> <span>t \gets rows(K')</span></div><div class="info-card-pill info-pill"><span class="step-number">[05]</span> <span>M_bytes \gets t \cdot (d_k + d_v) \cdot 2 \CommentAssuming 16-bit FP16/BF16</span></div><div class="info-card-pill info-pill"><span class="step-number">[06]</span> <span>\Return \updated\_keys: K', updated\_values: V', sequence\_length: t, memory\_bytes: M_bytes\</span></div>
-      </div>
-
-      <div class="info-card">
-        <div class="info-card-title"><span>◈</span> Computed Outputs &amp; Target Signals</div>
-        <div class="info-card-pill info-pill"><span style="color:#10b981">■</span> <span>Updated keys K'</span></div><div class="info-card-pill info-pill"><span style="color:#10b981">■</span> <span>updated values V'</span></div><div class="info-card-pill info-pill"><span style="color:#10b981">■</span> <span>sequence length t</span></div><div class="info-card-pill info-pill"><span style="color:#10b981">■</span> <span>memory bytes M_bytes</span></div>
-      </div>
-    </div>
-
-    <div class="nav-actions-bar">
-      <a href="transformer_efficiency__grouped_query_attention.html" class="btn-nav">← Previous Algorithm</a>
-      <a href="../index.html" class="btn-nav">Overview Hub ⌂</a>
-      <a href="transformer_efficiency__linear_attention.html" class="btn-nav">Next Algorithm →</a>
+      <a href="transformer_efficiency__linear_attention.html" class="btn-action">Next Algorithm →</a>
     </div>
   </div>
 
