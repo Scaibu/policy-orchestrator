@@ -1257,8 +1257,8 @@ function parseTexToHtml(src) {
         continue;
       }
 
-      l = l.replace(/\\Comment\{([^}]+)\}/g, '<span class="algo-comment">// $1</span>');
-      l = l.replace(/\\Call\{([^}]+)\}\{([^}]+)\}/g, '<span class="algo-fn">$1</span>($2)');
+      l = replaceLatexCommand(l, "Comment", c => `<span class="algo-comment">// ${c}</span>`);
+      l = l.replace(/\\Call\{([^}]+)\}\{([^}]+)\}/g, "\\operatorname{$1}($2)");
 
       if (l.startsWith("\\EndFor") || l.startsWith("\\EndIf") || l.startsWith("\\EndWhile") || l.startsWith("\\EndFunction")) {
         indent = Math.max(0, indent - 1);
@@ -1414,18 +1414,18 @@ function parseTexToHtml(src) {
   body = replaceLatexCommand(body, "subsubsection", c => `<h5 class="tex-h5">${c}</h5>`);
   body = replaceLatexCommand(body, "paragraph", c => `<h5 class="tex-h5">${c}</h5>`);
 
-  body = replaceLatexCommand(body, "textbf", c => `<strong>${c}</strong>`);
-  body = replaceLatexCommand(body, "textit", c => `<em>${c}</em>`);
-  body = replaceLatexCommand(body, "emph", c => `<em>${c}</em>`);
-  body = replaceLatexCommand(body, "texttt", c => `<code>${c}</code>`);
-  body = replaceLatexCommand(body, "url", c => `<a href="${c}" target="_blank" class="tex-url">${c}</a>`);
-
   body = body.replace(/\$([^$\n]+)\$/g, (m, eq) => {
     return renderKaTeX(eq, false);
   });
   body = body.replace(/\\\(([\s\S]*?)\\\)/g, (m, eq) => {
     return renderKaTeX(eq, false);
   });
+
+  body = replaceLatexCommand(body, "textbf", c => `<strong>${c}</strong>`);
+  body = replaceLatexCommand(body, "textit", c => `<em>${c}</em>`);
+  body = replaceLatexCommand(body, "emph", c => `<em>${c}</em>`);
+  body = replaceLatexCommand(body, "texttt", c => `<code>${c}</code>`);
+  body = replaceLatexCommand(body, "url", c => `<a href="${c}" target="_blank" class="tex-url">${c}</a>`);
 
   body = body.replace(/^\s*\{\s*$/gm, "");
   body = body.replace(/^\s*\}\s*$/gm, "");
