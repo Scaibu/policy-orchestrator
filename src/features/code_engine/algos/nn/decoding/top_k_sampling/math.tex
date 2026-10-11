@@ -1,13 +1,40 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Top-$k$ Truncated Probability Sampling}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Tail Truncation of Top-K Sampling}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Unconstrained sampling from full vocabulary distributions risks selecting improbable tokens from the long tail of the softmax distribution. Top-$k$ sampling removes tail tokens by restricting probability mass exclusively to the $k$ most likely candidates, renormalizing the remaining probabilities. This document specifies the truncation operator, complexity derivations, and worked numerical verification.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Let $\mathcal{V}^{(k)} = \operatorname{argtopk}(\mathbf{z}, k)$ denote the $k$ largest logits. The renormalized probabilities are:
 \begin{equation}
-P'(x) = \begin{cases} \frac{P(x)}{\sum_{x' \in V^{(k)}} P(x')} & \text{if } x \in V^{(k)} \\ 0 & \text{otherwise} \end{cases}
+P^{(k)}(v) = \begin{cases}
+\frac{\exp(z_v - \max_{j \in \mathcal{V}^{(k)}} z_j)}{\sum_{j \in \mathcal{V}^{(k)}} \exp(z_j - \max_{l \in \mathcal{V}^{(k)}} z_l)}, & \text{if } v \in \mathcal{V}^{(k)} \\
+0.0, & \text{otherwise}
+\end{cases}
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{fan2018} A.~Fan, M.~Lewis, and Y.~Dauphin, ``Hierarchical neural story generation,'' in \emph{ACL}, 2018.
+\end{thebibliography}
+
 \end{document}

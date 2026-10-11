@@ -1,13 +1,44 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Perceiver Latent Bottleneck Cross-Attention}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Asymmetric Information Bottleneck of Perceiver Latent Attention}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Processing high-dimensional raw multimodal inputs (e.g., $M \sim 10^5$ raw bytes, pixels, or audio points) with full self-attention requires prohibitive $\mathcal{O}(M^2)$ memory and compute. Perceiver architectures introduce an asymmetric cross-attention bottleneck where a small learnable latent array of size $N \ll M$ queries the inputs, distilling the input into a compact representation and processing deep transformer blocks in latent space in linear $\mathcal{O}(NM)$ time. This document formalizes the asymmetric projection, complexity bounds, and numerical verification.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $\mathbf{X} \in \mathbb{R}^{M \times d}$ denote input arrays of length $M$, and let $\mathbf{L} \in \mathbb{R}^{N \times d}$ denote learnable latent bottleneck vectors with $N \ll M$.
+
 \begin{equation}
-\mathbf{L}^{(k+1)} = \text{Attention}(\mathbf{Q}=\mathbf{L}^{(k)}, \mathbf{K}=\mathbf{X}, \mathbf{V}=\mathbf{X})
+\mathbf{L}_{\text{next}} = \operatorname{softmax}\left(\frac{\mathbf{L} \mathbf{X}^\top}{\sqrt{d}}\right) \mathbf{X}
 \end{equation}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Cross-Attention Bottleneck:} $\Theta(N \cdot M \cdot d)$ operations instead of $\mathcal{O}(M^2 d)$.
+    \item \textbf{Latent Self-Attention:} $\Theta(N^2 d)$ operations, independent of input size $M$.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{jaegle2021} A.~Jaegle et al., ``Perceiver: General perception with iterative attention,'' in \emph{ICML}, 2021.
+\end{thebibliography}
+
 \end{document}

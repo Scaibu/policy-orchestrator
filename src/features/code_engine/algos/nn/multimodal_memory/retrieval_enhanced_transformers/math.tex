@@ -1,13 +1,30 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{RETRO Chunked Cross-Attention}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification of Retrieval-Enhanced Transformer Chunks (RETRO)}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-\mathbf{H}_i = \text{CrossAttention}(\mathbf{Q}=\mathbf{X}_i, \mathbf{K}=\text{Neighbors}(\mathbf{X}_{i-1}), \mathbf{V}=\text{Neighbors}(\mathbf{X}_{i-1}))
-\end{equation}
+
+\begin{abstract}
+Retrieval-Enhanced Transformers (RETRO) augment dense language modeling with an external retrieval database. Sequences are partitioned into chunks; each chunk retrieves $k$ nearest neighbors whose representations cross-attend with input tokens, decoupling memorization from parameter scale.
+\end{abstract}
+
+\begin{thebibliography}{9}
+\bibitem{borgeaud2022} S.~Borgeaud et al., ``Improving language models by retrieving from trillions of tokens,'' in \emph{ICML}, 2022.
+\end{thebibliography}
+
 \end{document}

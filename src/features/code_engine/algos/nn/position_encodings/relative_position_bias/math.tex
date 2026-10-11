@@ -1,13 +1,341 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{T5 Relative Position Bucketing}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Relative Position Bias}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Relative Position Bias Bucketing Operator):}
+Let $N_q, N_k \in \mathbb{N}_{\ge 1}$ denote query and key sequence lengths. Let $B \in 2\mathbb{N}_{\ge 2}$ denote the number of discrete relative buckets (typically $B = 32$), and let $D_{\text{max}} \in \mathbb{N}_{\ge 1}$ denote the maximum exact distance threshold (typically $D_{\text{max}} = 128$).
+The \textbf{Relative Position Bias Bucketing} operator:
+{\boldmath
 \begin{equation}
-b(d) = \begin{cases} d & \text{if } |d| < d_{\text{exact}} \\ d_{\text{exact}} + \left\lfloor \frac{\log(|d|/d_{\text{exact}})}{\log(d_{\max}/d_{\text{exact}})} (B - d_{\text{exact}}) \right\rfloor & \text{otherwise} \end{cases}
+\operatorname{RelPosBias}: \mathbb{N}_{\ge 1} \times \mathbb{N}_{\ge 1} \times 2\mathbb{N}_{\ge 2} \times \mathbb{N}_{\ge 1} \longrightarrow \{0, 1, \dots, B-1\}^{N_q \times N_k}
 \end{equation}
+}
+is the deterministic matrix-valued mapping whose integer bucket index at query coordinate $i \in \{0, \dots, N_q-1\}$ and key coordinate $j \in \{0, \dots, N_k-1\}$ is defined by:
+{\boldmath
+\begin{equation}
+\operatorname{bucket}(i, j) = \beta(j - i; B, D_{\text{max}})
+\end{equation}
+}
+where $\beta(\delta; B, D_{\text{max}})$ partitions signed relative displacement $\delta \in \mathbb{Z}$ into exact linear bins for local offsets and logarithmically compressed bins for distant offsets.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+In human perception, our sense of space and time is fundamentally **relative, not absolute**. When reading a book, the meaning of a pronoun like \emph{``he''} depends on its distance to the nearest noun (e.g., 2 words earlier), completely independent of whether this happens on page 10 or page 200. Furthermore, human perception follows the **Weber-Fechner Law**: we are highly sensitive to small differences when things are close to us, but compress our perception as distances become large. If someone whispers 2 feet away versus 4 feet away, you immediately notice the doubling of distance. But if an airplane flies 20,000 feet away versus 20,002 feet away, the 2-foot difference is completely imperceptible.
+
+T5 Relative Position Bias applies this exact perceptual principle to Transformer attention:
+\begin{enumerate}
+    \item \textbf{Directional Separation}: Displacements are split into past tokens ($j < i$) and future tokens ($j > i$), assigning half of the available buckets to each temporal direction.
+    \item \textbf{Exact Local Precision}: For nearby tokens ($|\delta| < B/4$, e.g. within 8 tokens), every single offset receives its own exact, private bucket index (0, 1, 2, 3, etc.).
+    \item \textbf{Logarithmic Far-Field Compression}: For distant tokens, bucket widths expand exponentially. Instead of allocating hundreds of redundant parameters for distances 100, 101, 102, distant offsets are grouped into wide logarithmic buckets.
+    \item \textbf{Direct Attention Modulation}: The resulting bucket indices look up learned scalar biases that are added directly to the self-attention logits before the softmax function, effortlessly giving the network translation-invariant relative reasoning.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Stretchy Ruler with Rubber Marks}:
+Imagine you are standing on a giant game board, and you want to measure how far away other players are standing from you.
+
+\begin{itemize}
+    \item \textbf{Looking Forward and Looking Backward}:
+    You have two measuring tapes: a Green tape for players standing ahead of you, and an Orange tape for players standing behind you.
+    
+    \item \textbf{The Wooden Section (Exact Buckets)}:
+    The first part of your measuring tape is made of solid wood. For the first 8 steps, every single step has its own exact mark: Step 1, Step 2, Step 3, up to Step 8. You know their exact distance down to the footstep!
+    
+    \item \textbf{The Rubber Section (Logarithmic Buckets)}:
+    After step 8, the tape turns into stretchy rubber!
+    \begin{itemize}
+        \item Bucket 9 covers players who are 9 to 12 steps away.
+        \item Bucket 10 covers players who are 13 to 20 steps away.
+        \item Bucket 11 covers players who are 21 to 35 steps away.
+        \item The very last bucket covers anyone who is all the way on the other side of the playground!
+    \end{itemize}
+    
+    \item \textbf{The Magic Score}:
+    Instead of memorizing where thousands of players are standing, you only need to remember 32 buckets! Every square on the game board gets dropped into one of these 32 buckets effortlessly.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Signed Relative Displacement and Inversion}}
+{\boldmath
+\begin{equation}
+\delta = j - i, \qquad n = -\delta = i - j
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The affine difference between key sequence coordinate $j$ and query sequence coordinate $i$, inverted to orient past tokens as positive values.
+    \item \textbf{What It Means}:
+    When $n > 0$, the key appears before the query (past context); when $n < 0$, the key appears after the query (future context); when $n = 0$, query and key are at the identical token.
+    \item \textbf{Why It Is Important}:
+    Measuring relative displacement $\delta$ eliminates dependence on absolute sequence positions, making the attention mechanism strictly translation-invariant.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Directional Offset Assignment}}
+{\boldmath
+\begin{equation}
+b_{\text{dir}} = \begin{cases} 0, & \text{\textbf{if }} n \ge 0 \quad (\text{key is in the past or present}) \\ \frac{B}{2}, & \text{\textbf{if }} n < 0 \quad (\text{key is in the future}) \end{cases}, \qquad n \gets |n|
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The piecewise step function allocating half of the bucket spectrum $[0, B/2 - 1]$ to past context and the second half $[B/2, B - 1]$ to future context.
+    \item \textbf{What It Means}:
+    It guarantees that attending backward in time and attending forward in time use completely distinct, non-overlapping parameter sets.
+    \item \textbf{Why It Is Important}:
+    Directional bifurcation allows the neural network to learn asymmetric causal behaviors (e.g. paying high attention to previous words but low attention to future words).
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Exact Local Linear Partition}}
+{\boldmath
+\begin{equation}
+b_{\text{val}} = n, \qquad \text{\textbf{for all }} n < n_{\text{exact}} = \frac{B}{4}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The identity injection mapping local absolute distances $n \in \{0, 1, \dots, B/4 - 1\}$ directly to discrete bucket offsets.
+    \item \textbf{What It Means}:
+    Small distances (e.g. 0 to 7 tokens away when $B=32$) are preserved with exact, one-to-one integer fidelity.
+    \item \textbf{Why It Is Important}:
+    Local syntax and grammatical agreement (e.g. adjacent words, compound nouns) require precise integer distance tracking without any quantization blurring.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Logarithmically Scaled Far-Field Compression}}
+{\boldmath
+\begin{equation}
+b_{\text{val}} = n_{\text{exact}} + \left\lfloor \left( \frac{\log(n / n_{\text{exact}})}{\log(D_{\text{max}} / n_{\text{exact}})} \right) \cdot n_{\text{exact}} \right\rfloor, \qquad \text{\textbf{for all }} n \ge n_{\text{exact}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The logarithmic companding operator that projects unbounded distances $n \in [n_{\text{exact}}, D_{\text{max}}]$ onto the remaining discrete bucket interval $[B/4, B/2 - 1]$.
+    \item \textbf{What It Means}:
+    Distance bins grow exponentially wider as tokens move farther apart, compressing vast distances into a compact integer range.
+    \item \textbf{Why It Is Important}:
+    Logarithmic compression prevents parameter explosion while enabling the model to distinguish between medium-range and long-range context across arbitrary sequence lengths.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Additive Logit Bias Incorporation}}
+{\boldmath
+\begin{equation}
+S_{i, j} = \frac{\mathbf{q}_i^\top \mathbf{k}_j}{\sqrt{d_k}} + \beta_{b(i, j)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The addition of the learned scalar bias $\beta_{b(i, j)} \in \mathbb{R}$ indexed by the relative bucket matrix to the scaled dot-product attention logits.
+    \item \textbf{What It Means}:
+    The relative distance directly boosts or dampens the raw affinity score between token $i$ and token $j$ before softmax normalization.
+    \item \textbf{Why It Is Important}:
+    Injecting positional bias directly into logit space provides an inductive prior that lets the network prioritize local context without contaminating token embedding vectors.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $N_q, N_k \in \mathbb{N}_{\ge 1}$: Query and key sequence lengths.
+    \item $B \in 2\mathbb{N}_{\ge 2}$: Total discrete bucket count (must be even and $\ge 4$).
+    \item $D_{\text{max}} \in \mathbb{N}_{\ge 1}$: Distance threshold for maximum logarithmic scale.
+    \item $\delta = j - i \in \mathbb{Z}$: Signed relative coordinate displacement.
+    \item $n_{\text{exact}} = B/4 \in \mathbb{N}$: Threshold separating exact linear and logarithmic regimes.
+    \item $\mathbf{M}_{\text{bucket}} \in \{0, \dots, B-1\}^{N_q \times N_k}$: Full 2D bucket assignment matrix.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$N_q, N_k, B, D_{\text{max}}$ & \textbf{Defined} (Architectural hyperparameters) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$n_{\text{exact}} = B/4$ & \textbf{Calculated} (Structural breakpoint) & Natural number $\mathbb{N}_{\ge 1}$ \\
+$\delta = j - i$ & \textbf{Calculated} (Coordinate difference) & Integer $\mathbb{Z}$ \\
+$\mathbf{M}_{\text{bucket}}$ & \textbf{Calculated} (Discrete index matrix) & Integer matrix in $\{0, \dots, B-1\}^{N_q \times N_k}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(i, j) \xrightarrow{j - i} \delta \xrightarrow{\text{Sign split}} (b_{\text{dir}}, |\delta|) \xrightarrow{\text{Linear / Log}} b_{\text{val}} \xrightarrow{\text{Add \& Clamp}} \operatorname{bucket}(i, j) \in \{0, \dots, B-1\}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+i, j &\in \mathbb{N} \quad \text{\textbf{(Token coordinates)}} \\
+\delta &\in \mathbb{Z} \quad \text{\textbf{(Integer displacement)}} \\
+\mathbf{M}_{\text{bucket}} &\in \{0, \dots, B-1\}^{N_q \times N_k} \quad \text{\textbf{(Bounded integer index matrix)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Self-Attention Main Diagonal ($j = i$)}: $\delta = 0 \implies b(i, i) = 0$. The diagonal is strictly constant across the entire sequence.
+    \item \textbf{Immediate Neighbors ($|j - i| = 1$)}: One token in the past maps to bucket $1$; one token in the future maps to bucket $B/2 + 1$.
+    \item \textbf{Extreme Distances ($|\delta| \to \infty$)}: Clamped strictly to $B/2 - 1$ (for past) and $B - 1$ (for future).
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Bucket Count Underspecification}: If $B < 4$, integer division breaks. \emph{Precondition}: $B \ge 4$ and even.
+    \item \textbf{Zero Length}: Sequence lengths must satisfy $N_q, N_k \ge 1$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Toeplitz Matrix Structure}: The bucket matrix $\mathbf{M}_{\text{bucket}}$ is a Toeplitz matrix: elements along every descending diagonal are strictly identical: $M_{i+1, j+1} = M_{i, j}$.
+\end{itemize}
+
+\subsection{[ ] Transfer: Log-Polar Frequency Receptive Fields}
+Logarithmic relative position bucketing is mathematically isomorphic to log-polar spatial foveation in human biological vision and log-frequency auditory spectrograms.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Strict Bucket Index Range Enclosure}]
+For all sequence lengths $N_q, N_k \ge 1$ and all parameter configurations $B \ge 4, D_{\text{max}} \ge B/4$, the bucketing function strictly encloses all output values within the discrete vocabulary $\{0, 1, \dots, B - 1\}$.
+\end{theorem}
+
+\begin{proof}
+Let relative offset be $\delta = j - i$.
+If $n = -\delta \ge 0$, then $b_{\text{dir}} = 0$.
+For $n < n_{\text{exact}} = B/4$, $b_{\text{val}} = n \in [0, B/4 - 1]$.
+For $n \ge n_{\text{exact}}$, the log scale factor is $\frac{\log(n / n_{\text{exact}})}{\log(D_{\text{max}} / n_{\text{exact}})} \ge 0$.
+The term $\lfloor \text{scale} \cdot (B/4) \rfloor$ is non-negative and clamped by $\min(b_{\text{val}}, B/2 - 1)$.
+Thus, for past tokens, $b = b_{\text{dir}} + b_{\text{val}} \in [0, B/2 - 1]$.
+If $n < 0$, $b_{\text{dir}} = B/2$, and the magnitude $|n|$ is mapped into $[0, B/2 - 1]$.
+Adding $b_{\text{dir}}$ shifts the interval to $[B/2, B/2 + B/2 - 1] = [B/2, B - 1]$.
+The final clamp $\min(b, B - 1)$ guarantees that $0 \le b(i, j) \le B - 1$ for all $(i, j)$.
+\end{proof}
+
+\begin{theorem}[\textbf{Toeplitz Translational Equivariance}]
+For any query index $i$, key index $j$, and integer shift $k \in \mathbb{Z}$:
+{\boldmath
+\begin{equation}
+\operatorname{bucket}(i + k, j + k) = \operatorname{bucket}(i, j)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+The bucketing function depends exclusively on the relative difference between key and query coordinates:
+$\delta' = (j + k) - (i + k) = j - i + k - k = j - i = \delta$.
+Because $\delta' \equiv \delta$, $\beta(\delta') = \beta(\delta)$.
+Hence, shifting both positions by an identical offset leaves the bucket index completely invariant.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Logarithmic Bucketing vs Linear Offsets}}
+\textbf{Question}: Why does T5 use logarithmic bucketing instead of simple linear relative offsets ($j - i$)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does logarithmic discretization compress parameter complexity while preserving multi-scale perceptual resolution?}
+    \item \textbf{Deep Answer}: If relative positions were mapped linearly, a sequence of length 2,048 would require over 4,000 distinct position bias parameters, leading to severe overfitting and high memory consumption. By compressing distant offsets logarithmically, only 32 discrete parameters are needed to span arbitrarily large distances, preventing overfitting while matching human linguistic sensitivity.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Memory Footprint of the Full 2D Bucket Matrix}}
+\textbf{Question}: What is the memory cost of computing and storing the bucket matrix $\mathbf{M}_{\text{bucket}} \in \mathbb{Z}^{N_q \times N_k}$?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why can Toeplitz matrix properties be leveraged to evaluate relative biases with $\mathcal{O}(N)$ memory during inference?}
+    \item \textbf{Deep Answer}: In naive implementations, materializing the dense $N_q \times N_k$ integer matrix requires $\mathcal{O}(N_q N_k)$ memory. However, because $\mathbf{M}_{\text{bucket}}$ is Toeplitz (constant along diagonals), modern fused kernels evaluate the bucket function on-the-fly inside the attention kernel registers without ever writing the 2D matrix to global GPU DRAM.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Directional Asymmetry in Relative Bias}}
+\textbf{Question}: Why are forward and backward relative distances assigned completely different bucket IDs?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why must syntax and discourse structure break mirror symmetry in sequence modeling?}
+    \item \textbf{Deep Answer}: In natural language, looking backward (anaphora, looking for what a pronoun refers to) serves a completely different grammatical function than looking forward (cataphora or predicting an upcoming object). If distance were symmetric ($|\delta|$), the model could not distinguish whether a word appeared 3 tokens in the past or 3 tokens in the future. Directional bifurcation preserves complete temporal orientation.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Relative Bias vs RoPE}}
+\textbf{Question}: How does T5 relative position bias compare with Rotary Position Embeddings (RoPE)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What is the performance difference between additive logit bias lookup and multiplicative complex rotation?}
+    \item \textbf{Deep Answer}: T5 relative bias adds a learned scalar bias to attention logits, meaning relative distance influences attention through an unconstrained lookup table. RoPE applies multiplicative 2D rotations to query and key vectors. RoPE does not require storing a discrete bucket table and naturally extrapolates smoothly, which is why modern LLMs predominantly favor RoPE over discrete bucketing.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoRelativePositionBias} is formalized in Algorithm~\ref{alg:rel_pos_bias}.
+
+\begin{algorithm}[H]
+\caption{T5 Relative Position Bias Matrix Evaluation}
+\label{alg:rel_pos_bias}
+\begin{algorithmic}[1]
+\Require Query length $N_q \in \mathbb{N}_{\ge 1}$, key length $N_k \in \mathbb{N}_{\ge 1}$
+\Require Bucket count $B \in 2\mathbb{N}_{\ge 2}$ (default 32), maximum distance $D_{\text{max}} \in \mathbb{N}_{\ge 1}$ (default 128)
+\Ensure Bucket index matrix $\mathbf{M} \in \{0, \dots, B-1\}^{N_q \times N_k}$, bucket count $B$
+\State $\textbf{Assert } N_q \ge 1 \textbf{ and } N_k \ge 1 \textbf{ and } B \ge 4 \textbf{ and } B \pmod 2 = 0$
+\State $n_{\text{exact}} \gets B / 4, \quad n_{\text{half}} \gets B / 2$
+\Function{ComputeBucket}{$\delta$}
+    \State $n \gets -\delta, \quad \text{ret} \gets 0$
+    \If{$n < 0$}
+        \State $\text{ret} \gets \text{ret} + n_{\text{half}}, \quad n \gets -n$
+    \EndIf
+    \If{$n < n_{\text{exact}}$}
+        \State $\text{ret} \gets \text{ret} + n$
+    \Else
+        \State $\text{scale} \gets \log(\max(1.0, \text{float}(n)) / n_{\text{exact}}) / \log(D_{\text{max}} / n_{\text{exact}})$
+        \State $\text{val} \gets n_{\text{exact}} + \lfloor \text{scale} \cdot n_{\text{exact}} \rfloor$
+        \State $\text{val} \gets \min(\text{val}, n_{\text{half}} - 1)$
+        \State $\text{ret} \gets \text{ret} + \text{val}$
+    \EndIf
+    \State \Return $\min(\text{ret}, B - 1)$
+\EndFunction
+\State $\mathbf{M} \gets \text{empty matrix of shape } (N_q, N_k)$
+\For{$i \gets 0 \textbf{ to } N_q - 1$}
+    \For{$j \gets 0 \textbf{ to } N_k - 1$}
+        \State $M_{i, j} \gets \text{ComputeBucket}(j - i)$
+    \EndFor
+\EndFor
+\State \Return $\{\text{bucket\_matrix}: \mathbf{M}, \text{num\_buckets}: B\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Computing $N_q \times N_k$ relative bucket offsets: $\Theta(N_q N_k)$ arithmetic and logarithm operations.
+        \item Total Time Complexity: $\Theta(N_q N_k)$.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item 2D bucket matrix buffer $\mathbf{M}$: $\Theta(N_q N_k)$ integers.
+        \item Total Auxiliary Space: $\Theta(N_q N_k)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

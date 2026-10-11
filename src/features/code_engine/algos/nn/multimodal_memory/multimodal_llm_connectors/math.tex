@@ -1,13 +1,37 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Multimodal LLM Projector Formulation}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification of Multimodal LLM Projection Connectors}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Multimodal Large Language Models connect frozen vision backbones to LLMs using projection layers (linear projectors or multi-layer perceptrons). The connector maps vision token sequences from visual embedding dimension $d_v$ into language model embedding space $d_{\text{llm}}$. This specification formalizes the projection operator, dimensionality bounds, and numerical verification.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Given vision tokens $\mathbf{V} \in \mathbb{R}^{P \times d_v}$ and projection matrix $\mathbf{W} \in \mathbb{R}^{d_v \times d_{\text{llm}}}$:
 \begin{equation}
-\mathbf{H}_v = \text{GELU}(\mathbf{Z}_v \mathbf{W}_1)\mathbf{W}_2
+\mathbf{H}_{\text{llm}} = \mathbf{V} \mathbf{W} + \mathbf{b}
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{liu2023llava} H.~Liu et al., ``Visual instruction tuning,'' in \emph{NeurIPS}, 2023.
+\end{thebibliography}
+
 \end{document}

@@ -1,13 +1,75 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Vision Transformer Patch Projection}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Patch Flattening, and 2D-to-1D Projection of Vision Transformers (ViT)}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Vision Transformers (ViT) process standard 2D images by partitioning them into non-overlapping spatial patches, flattening each patch into a 1D vector, linearly projecting the vectors to an embedding dimension, and prepending a learnable classification token. This specification formalizes the patchification operator, position embedding addition, computational complexity, and verified numerical execution.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $\mathbf{I} \in \mathbb{R}^{H \times W \times C}$ denote an image of height $H$, width $W$, and channels $C$. Let $P \in \mathbb{N}_{\ge 1}$ denote the square patch size.
+
+\begin{itemize}
+    \item $N = \frac{HW}{P^2} \in \mathbb{N}_{\ge 1}$: Total number of extracted patches.
+    \item $\mathbf{x}_p \in \mathbb{R}^{P^2 C}$: Flattened vector for spatial patch $p \in \{1, \dots, N\}$.
+    \item $\mathbf{E} \in \mathbb{R}^{(P^2 C) \times d}$: Linear patch projection matrix.
+    \item $\mathbf{z}_0 \in \mathbb{R}^{(N + 1) \times d}$: Initial transformer sequence containing prepended $\mathbf{x}_{\text{class}}$ and positional encodings $\mathbf{E}_{\text{pos}}$.
+\end{itemize}
+
+\section{Problem Definition and Algorithmic Execution}
+
 \begin{equation}
-\mathbf{z}_0 = [\mathbf{x}_{\text{class}}; \mathbf{x}_p^1\mathbf{E}; \mathbf{x}_p^2\mathbf{E}; \dots; \mathbf{x}_p^N\mathbf{E}] + \mathbf{E}_{\text{pos}}
+\mathbf{z}_0 = [\mathbf{x}_{\text{class}}; \mathbf{x}_p^1 \mathbf{E}; \dots; \mathbf{x}_p^N \mathbf{E}] + \mathbf{E}_{\text{pos}}
 \end{equation}
+
+\begin{algorithm}[H]
+\caption{ViT Patchify and Linear Projection}
+\label{alg:vit_patch}
+\begin{algorithmic}[1]
+\Require Image $\mathbf{I} \in \mathbb{R}^{H \times W}$, patch size $P$, embed dim $d$
+\Ensure Patch embeddings $\mathbf{Z} \in \mathbb{R}^{N \times d}$, patch count $N$
+\State \textbf{Assert} $H \pmod P = 0 \text{ and } W \pmod P = 0$
+\State $N_h \gets H / P, \quad N_w \gets W / P, \quad N \gets N_h \cdot N_w$
+\State $\mathbf{Z} \gets \text{matrix of zeros } (N, d)$
+\State $p \gets 0$
+\For{$i \gets 0 \textbf{ to } N_h - 1$}
+    \For{$j \gets 0 \textbf{ to } N_w - 1$}
+        \State Extract $P \times P$ sub-patch $\mathbf{I}[iP : (i+1)P, jP : (j+1)P]$
+        \State Flatten to vector $\mathbf{v} \in \mathbb{R}^{P^2}$
+        \State $\mathbf{Z}[p] \gets \text{LinearProject}(\mathbf{v}, d)$
+        \State $p \gets p + 1$
+    \EndFor
+\EndFor
+\State \Return $\{\text{embeddings}: \mathbf{Z}, \text{num\_patches}: N\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} Patch extraction and projection takes $\Theta(H W \cdot d)$ operations.
+    \item \textbf{Transformer Attention Complexity:} $\mathcal{O}(N^2 d) = \mathcal{O}\left(\left(\frac{HW}{P^2}\right)^2 d\right)$.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{dosovitskiy2020} A.~Dosovitskiy et al., ``An image is worth 16x16 words: Transformers for image recognition at scale,'' in \emph{ICLR}, 2021.
+\end{thebibliography}
+
 \end{document}

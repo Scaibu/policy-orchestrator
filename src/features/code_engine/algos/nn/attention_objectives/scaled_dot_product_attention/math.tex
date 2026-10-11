@@ -1,14 +1,490 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb, amsthm, bm}
-\usepackage{geometry}
-\geometry{margin=1in}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
 \title{\textbf{Scaled Dot-Product Attention}}
-\author{Architecture Policy Engine}
-\date{\today}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
-\section{Formulation}
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Scaled Dot-Product Attention Operator):}
+Let $\boldsymbol{\mathcal{D}}_q = \mathbb{R}^{N_q \times d_k}$, $\boldsymbol{\mathcal{D}}_k = \mathbb{R}^{N_k \times d_k}$, $\boldsymbol{\mathcal{D}}_v = \mathbb{R}^{N_k \times d_v}$, and $\boldsymbol{\mathcal{M}} = (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$. The \textbf{Scaled Dot-Product Attention} operator is the parameterized nonlinear mapping:
+{\boldmath
 \begin{equation}
-\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}
+\operatorname{Attn}: \boldsymbol{\mathcal{D}}_q \times \boldsymbol{\mathcal{D}}_k \times \boldsymbol{\mathcal{D}}_v \times \boldsymbol{\mathcal{M}} \longrightarrow \mathbb{R}^{N_q \times d_v}
 \end{equation}
+}
+defined uniquely by:
+{\boldmath
+\begin{equation}
+\operatorname{Attn}(\mathbf{Q}, \mathbf{K}, \mathbf{V}, \mathbf{M}) = \operatorname{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}
+\end{equation}
+}
+where $\operatorname{softmax}(\mathbf{Z})_{i, j} = \frac{\exp(Z_{i, j})}{\sum_{l=1}^{N_k} \exp(Z_{i, l})}$ is evaluated row-wise, mapping each query row into a discrete probability vector lying on the standard $(N_k - 1)$-dimensional simplex $\boldsymbol{\Delta}^{N_k - 1}$, which subsequently forms an affine convex combination over the row vectors of $\mathbf{V}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+At its core, Attention is an intelligent, differentiable information retrieval and synthesis engine. Traditional computer systems locate information through rigid, exact lookups: if you query a computer database for key ``\texttt{Customer\_42}'', it scans an index and returns the exact row matching that key. If the key is misspelled or slightly different, a traditional lookup fails completely—it is all-or-nothing, binary, and rigid.
+
+Attention fundamentally transforms this process into a \textbf{fluid, continuous, and soft associative memory}:
+\begin{enumerate}
+    \item \textbf{Inquiry Formulation (The Need)}: You have an information need—a question you want to answer, a thought you want to complete, or an ambiguous concept that needs clarity. In the architecture, this search query is represented by a \textbf{Query vector}.
+    \item \textbf{Content Indexing (The Catalog)}: The surrounding world or document contains many pieces of information. Each piece of information exposes a summary badge or description of what it is about (the \textbf{Key vector}), while safely containing its full detailed payload of knowledge (the \textbf{Value vector}).
+    \item \textbf{Simultaneous Relevance Scoring (The Matching)}: Instead of forcing an all-or-nothing binary choice, Attention compares your Query against \emph{every single Key simultaneously}. It measures how closely they align topically, grading every item on a smooth continuum from completely irrelevant to highly relevant.
+    \item \textbf{Normalization into Consensus (The Distribution)}: All relevance scores are converted into positive percentages that together sum to exactly $100\%$. Highly relevant items capture the lion's share of the percentage, while irrelevant items receive practically $0\%$.
+    \item \textbf{Composite Answer Synthesis (The Output)}: Finally, Attention constructs a brand-new summary vector by taking pieces from each item's Value in exact proportion to its assigned percentage. What you get is not a single isolated record, but a rich, context-aware blend of all the most relevant information in the entire context.
+\end{enumerate}
+
+In human language comprehension, this is how we naturally process context: when you read the sentence \emph{``The astronomer gazed through the telescope at the star because it was exceptionally bright,''} your brain must decipher what \emph{``it''} refers to. When processing the word \emph{``it''}, your mental Query searches backward. The Key for \emph{``star''} matches the Query for \emph{``what can be exceptionally bright''} far better than the Key for \emph{``telescope''} or \emph{``astronomer.''} Your attention immediately routes information from \emph{``star''} into the representation of \emph{``it''}, resolving all ambiguity effortlessly.
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Toy Workshop and the Resonating Bells}:
+Imagine you are a child standing in the grand entrance of a giant, magical toy workshop filled with hundreds of shelves stretching as far as you can see.
+
+\begin{itemize}
+    \item \textbf{The Wish in Your Mind (Query $\mathbf{Q}$)}:
+    You are holding a magical, glowing tuning fork in your hand. This tuning fork hums with a very special musical note that describes exactly what kind of toy you want to build right now—for example, a crisp chime that means: \emph{``I want to build a flying wooden dragon that breathes blue fire!''}
+    
+    \item \textbf{The Silver Bells on the Shelves (Keys $\mathbf{K}$)}:
+    Every single shelf in the giant workshop has a silver bell hanging in front of it. Each bell is crafted to ring with a specific pitch that tells visitors what is kept on that shelf. One bell sounds like a pirate ship, another sounds like a racing car, one sounds like a wooden puzzle, and one sounds almost exactly like a flying mythical creature.
+    
+    \item \textbf{The Treasure Chests (Values $\mathbf{V}$)}:
+    Resting safely behind each silver bell is an open wooden chest filled with real parts and building blocks: wings, wheels, paint, sails, and gears. This is the actual physical substance you can use to build your dream toy.
+    
+    \item \textbf{The Resonating Echo (Dot Product $\mathbf{Q}\mathbf{K}^\top$)}:
+    You strike your tuning fork on the floor! A beautiful sound wave flies through the entire room, touching all the silver bells at once. Bells that don't match your note stay completely silent and still. But the bells that sound similar to your wish begin to tremble and sing! The closer a bell's pitch is to your tuning fork, the louder and sweeter it rings in response.
+    
+    \item \textbf{The Magic Earmuffs / Volume Control (Scale Factor $1/\sqrt{d_k}$)}:
+    Because there are hundreds of notes singing at the same time, the room could easily become so deafeningly loud that your ears would hurt and everything would blur into a painful roar where you couldn't tell which bell was which. The scale factor is like putting on a pair of magic earmuffs that dials the volume down to a comfortable, crystal-clear level, allowing you to hear the quietest differences between notes perfectly.
+    
+    \item \textbf{The Soundproof Velvet Curtains (Attention Mask $\mathbf{M}$)}:
+    Some shelves hold secret toys that aren't finished yet or belong to tomorrow. Thick, heavy velvet curtains are dropped over them. These curtains completely swallow any sound ($-\infty$). No matter how loud you ring your tuning fork, zero sound can ever come through a curtained shelf.
+    
+    \item \textbf{The 100 Golden Fairy Sparks (Softmax Distribution $\mathbf{A}$)}:
+    A cloud of exactly 100 golden fairy sparks enters the room. By the magic rules of the workshop, these 100 sparks must be shared among all the shelves according to how loud their bells sang. The shelf with the dragon wings sang the loudest, so it gets 80 golden sparks and shines bright like the sun. A shelf with wooden paint gets 18 sparks. The silent shelves get zero sparks and remain dark. All sparks together always equal 100.
+    
+    \item \textbf{The Floating Magic Basket (Value Synthesis $\mathbf{O}$)}:
+    A magic toy basket zooms down the aisles. It scoops 80\% of its building blocks from the blazing dragon shelf, 18\% from the wooden paint shelf, and 2\% from the gear shelf. When the basket flies back into your hands, you have the exact customized set of parts needed to build your flying wooden dragon!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Unscaled Bilinear Affinity Matrix}}
+{\boldmath
+\begin{equation}
+\mathbf{Z} = \mathbf{Q}\mathbf{K}^\top \quad \Longleftrightarrow \quad Z_{i, j} = \sum_{d=1}^{d_k} Q_{i, d} K_{j, d} = \mathbf{q}_i^\top \mathbf{k}_j
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The matrix product mapping $\boldsymbol{\mathcal{D}}_q \times \boldsymbol{\mathcal{D}}_k \to \mathbb{R}^{N_q \times N_k}$ that computes the pairwise standard Euclidean inner product between every row query vector $\mathbf{q}_i \in \mathbb{R}^{d_k}$ and row key vector $\mathbf{k}_j \in \mathbb{R}^{d_k}$ for all indices $(i, j) \in \{1, \dots, N_q\} \times \{1, \dots, N_k\}$.
+    \item \textbf{What It Means}:
+    This operation measures the unnormalized directional collinearity and geometric agreement between representations in a shared $d_k$-dimensional embedding space. When two vectors point in identical directions, their dot product is maximally positive; when orthogonal, it is zero; when pointing in opposite directions, it is negative.
+    \item \textbf{Why It Is Important}:
+    The inner product is the simplest bilinear differential form capable of evaluating all-pairs relational affinity in $\mathcal{O}(N_q N_k d_k)$ parallel tensor operations, providing the fundamental relational substrate upon which all Transformer reasoning is built.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Variance Rescaling Factor}}
+{\boldmath
+\begin{equation}
+\tau = \frac{1}{\sqrt{d_k}}, \qquad \mathbf{S}^{\text{scaled}} = \tau \mathbf{Z} = \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The scalar homothety that contracts the unscaled bilinear matrix $\mathbf{Z}$ by the reciprocal square root of the key embedding dimension $d_k \in \mathbb{N}_{\ge 1}$, scaling the spectrum of eigenvalues by $\tau = d_k^{-1/2}$.
+    \item \textbf{What It Means}:
+    This operation stabilizes the variance of the logit scores. When the components of $\mathbf{q}$ and $\mathbf{k}$ are mutually independent standard Gaussian variables with unit variance, their inner product has variance exactly equal to $d_k$. Multiplying by $1/\sqrt{d_k}$ enforces a constant unit variance $\operatorname{Var}(S_{i, j}^{\text{scaled}}) = 1.0$ regardless of how large the embedding dimension $d_k$ is chosen to be.
+    \item \textbf{Why It Is Important}:
+    Without this dimensional normalization, as $d_k$ increases into hundreds or thousands, raw dot products grow excessively large in magnitude. Large positive logits force the subsequent softmax function into extreme saturation regions where its gradient vanishes to zero ($\nabla \operatorname{softmax} \to \mathbf{0}$), causing immediate optimization failure and preventing network convergence.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Additive Masking Constraint}}
+{\boldmath
+\begin{equation}
+\mathbf{S} = \mathbf{S}^{\text{scaled}} + \mathbf{M}, \qquad M_{i, j} = \begin{cases} 0, & \text{\textbf{if key position }} j \text{\textbf{ is visible to query }} i \\ -\infty, & \text{\textbf{if key position }} j \text{\textbf{ is forbidden}} \end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The pointwise extended-real addition $\mathbb{R}^{N_q \times N_k} \times (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k} \to (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$ that incorporates structural topological constraints directly into the energy landscape.
+    \item \textbf{What It Means}:
+    This equation imposes strict causal directionality (preventing query token $i$ from attending to future tokens $j > i$ in autoregressive decoders) or zeroes out invalid padding tokens in variable-length batches. Setting $M_{i, j} = -\infty$ guarantees that $\exp(S_{i, j} + M_{i, j}) = \exp(-\infty) = 0$.
+    \item \textbf{Why It Is Important}:
+    Additive masking enforces structural information boundaries without branching statements, enabling dense matrix execution on tensor accelerators while guaranteeing zero information leakage from forbidden tokens and zero backward gradient flow into masked positions.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Shift-Invariant Numerical Partition Maximum}}
+{\boldmath
+\begin{equation}
+m_i = \max_{1 \le l \le N_k} S_{i, l} \quad \text{\textbf{for each query row }} i \in \{1, \dots, N_q\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The row-wise non-linear supremum projection mapping each logit row vector $\mathbf{s}_i \in (\mathbb{R} \cup \{-\infty\})^{N_k}$ to its maximal real element $m_i \in \mathbb{R}$.
+    \item \textbf{What It Means}:
+    It identifies the dominant logit value in each query row, serving as an adaptive baseline shift that anchors the entire exponentiation range so that the maximum exponent evaluated is exactly $\exp(0) = 1.0$.
+    \item \textbf{Why It Is Important}:
+    In finite-precision floating-point arithmetic (such as IEEE 754 float32 or bfloat16), evaluating $\exp(x)$ for $x > 88.7$ produces catastrophic numerical overflow ($+\infty$ and \texttt{NaN}). Centering by $m_i$ guarantees that no exponential term ever exceeds $1.0$, completely eliminating floating-point overflow during execution.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Row-Stochastic Softmax Probability Simplex}}
+{\boldmath
+\begin{equation}
+A_{i, j} = \frac{\exp(S_{i, j} - m_i)}{\sum_{l=1}^{N_k} \exp(S_{i, l} - m_i)} = \operatorname{softmax}(\mathbf{S}_{i, :})_j
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The normalized exponential mapping from an unconstrained logit vector $\mathbf{s}_i \in \mathbb{R}^{N_k}$ to the interior of the standard $(N_k - 1)$-dimensional probability simplex $\boldsymbol{\Delta}^{N_k - 1} = \{ \mathbf{p} \in \mathbb{R}^{N_k} \mid p_j \ge 0, \sum_j p_j = 1 \}$.
+    \item \textbf{What It Means}:
+    This operation transforms continuous energy scores into normalized probability weights that express the exact percentage of attention allocated by query $i$ to every key $j$.
+    \item \textbf{Why It Is Important}:
+    Softmax creates a continuous, differentiable competition among all candidate keys. It accentuates the highest-scoring keys while gracefully suppressing noise, creating a smooth winner-takes-all mechanism that gradients can effortlessly backpropagate through.
+\end{itemize}
+
+\subsection{\textbf{Equation 6: Convex Hull Value Synthesis}}
+{\boldmath
+\begin{equation}
+\mathbf{O} = \mathbf{A}\mathbf{V} \quad \Longleftrightarrow \quad \mathbf{o}_i = \sum_{j=1}^{N_k} A_{i, j} \mathbf{v}_j
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The linear map induced by the row-stochastic matrix $\mathbf{A} \in [0, 1]^{N_q \times N_k}$ acting on the value matrix $\mathbf{V} \in \mathbb{R}^{N_k \times d_v}$, generating row vectors that represent affine convex combinations of the rows of $\mathbf{V}$.
+    \item \textbf{What It Means}:
+    Each output vector $\mathbf{o}_i$ is a barycentric blend of all available value vectors, situated geometrically strictly within the convex hull formed by $\{\mathbf{v}_1, \dots, \mathbf{v}_{N_k}\}$.
+    \item \textbf{Why It Is Important}:
+    Because the weights are strictly non-negative and sum to $1$, the operator is non-expansive: the norm of the output is strictly bounded by the maximum norm of the input values ($\|\mathbf{o}_i\| \le \max_j \|\mathbf{v}_j\|$). This mathematical property prevents activation explosion when stacking dozens of Transformer layers.
+\end{itemize}
+
+\subsection{\textbf{Equation 7: Adjoint Backward Operator for Value Projections}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathbf{V}} = \mathbf{A}^\top \left(\frac{\partial \mathcal{L}}{\partial \mathbf{O}}\right) \quad \Longleftrightarrow \quad \frac{\partial \mathcal{L}}{\partial \mathbf{v}_j} = \sum_{i=1}^{N_q} A_{i, j} \frac{\partial \mathcal{L}}{\partial \mathbf{o}_i}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The pullback operator along the linear value transformation, defined as the matrix product of the transposed attention weight matrix $\mathbf{A}^\top \in [0, 1]^{N_k \times N_q}$ and the upstream loss gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{O}} \in \mathbb{R}^{N_q \times d_v}$.
+    \item \textbf{What It Means}:
+    The gradient arriving at value vector $j$ is the sum of error signals from all queries that paid attention to it, weighted precisely by the attention probability $A_{i, j}$ that was allocated during the forward pass.
+    \item \textbf{Why It Is Important}:
+    This provides an exact, linear credit assignment path during backpropagation: values that were heavily relied upon to produce the final answer receive large gradient updates, while unused values receive near-zero gradients.
+\end{itemize}
+
+\subsection{\textbf{Equation 8: Softmax Jacobian Logit Gradient}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial S_{i, j}} = A_{i, j} \left( G_{i, j} - \sum_{l=1}^{N_k} A_{i, l} G_{i, l} \right), \qquad \text{\textbf{where }} \mathbf{G} = \left(\frac{\partial \mathcal{L}}{\partial \mathbf{O}}\right) \mathbf{V}^\top
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The contraction of the upstream gradient tensor $\mathbf{G} \in \mathbb{R}^{N_q \times N_k}$ through the non-diagonal Jacobian tensor of the row-wise softmax mapping: $\frac{\partial A_{i, l}}{\partial S_{i, j}} = A_{i, j}(\delta_{j, l} - A_{i, l})$.
+    \item \textbf{What It Means}:
+    The gradient with respect to logit $S_{i, j}$ is proportional to the difference between its own projected error $G_{i, j}$ and the expected error across all keys in that row. If an item's error matches the average, its gradient is zero.
+    \item \textbf{Why It Is Important}:
+    This equation guarantees that the sum of logit gradients across each row is identically zero: $\sum_{j=1}^{N_k} \frac{\partial \mathcal{L}}{\partial S_{i, j}} = 0$. This preserves the gauge invariance of the attention mechanism and prevents gradient explosion along the constant direction $\mathbf{1}$.
+\end{itemize}
+
+\subsection{\textbf{Equation 9: Backward Gradients for Query and Key Projections}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathbf{Q}} = \frac{1}{\sqrt{d_k}} \left(\frac{\partial \mathcal{L}}{\partial \mathbf{S}}\right) \mathbf{K}, \qquad \frac{\partial \mathcal{L}}{\partial \mathbf{K}} = \frac{1}{\sqrt{d_k}} \left(\frac{\partial \mathcal{L}}{\partial \mathbf{S}}\right)^\top \mathbf{Q}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The composite chain-rule gradients computed by multiplying the scaled logit gradient matrix $\frac{\partial \mathcal{L}}{\partial \mathbf{S}} \in \mathbb{R}^{N_q \times N_k}$ by the orthogonal feature projection matrices $\mathbf{K}$ and $\mathbf{Q}$.
+    \item \textbf{What It Means}:
+    These equations define how the representations of queries and keys must rotate and adjust their directions in the embedding space to improve future matching accuracy.
+    \item \textbf{Why It Is Important}:
+    Scaling by $1/\sqrt{d_k}$ in the backward pass guarantees that gradient magnitudes do not explode or collapse with sequence length or hidden dimension, ensuring stable gradient flow all the way back to the earliest layers of the network.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $\mathbf{Q} \in \mathbb{R}^{N_q \times d_k}$: Query matrix; $N_q$ queries of feature dimension $d_k$.
+    \item $\mathbf{K} \in \mathbb{R}^{N_k \times d_k}$: Key matrix; $N_k$ keys of feature dimension $d_k$.
+    \item $\mathbf{V} \in \mathbb{R}^{N_k \times d_v}$: Value matrix; $N_k$ values of feature dimension $d_v$.
+    \item $\mathbf{M} \in (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$: Additive mask topology.
+    \item $\tau = 1/\sqrt{d_k} \in \mathbb{R}_{> 0}$: Variance stabilization scale.
+    \item $S_{i, j} \in \mathbb{R}$: Scaled, masked logit score for pair $(i, j)$.
+    \item $m_i = \max_{j} S_{i, j} \in \mathbb{R}$: Maximum logit for row $i$.
+    \item $\mathbf{A} \in [0, 1]^{N_q \times N_k}$: Row-stochastic attention probability matrix.
+    \item $\mathbf{O} \in \mathbb{R}^{N_q \times d_v}$: Final attended context output tensor.
+    \item Subscripts $i, j, d$: Row indices along query sequence, key sequence, and feature dimension.
+    \item Superscript $\top$: Matrix transposition.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$N_q, N_k, d_k, d_v$ & \textbf{Defined} (Architectural hyperparameter) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\tau = 1/\sqrt{d_k}$ & \textbf{Defined} (Fixed scale constant) & Strictly positive real scalar $\mathbb{R}_{> 0}$ \\
+$\mathbf{M}$ & \textbf{Defined} (Constraint boundary) & Structured matrix in $(\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$ \\
+$\mathbf{Q}, \mathbf{K}, \mathbf{V}$ & \textbf{Calculated / Learned} (State projections) & Linear projections of layer activations \\
+$\mathbf{S}, m_i, \mathbf{A}$ & \textbf{Calculated} (Internal transformations) & Intermediate tensors and simplices \\
+$\mathbf{O}$ & \textbf{Calculated} (Layer output) & Attended representation matrix in $\mathbb{R}^{N_q \times d_v}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+\mathbf{O} = \underbrace{\left( \vphantom{\frac{1}{2}} \operatorname{RowSoftmax} \circ \operatorname{Shift} \circ \operatorname{Mask} \circ \operatorname{Scale} \circ \operatorname{BilinearProduct}(\mathbf{Q}, \mathbf{K}) \right)}_{\mathbf{A} \in \boldsymbol{\Delta}^{N_k - 1}} \times \mathbf{V}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\mathbf{Q}\mathbf{K}^\top &: [N_q \times d_k] \times [d_k \times N_k] \longrightarrow [N_q \times N_k] \\
+\mathbf{S} = \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} + \mathbf{M} &: [N_q \times N_k] + [N_q \times N_k] \longrightarrow [N_q \times N_k] \quad \text{\textbf{(Dimensionless logits)}} \\
+\mathbf{A} = \operatorname{softmax}(\mathbf{S}) &: \operatorname{RowMap}([N_q \times N_k]) \longrightarrow [N_q \times N_k] \quad \text{\textbf{(Probability simplex)}} \\
+\mathbf{O} = \mathbf{A}\mathbf{V} &: [N_q \times N_k] \times [N_k \times d_v] \longrightarrow [N_q \times d_v] \quad \text{\textbf{(Matches query and value shapes)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Infinite Query/Key Norms ($\|\mathbf{q}_i\| \to \infty$ or $\|\mathbf{k}_j\| \to \infty$)}: The logit differences diverge to $\infty$. The softmax distribution collapses into a Dirac delta (one-hot indicator) centered at the single nearest key $j^* = \arg\max_j \mathbf{q}_i^\top \mathbf{k}_j$, and output $\mathbf{o}_i \to \mathbf{v}_{j^*}$.
+    \item \textbf{Zero Scale Limit ($\tau \to 0$)}: Logits collapse to zero ($S_{i, j} \to 0$). Softmax evaluates to the discrete uniform distribution $A_{i, j} = 1/N_k$, and output collapses to the unconditional average $\mathbf{o}_i \to \frac{1}{N_k}\sum_j \mathbf{v}_j$.
+    \item \textbf{High Temperature / Large Scale ($\tau \to \infty$)}: Tiny differences in inner products are exponentially magnified, inducing severe peakiness and zero gradient backpropagation.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Degenerate All-Masked Row}: If row $i$ of mask $\mathbf{M}$ is entirely $-\infty$, then $\exp(S_{i, j} - m_i) = 0$ for all $j$, producing a partition sum $\Omega_i = 0$ and resulting in division-by-zero NaN. \emph{Defensive Guarantee}: The reference engine detects $\Omega_i \le 0$ and safely outputs uniform distribution $A_{i, j} = 1/N_k$.
+    \item \textbf{Dimension Incompatibility}: Violations of $\operatorname{cols}(\mathbf{Q}) = \operatorname{cols}(\mathbf{K})$ or $\operatorname{rows}(\mathbf{K}) = \operatorname{rows}(\mathbf{V})$ fail preconditions and raise immediate exceptions.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Conservation of Probability Mass}: Every row of $\mathbf{A}$ satisfies $\sum_{j=1}^{N_k} A_{i, j} = 1.0 \pm 10^{-7}$ under floating-point precision.
+    \item \textbf{Permutation Equivariance}: For any permutation matrix $\mathbf{P} \in \{0, 1\}^{N_k \times N_k}$, permuting keys and values simultaneously leaves the output identical:
+    {\boldmath
+    \begin{equation}
+    \operatorname{Attn}(\mathbf{Q}, \mathbf{P}\mathbf{K}, \mathbf{P}\mathbf{V}) = \operatorname{softmax}\left(\frac{\mathbf{Q}(\mathbf{P}\mathbf{K})^\top}{\sqrt{d_k}}\right)(\mathbf{P}\mathbf{V}) = \mathbf{A}\mathbf{P}^\top \mathbf{P}\mathbf{V} = \mathbf{A}\mathbf{V} = \mathbf{O}
+    \end{equation}
+    }
+\end{itemize}
+
+\subsection{[ ] Transfer: Isomorphism to Nadaraya-Watson Kernel Regression}
+Scaled dot-product attention is mathematically identical to a continuous non-parametric Nadaraya-Watson kernel regression estimator:
+{\boldmath
+\begin{equation}
+\hat{y}(x) = \sum_{j=1}^N \frac{\mathcal{K}(x, x_j)}{\sum_{l=1}^N \mathcal{K}(x, x_l)} y_j
+\end{equation}
+}
+where queries $q$ act as query points $x$, keys $k_j$ act as support observations $x_j$, values $v_j$ act as targets $y_j$, and the scaled exponential inner product $\mathcal{K}(q, k) = \exp(q^\top k / \sqrt{d})$ serves as an asymmetric, data-dependent bilinear kernel.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Unit Variance Preservation under Gaussian Components}]
+Let coordinates $Q_{i, d} \sim \mathcal{N}(0, 1)$ and $K_{j, d} \sim \mathcal{N}(0, 1)$ be mutually independent identically distributed standard normal random variables with zero mean and unit variance.
+Then the unscaled dot product $Z = \sum_{d=1}^{d_k} Q_{i, d} K_{j, d}$ has mean $\mathbb{E}[Z] = 0$ and variance $\operatorname{Var}(Z) = d_k$.
+Scaling by $\tau = 1/\sqrt{d_k}$ guarantees:
+{\boldmath
+\begin{equation}
+\mathbb{E}\left[\frac{Z}{\sqrt{d_k}}\right] = 0 \quad \text{\textbf{and}} \quad \operatorname{Var}\left(\frac{Z}{\sqrt{d_k}}\right) = 1.0
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By independence of $Q_{i, d}$ and $K_{j, d}$:
+{\boldmath
+\begin{equation}
+\mathbb{E}[Z] = \sum_{d=1}^{d_k} \mathbb{E}[Q_{i, d} K_{j, d}] = \sum_{d=1}^{d_k} \mathbb{E}[Q_{i, d}]\mathbb{E}[K_{j, d}] = \sum_{d=1}^{d_k} 0 \cdot 0 = 0
+\end{equation}
+}
+For each individual product term $Y_d = Q_{i, d} K_{j, d}$:
+{\boldmath
+\begin{align}
+\operatorname{Var}(Y_d) &= \mathbb{E}[Y_d^2] - (\mathbb{E}[Y_d])^2 = \mathbb{E}[Q_{i, d}^2 K_{j, d}^2] - 0 \\
+&= \mathbb{E}[Q_{i, d}^2] \mathbb{E}[K_{j, d}^2] = (\operatorname{Var}(Q) + (\mathbb{E}[Q])^2)(\operatorname{Var}(K) + (\mathbb{E}[K])^2) \\
+&= (1 + 0)(1 + 0) = 1.0
+\end{align}
+}
+Because coordinates across distinct channels $d \in \{1, \dots, d_k\}$ are mutually independent:
+{\boldmath
+\begin{equation}
+\operatorname{Var}(Z) = \sum_{d=1}^{d_k} \operatorname{Var}(Y_d) = \sum_{d=1}^{d_k} 1.0 = d_k
+\end{equation}
+}
+Applying the quadratic scalar property of variance $\operatorname{Var}(c X) = c^2 \operatorname{Var}(X)$ with $c = 1/\sqrt{d_k}$:
+{\boldmath
+\begin{equation}
+\operatorname{Var}\left(\frac{Z}{\sqrt{d_k}}\right) = \left(\frac{1}{\sqrt{d_k}}\right)^2 \operatorname{Var}(Z) = \frac{1}{d_k} \cdot d_k = 1.0
+\end{equation}
+}
+This proves that $1/\sqrt{d_k}$ uniquely preserves unit variance invariant to dimension $d_k$.
+\end{proof}
+
+\begin{theorem}[\textbf{Convex Hull Containment}]
+For any row-stochastic attention weight vector $\mathbf{a}_i \in \boldsymbol{\Delta}^{N_k - 1}$ and value vectors $\{\mathbf{v}_j\}_{j=1}^{N_k} \subset \mathbb{R}^{d_v}$, the output vector $\mathbf{o}_i = \sum_{j=1}^{N_k} A_{i, j} \mathbf{v}_j$ strictly resides within the convex hull:
+{\boldmath
+\begin{equation}
+\mathbf{o}_i \in \operatorname{conv}(\mathbf{v}_1, \dots, \mathbf{v}_{N_k})
+\end{equation}
+}
+Consequently, under any vector norm $\|\cdot\|$, $\|\mathbf{o}_i\| \le \max_{1 \le j \le N_k} \|\mathbf{v}_j\|$.
+\end{theorem}
+
+\begin{proof}
+By definition, the convex hull is $\operatorname{conv}(\mathcal{S}) = \{ \sum_{j} \lambda_j v_j \mid \lambda_j \ge 0, \sum_j \lambda_j = 1 \}$. Because $A_{i, j} \ge 0$ and $\sum_{j=1}^{N_k} A_{i, j} = 1.0$, $\mathbf{o}_i$ satisfies the definition. Applying triangle inequality:
+{\boldmath
+\begin{equation}
+\|\mathbf{o}_i\| = \left\| \sum_{j=1}^{N_k} A_{i, j} \mathbf{v}_j \right\| \le \sum_{j=1}^{N_k} A_{i, j} \|\mathbf{v}_j\| \le \left( \sum_{j=1}^{N_k} A_{i, j} \right) \max_{1 \le l \le N_k} \|\mathbf{v}_l\| = \max_{1 \le l \le N_k} \|\mathbf{v}_l\|
+\end{equation}
+}
+\end{proof}
+
+\begin{theorem}[\textbf{Shift Invariance of the Softmax Normalization}]
+For any logit vector $\mathbf{s} \in \mathbb{R}^N$ and any scalar shift constant $c \in \mathbb{R}$:
+{\boldmath
+\begin{equation}
+\operatorname{softmax}(\mathbf{s} - c \mathbf{1}) \equiv \operatorname{softmax}(\mathbf{s})
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Evaluating the $j$-th component of the shifted softmax:
+{\boldmath
+\begin{align}
+\operatorname{softmax}(\mathbf{s} - c \mathbf{1})_j &= \frac{\exp(s_j - c)}{\sum_{l=1}^N \exp(s_l - c)} = \frac{\exp(s_j)\exp(-c)}{\sum_{l=1}^N \exp(s_l)\exp(-c)} \\
+&= \frac{\exp(-c) \exp(s_j)}{\exp(-c) \sum_{l=1}^N \exp(s_l)} = \frac{\exp(s_j)}{\sum_{l=1}^N \exp(s_l)} = \operatorname{softmax}(\mathbf{s})_j
+\end{align}
+}
+Because $\exp(-c) > 0$ cancels identically in the numerator and denominator, setting $c = \max_l s_l$ preserves exact algebraic equivalence while ensuring all exponents are non-positive.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Square-Root Scaling vs Linear Scaling}}
+\textbf{Question}: Why does the attention operator divide logits by $\sqrt{d_k}$ rather than by $d_k$?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why does the statistical magnitude of an unconstrained geometric inner product scale as the square root of dimension rather than linearly with dimension?}
+    \item \textbf{Deep Answer}: If components in query and key vectors were completely identical and perfectly correlated, the sum $\sum_{d=1}^{d_k} x \cdot x = d_k x^2$ would grow linearly with $d_k$, which would require a $1/d_k$ normalization (an arithmetic average). However, learned representations are distributed across orthogonal channels; their components behave as zero-mean random fluctuations. In random walk theory, adding $d_k$ independent random steps of variance $\sigma^2$ yields total variance $d_k \sigma^2$ and standard deviation $\sigma \sqrt{d_k}$. Dividing by $d_k$ would over-penalize the logits, causing variance to collapse as $1/d_k \to 0$. As variance collapses, softmax logits become nearly identical, forcing the output distribution into a flat uniform blur $1/N_k$ and destroying the network's ability to focus on specific tokens. Dividing by $\sqrt{d_k}$ exactly balances the random-walk growth, keeping logit standard deviation constant at $1.0$ across all choices of $d_k$.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Additive Logit Masking vs Multiplicative Weight Masking}}
+\textbf{Question}: Why is the attention mask additive ($+\mathbf{M}$) in logit space rather than multiplicative ($\times \mathbf{M}$) in probability space?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{In which algebraic domain (unnormalized log-energy space vs normalized probability space) must structural independence constraints be enforced to guarantee zero forward activation and zero gradient backpropagation?}
+    \item \textbf{Deep Answer}: If we applied a multiplicative mask directly to probabilities ($\mathbf{A} \odot \mathbf{M}$ with binary mask $M_{i, j} \in \{0, 1\}$), the remaining non-zero probabilities would no longer sum to $1.0$. Re-normalizing after multiplication would require a second normalization pass. More critically, in backpropagation, masked tokens could still receive indirect gradient updates through the normalization denominator. By placing the mask inside the logit space with $M_{i, j} = -\infty$, the exponentiation $\exp(S_{i, j} - \infty) \equiv 0$ is mathematically exact. The derivative $\frac{\partial}{\partial S_{i, j}}\left(\frac{0}{\Omega}\right) = 0$ guarantees that masked tokens produce zero forward activation and receive exactly zero backward gradient, perfectly isolating causal future or padding tokens.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Non-Linear Partition Barrier to Linear Attention}}
+\textbf{Question}: What exact mathematical operation in Scaled Dot-Product Attention causes the quadratic $\mathcal{O}(N^2)$ computational and memory barrier?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why can ordinary matrix multiplication $\mathbf{A}\mathbf{B}\mathbf{C}$ be evaluated in linear time via associativity $(\mathbf{A}\mathbf{B})\mathbf{C} = \mathbf{A}(\mathbf{B}\mathbf{C})$, while attention cannot?}
+    \item \textbf{Deep Answer}: In linear algebra, associative reordering allows computing $(\mathbf{Q}\mathbf{K}^\top)\mathbf{V}$ as $\mathbf{Q}(\mathbf{K}^\top \mathbf{V})$, reducing complexity from $\mathcal{O}(N^2 d)$ to $\mathcal{O}(N d^2)$. The sole obstacle preventing this reassociation is the non-linear row-wise partition function $\Omega_i = \sum_{j=1}^{N_k} \exp(q_i^\top k_j / \sqrt{d_k})$. Because the denominator depends on the sum across all keys $j$ simultaneously, the operator $\operatorname{softmax}(\mathbf{Q}\mathbf{K}^\top)$ cannot be factored into a product of a matrix depending only on $\mathbf{Q}$ and a matrix depending only on $\mathbf{K}$. Every query must explicitly materialize its affinity with every individual key, producing an irreducible $N_q \times N_k$ dense interaction matrix.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Stability of Convex Combinations}}
+\textbf{Question}: Why does attention constrain outputs to convex combinations rather than allowing general affine combinations ($\sum A_{i, j} \ne 1$)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What dynamical system property prevents feature representations from exploding or vanishing when composing dozens of attention layers in deep neural networks?}
+    \item \textbf{Deep Answer}: A convex combination is a non-expansive operator: $\|\sum_j A_{i, j} \mathbf{v}_j\| \le \max_j \|\mathbf{v}_j\|$. If $\sum_j A_{i, j} > 1$, the operator acts as an expander, causing feature magnitudes to grow exponentially across $L$ stacked layers as $(\sum A)^L \to \infty$. Conversely, if $\sum_j A_{i, j} < 1$, representations contract exponentially toward zero as $(\sum A)^L \to 0$. Restricting weights to the probability simplex $\boldsymbol{\Delta}^{N_k - 1}$ guarantees that representation norms remain bounded within the convex hull of their input values, ensuring stable signal propagation through hundreds of stacked layers.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoScaledDotProductAttention} is formalized in Algorithm~\ref{alg:scaled_dot_product_attention}.
+
+\begin{algorithm}[H]
+\caption{Scaled Dot-Product Attention Forward Execution}
+\label{alg:scaled_dot_product_attention}
+\begin{algorithmic}[1]
+\Require Query $\mathbf{Q} \in \mathbb{R}^{N_q \times d_k}$, Key $\mathbf{K} \in \mathbb{R}^{N_k \times d_k}$, Value $\mathbf{V} \in \mathbb{R}^{N_k \times d_v}$
+\Require Optional additive mask $\mathbf{M} \in \mathbb{R}^{N_q \times N_k}$, optional scale factor $\tau \in \mathbb{R}_{> 0}$
+\Ensure Output matrix $\mathbf{O} \in \mathbb{R}^{N_q \times d_v}$, attention weights $\mathbf{A} \in \mathbb{R}^{N_q \times N_k}$, scale factor $\tau$
+\State $N_q \gets \text{rows}(\mathbf{Q}), \quad N_k \gets \text{rows}(\mathbf{K}), \quad d_k \gets \text{cols}(\mathbf{Q}), \quad d_v \gets \text{cols}(\mathbf{V})$
+\If{$\tau \text{ is None or } \tau \le 0$}
+    \State $\tau \gets 1.0 / \sqrt{d_k}$
+\EndIf
+\State $\mathbf{A} \gets \text{empty matrix of shape } (N_q, N_k)$
+\For{$i \gets 1 \textbf{ to } N_q$}
+    \State $\mathbf{s}_i \gets \text{array of size } N_k$
+    \For{$j \gets 1 \textbf{ to } N_k$}
+        \State $\text{dot} \gets \sum_{d=1}^{d_k} Q_{i, d} \cdot K_{j, d}$
+        \State $\text{score} \gets \text{dot} \cdot \tau$
+        \If{$\mathbf{M} \text{ is present}$}
+            \State $\text{score} \gets \text{score} + M_{i, j}$
+        \EndIf
+        \State $s_{i}[j] \gets \text{score}$
+    \EndFor
+    \State $m_i \gets \max_{1 \le j \le N_k} s_i[j]$
+    \State $\text{exp\_sum} \gets \sum_{j=1}^{N_k} \exp(s_i[j] - m_i)$
+    \For{$j \gets 1 \textbf{ to } N_k$}
+        \If{$\text{exp\_sum} > 0$}
+            \State $A_{i, j} \gets \exp(s_i[j] - m_i) / \text{exp\_sum}$
+        \Else
+            \State $A_{i, j} \gets 1.0 / N_k$ \Comment{Uniform fallback for degenerate rows}
+        \EndIf
+    \EndFor
+\EndFor
+\State $\mathbf{O} \gets \text{zeros of shape } (N_q, d_v)$
+\For{$i \gets 1 \textbf{ to } N_q$}
+    \For{$j \gets 1 \textbf{ to } N_k$}
+        \For{$d \gets 1 \textbf{ to } d_v$}
+            \State $O_{i, d} \gets O_{i, d} + A_{i, j} \cdot V_{j, d}$
+        \EndFor
+    \EndFor
+\EndFor
+\State \Return $\{\text{output}: \mathbf{O}, \text{attention\_weights}: \mathbf{A}, \text{scale\_factor}: \tau\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Computing inner products $\mathbf{Q}\mathbf{K}^\top$: $N_q N_k d_k$ multiplications and additions ($\Theta(N_q N_k d_k)$ FLOPs).
+        \item Softmax evaluation: $N_q N_k$ scaling, max-finding, exp, and division operations ($\Theta(N_q N_k)$ FLOPs).
+        \item Value weighting $\mathbf{A}\mathbf{V}$: $N_q N_k d_v$ multiplications and additions ($\Theta(N_q N_k d_v)$ FLOPs).
+        \item Total Time: $\Theta(N_q N_k(d_k + d_v))$ FLOPs.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Attention weights buffer $\mathbf{A}$: $\Theta(N_q N_k)$ floats.
+        \item Output matrix $\mathbf{O}$: $\Theta(N_q d_v)$ floats.
+        \item Total Auxiliary Space: $\Theta(N_q N_k + N_q d_v)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

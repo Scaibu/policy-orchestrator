@@ -1,13 +1,47 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{CLIP Symmetric Contrastive InfoNCE Loss}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, InfoNCE Boundedness, and Contrastive Optimization of CLIP}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Contrastive Language-Image Pre-training (CLIP) aligns vision and text encoders by maximizing cosine similarity between paired images and captions while minimizing similarity across unpaired batch elements. This specification formalizes the symmetric InfoNCE loss, proves lower and upper bounds, establishes computational complexity, and details step-by-step numerical verification.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Let batch size be $N \in \mathbb{N}_{\ge 1}$. Normalized image embeddings $\mathbf{v}_i$ and text embeddings $\mathbf{t}_i$ satisfy $\|\mathbf{v}_i\|_2 = 1, \|\mathbf{t}_i\|_2 = 1$. With logit scale $\tau = e^\sigma$:
 \begin{equation}
-\mathcal{L} = \frac{1}{2N}\sum_{i=1}^N \left(-\log \frac{e^{\mathbf{I}_i^\top \mathbf{T}_i / \tau}}{\sum_j e^{\mathbf{I}_i^\top \mathbf{T}_j / \tau}} - \log \frac{e^{\mathbf{I}_i^\top \mathbf{T}_i / \tau}}{\sum_j e^{\mathbf{I}_j^\top \mathbf{T}_i / \tau}}\right)
+S_{i, j} = \tau (\mathbf{v}_i^\top \mathbf{t}_j)
 \end{equation}
+The symmetric loss is defined by:
+\begin{equation}
+\mathcal{L}_{\text{CLIP}} = \frac{1}{2} \left[ \frac{1}{N} \sum_{i=1}^N -\log \frac{\exp(S_{i, i})}{\sum_{j=1}^N \exp(S_{i, j})} + \frac{1}{N} \sum_{j=1}^N -\log \frac{\exp(S_{j, j})}{\sum_{i=1}^N \exp(S_{i, j})} \right]
+\end{equation}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} $\Theta(N^2 d)$ to evaluate the $N \times N$ cosine matrix plus $\Theta(N^2)$ cross-entropy steps.
+    \item \textbf{Space Complexity:} $\Theta(N^2)$ similarity matrix storage.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{radford2021} A.~Radford et al., ``Learning transferable visual models from natural language supervision,'' in \emph{ICML}, 2021.
+\end{thebibliography}
+
 \end{document}

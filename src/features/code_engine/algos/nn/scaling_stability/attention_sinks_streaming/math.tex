@@ -1,13 +1,38 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{StreamingLLM Attention Sinks \& Cache Eviction}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Attention Sinks for Infinite Streaming LLMs}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Deploying autoregressive language models in streaming settings where sequence length exceeds pre-training horizons causes catastrophic perplexity explosion when using naive sliding-window KV caches. StreamingLLM showed this instability originates from the loss of attention sinks: the first few tokens ($S \approx 4$) collect enormous baseline attention weights necessary for softmax partition sum stabilization. Retaining the first $S$ initial tokens alongside the local sliding window of $W$ tokens enables infinite streaming inference with stable perplexity.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let token stream $\mathbf{x} = (x_0, x_1, \dots, x_{T-1})$ have length $T > S + W$, where $S \in \mathbb{N}_{\ge 1}$ is the sink token count and $W \in \mathbb{N}_{\ge 1}$ is the local window size.
+
 \begin{equation}
-\text{Cache}(t) = \text{Tokens}[0 : S] \cup \text{Tokens}[t - W : t]
+\mathbf{x}_{\text{cached}} = [x_0, \dots, x_{S-1}] \cup [x_{T-W}, \dots, x_{T-1}]
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{xiao2023} G.~Xiao et al., ``Efficient streaming language models with attention sinks,'' in \emph{ICLR}, 2024.
+\end{thebibliography}
+
 \end{document}

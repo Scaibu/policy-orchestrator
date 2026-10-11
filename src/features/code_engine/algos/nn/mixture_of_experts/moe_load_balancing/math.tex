@@ -1,13 +1,128 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{MoE Auxiliary Load Balancing Loss}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Auxiliary Entropy Loss, and Buffer Capacity of MoE Load Balancing}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Unconstrained top-$k$ routing suffers from routing collapse: the router over-allocates tokens to a small subset of experts, causing hardware execution starvation on idle experts and buffer overflow on popular experts. This specification formalizes the auxiliary load balancing loss $\mathcal{L}_{\text{aux}} = E \sum_{e} f_e P_e$, proves that minimal loss occurs under uniform distribution, defines buffer capacity limits, and verifies step-by-step numerical execution.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $T \in \mathbb{N}_{\ge 1}$ denote the number of tokens in a batch, and let $E \in \mathbb{N}_{\ge 1}$ denote the number of experts.
+
+\begin{itemize}
+    \item $P_{t, e} \in [0, 1]$: Router softmax probability for token $t$ and expert $e$.
+    \item $P_e = \frac{1}{T} \sum_{t=1}^T P_{t, e}$: Average router probability assigned to expert $e$.
+    \item $f_e = \frac{1}{T} \sum_{t=1}^T \mathbb{I}(\operatorname{argmax} \mathbf{P}_t = e)$: Fraction of tokens routed to expert $e$.
+    \item $C_{\text{factor}} \ge 1.0$: Capacity factor multiplier.
+    \item $C_{\text{expert}} = \left\lceil \frac{T}{E} \cdot C_{\text{factor}} \right\rceil$: Maximum buffer capacity per expert.
+    \item $\mathcal{L}_{\text{aux}} = E \sum_{e=1}^E f_e P_e$: Auxiliary load balancing loss.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\caption{Mathematical Notation for MoE Load Balancing}
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Domain} & \textbf{Description} \\
+\midrule
+$T, E$ & $\mathbb{N}_{\ge 1}$ & Batch tokens and expert counts \\
+$C_{\text{factor}}$ & $\mathbb{R}_{\ge 1.0}$ & Buffer capacity scaling multiplier \\
+$C_{\text{expert}}$ & $\mathbb{N}_{\ge 1}$ & Maximum token buffer per expert \\
+$f_e$ & $[0, 1]$ & Empirical dispatch fraction for expert $e$ \\
+$P_e$ & $[0, 1]$ & Mean routing probability for expert $e$ \\
+$\mathcal{L}_{\text{aux}}$ & $\mathbb{R}_{\ge 1.0}$ & Load balancing penalty \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Problem Definition and Algorithmic Execution}
+
+\begin{algorithm}[H]
+\caption{MoE Load Balancing Loss and Capacity Allocation}
+\label{alg:moe_load_balance}
+\begin{algorithmic}[1]
+\Require Router probabilities $\mathbf{P} \in \mathbb{R}^{T \times E}$, capacity factor $C_{\text{factor}} \ge 1.0$, experts $E$
+\Ensure Aux loss $\mathcal{L}_{\text{aux}}$, expert counts $\mathbf{c}$, dropped count $D$, drop rate $r_{\text{drop}}$
+\State $T \gets \text{rows}(\mathbf{P})$
+\State $C_{\text{expert}} \gets \lceil (T / E) \cdot C_{\text{factor}} \rceil$
+\State Initialize counts $\mathbf{c} \gets \text{zeros of size } E, \quad D \gets 0$
+\For{$t \gets 0 \textbf{ to } T - 1$}
+    \State $e^* \gets \arg\max_{0 \le e < E} P_{t, e}$
+    \If{$c[e^*] < C_{\text{expert}}$}
+        \State $c[e^*] \gets c[e^*] + 1$
+    \Else
+        \State $D \gets D + 1$ \Comment{Buffer overflow: token dropped}
+    \EndIf
+\EndFor
+\State $f_e \gets [c[e] / T \text{ for } e \in \{0, \dots, E-1\}]$
+\State $P_e \gets [\frac{1}{T} \sum_{t=0}^{T-1} P_{t, e} \text{ for } e \in \{0, \dots, E-1\}]$
+\State $\mathcal{L}_{\text{aux}} \gets E \sum_{e=0}^{E-1} f_e \cdot P_e$
+\State \Return $\{\text{aux\_loss}: \mathcal{L}_{\text{aux}}, \text{expert\_token\_counts}: \mathbf{c}, \text{dropped\_tokens\_count}: D, \text{token\_drop\_rate}: D / T\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Theoretical Guarantees: Global Minimum under Uniform Routing}
+
+\begin{theorem}[Global Minimum of Load Balancing Loss]
+\label{thm:moe_aux_min}
+Let $\mathbf{f}, \mathbf{P} \in \Delta^{E-1}$ lie on the probability simplex. The auxiliary loss $\mathcal{L}_{\text{aux}} = E \sum_{e=1}^E f_e P_e$ achieves its global minimum of $1.0$ if and only if both routing probabilities and dispatched tokens are uniformly balanced:
 \begin{equation}
-\mathcal{L}_{\text{aux}} = E \sum_{e=1}^E f_e \cdot P_e, \quad f_e = \frac{1}{T}\sum_{t=1}^T \mathbb{I}(\text{token } t \to e), \quad P_e = \frac{1}{T}\sum_{t=1}^T p_{t, e}
+f_e = \frac{1}{E} \quad \text{and} \quad P_e = \frac{1}{E} \quad \forall e \in \{1, \dots, E\} \implies \mathcal{L}_{\text{aux}} = 1.0
 \end{equation}
+\end{theorem}
+
+\begin{proof}
+By Cauchy-Schwarz inequality on $\mathbb{R}^E$:
+\begin{equation}
+\sum_{e=1}^E f_e P_e \ge \frac{1}{E} \left( \sum_{e=1}^E f_e \right) \left( \sum_{e=1}^E P_e \right) = \frac{1}{E} (1)(1) = \frac{1}{E}
+\end{equation}
+Multiplying by $E$:
+\begin{equation}
+\mathcal{L}_{\text{aux}} = E \sum_{e=1}^E f_e P_e \ge E \cdot \frac{1}{E} = 1.0
+\end{equation}
+Equality holds if and only if $f_e$ and $P_e$ are collinear constants, requiring $f_e = P_e = 1/E$. Under complete collapse where all tokens route to expert $1$, $f_1 = P_1 = 1$, giving maximum penalty $\mathcal{L}_{\text{aux}} = E \cdot (1 \cdot 1) = E$.
+\end{proof}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} $\Theta(T \cdot E)$ operations to evaluate probabilities and dispatch counts.
+    \item \textbf{Space Complexity:} $\Theta(E)$ storage for counts and probability averages.
+\end{itemize}
+
+\section{Worked Numerical Example}
+Let $T = 2, E = 2, C_{\text{factor}} = 1.0 \implies C_{\text{expert}} = \lceil (2/2) \cdot 1.0 \rceil = 1$.
+Router probabilities: $\mathbf{P} = \begin{bmatrix} 0.8 & 0.2 \\ 0.9 & 0.1 \end{bmatrix}$.
+\begin{enumerate}
+    \item Token 0 selects expert $0$ ($\max=0.8$). $c[0] = 0 < 1 \implies c[0] = 1$.
+    \item Token 1 selects expert $0$ ($\max=0.9$). $c[0] = 1 = C_{\text{expert}} \implies$ overflow! Dropped count $D = 1$.
+    Counts: $\mathbf{c} = [1, 0]$.
+    \item Fractions: $f_0 = 1/2 = 0.5, f_1 = 0/2 = 0.0$.
+    \item Probability sums: $P_0 = (0.8 + 0.9)/2 = 0.85$, $P_1 = (0.2 + 0.1)/2 = 0.15$.
+    \item Auxiliary loss:
+    $\mathcal{L}_{\text{aux}} = 2 \times (0.5 \times 0.85 + 0.0 \times 0.15) = 2 \times 0.425 = 0.85$.
+    \item Token drop rate: $1 / 2 = 0.5$ ($50\%$).
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{shazeer2017} N.~Shazeer et al., ``Outrageously large neural networks: The sparsely-gated mixture-of-experts layer,'' in \emph{ICLR}, 2017.
+\end{thebibliography}
+
 \end{document}

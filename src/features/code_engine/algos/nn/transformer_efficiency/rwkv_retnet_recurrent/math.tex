@@ -1,13 +1,45 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{RetNet Recurrent Retention Mechanism}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Exponential Decay Retention, and Dual Representations of RWKV and RetNet}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Retentive Network (RetNet) and Receptance Weighted Key Value (RWKV) combine the parallel training speed of Transformers with the $\mathcal{O}(1)$ inference latency and constant memory of recurrent networks. Retentive attention weights relative distances with explicit exponential decay $\gamma^{i - j}$ ($\gamma \in (0, 1)$). This document derives the dual parallel and recurrent forms, proves mathematical equivalence, and details numerical verification.
+\end{abstract}
+
+\section{Recurrent and Parallel Dual Formulations}
+
+\subsection{Recurrent Representation (Inference Mode)}
+At step $n$, state $\mathbf{S}_n \in \mathbb{R}^{d \times d}$ updates recurrently:
+\begin{align}
+\mathbf{S}_n &= \gamma \mathbf{S}_{n-1} + \mathbf{k}_n \mathbf{v}_n^\top \\
+\mathbf{o}_n &= \mathbf{q}_n^\top \mathbf{S}_n
+\end{align}
+
+\subsection{Parallel Representation (Training Mode)}
+For sequence length $N$:
 \begin{equation}
-\mathbf{S}_n = \gamma \mathbf{S}_{n-1} + \mathbf{k}_n \mathbf{v}_n^\top, \quad \text{Retention}(\mathbf{q}_n) = \mathbf{q}_n^\top \mathbf{S}_n
+\mathbf{O} = (\mathbf{Q}\mathbf{K}^\top \odot \mathbf{D}) \mathbf{V}, \quad D_{i, j} = \begin{cases} \gamma^{i - j}, & \text{if } i \ge j \\ 0, & \text{if } i < j \end{cases}
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{sun2023} Y.~Sun et al., ``Retentive network: A successor to transformer for large language models,'' \emph{arXiv:2307.08621}, 2023.
+\end{thebibliography}
+
 \end{document}

@@ -1,13 +1,34 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{UL2 Prefix Language Modeling Attention Mask}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Attention Masks of Prefix-LM and Mixture Denoisers (UL2)}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Unifying language learning paradigms requires flexibly combining causal, prefix, and span-corruption attention masks. In Prefix Language Modeling, tokens within prefix length $L_{\text{prefix}}$ attend bidirectionally, while suffix tokens are constrained by a lower-triangular causal mask.
+\end{abstract}
+
 \begin{equation}
-M_{i, j} = \begin{cases} 0 & \text{if } i, j < L_{\text{prefix}} \lor j \leq i \\ -\infty & \text{otherwise} \end{cases}
+M_{i, j} = \begin{cases} 0.0, & \text{if } j < L_{\text{prefix}} \text{ or } j \le i \\ -\infty, & \text{otherwise} \end{cases}
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{tay2022} Y.~Tay et al., ``UL2: Unifying language learning paradigms,'' in \emph{ICLR}, 2023.
+\end{thebibliography}
+
 \end{document}

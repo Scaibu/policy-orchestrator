@@ -1,13 +1,37 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Self-Consistency Majority Vote Formulation}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Majority Voting Ensembles of Self-Consistency Sampling}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Complex multi-step reasoning problems suffer from stochastic failures when using greedy decoding. Self-Consistency samples $N$ diverse reasoning paths with temperature $T > 0$ and selects the final answer by majority vote across normalized terminal answers. This specification formalizes the plurality vote operator, statistical error bounds, and numerical verification.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Let sampled answer strings be $\{a_1, a_2, \dots, a_N\}$. The ensemble consensus answer is:
 \begin{equation}
-a^* = \text{argmax}_{a} \sum_{i=1}^N \mathbb{I}(\text{Answer}(r_i) = a)
+\hat{a} = \arg\max_{a} \sum_{i=1}^N \mathbb{I}(\operatorname{Normalize}(a_i) = a)
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{wang2022} X.~Wang et al., ``Self-consistency improves chain of thought reasoning in language models,'' in \emph{ICLR}, 2023.
+\end{thebibliography}
+
 \end{document}

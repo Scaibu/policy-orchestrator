@@ -1,13 +1,41 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Swin Transformer Shifted Window Attention}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Shifted Window Partitioning, and Linear Scaling of Swin Transformers}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-\text{ShiftedGrid}(x, y) = \text{Grid}\left((x + \lfloor M/2 \rfloor) \pmod H, (y + \lfloor M/2 \rfloor) \pmod W\right)
-\end{equation}
+
+\begin{abstract}
+Standard Vision Transformers suffer from quadratic computational complexity $\mathcal{O}((HW)^2)$ relative to image resolution. Swin Transformer establishes linear complexity $\mathcal{O}(HW)$ by computing self-attention within non-overlapping local windows and introducing cross-window connectivity via shifted window partitions in alternating layers. This specification formalizes regular and shifted window partitioning, complexity bounds, and numerical verification.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let feature map $\mathbf{X} \in \mathbb{R}^{H \times W \times C}$ have height $H$, width $W$, and channels $C$. Let window size be $M \times M$, and shift size be $S \in \{0, \lfloor M/2 \rfloor\}$.
+
+\section{Complexity Comparison}
+For an image with $h \times w$ patches:
+\begin{itemize}
+    \item Standard global attention: $\Omega(4hw C^2 + 2(hw)^2 C)$ (quadratic in image area).
+    \item Swin window attention: $\Omega(4hw C^2 + 2 M^2 hw C)$ (strictly linear in image area $hw$ for fixed $M=7$).
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{liu2021} Z.~Liu et al., ``Swin Transformer: Hierarchical vision transformer using shifted windows,'' in \emph{ICCV}, 2021.
+\end{thebibliography}
+
 \end{document}

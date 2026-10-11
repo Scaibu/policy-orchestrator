@@ -1,13 +1,38 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Contrastive Search Objective}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Semantic Degeneration Penalties of Contrastive Search}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Contrastive Search balances model confidence with a degeneration penalty that measures the isotropic cosine similarity between candidate hidden representations and prior context vectors. This specification formalizes the dual-objective score function, proving repulsion from repetitive attractors.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+For top-$k$ candidates $v \in \mathcal{V}^{(k)}$:
 \begin{equation}
-x_t = \text{argmax}_{v \in V^{(k)}} \left\{ (1 - \alpha) P(v \mid \mathbf{x}_{<t}) - \alpha \max_{j < t} \text{CosineSim}(\mathbf{h}_v, \mathbf{h}_j) \right\}
+\operatorname{Score}(v) = (1 - \alpha) P_\theta(v \mid \mathbf{x}_{<t}) - \alpha \max_{1 \le j < t} \frac{\mathbf{h}_v^\top \mathbf{h}_j}{\|\mathbf{h}_v\|_2 \|\mathbf{h}_j\|_2}
 \end{equation}
+where $\alpha \in [0, 1]$ governs the trade-off between model probability and representation diversity.
+
+\begin{thebibliography}{9}
+\bibitem{su2022} Y.~Su et al., ``A contrastive framework for neural text generation,'' in \emph{NeurIPS}, 2022.
+\end{thebibliography}
+
 \end{document}

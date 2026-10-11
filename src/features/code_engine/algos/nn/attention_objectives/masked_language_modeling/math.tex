@@ -1,13 +1,376 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Masked Language Modeling (MLM)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Masked Language Modeling}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Masked Language Modeling Objective):}
+Let sequence length be $T \in \mathbb{N}_{\ge 1}$ and discrete vocabulary size be $V \in \mathbb{N}_{\ge 1}$. Let $\mathcal{M} = (p_1, p_2, \dots, p_M) \in \{0, \dots, T-1\}^M$ denote an ordered tuple of $M \in \mathbb{N}_{\ge 0}$ corrupted token positions, with corresponding ground-truth target tokens $\mathbf{y}_{\mathcal{M}} = (y_{p_1}, \dots, y_{p_M}) \in \{0, \dots, V-1\}^M$.
+Given pre-softmax encoder logit tensor $\mathbf{Z} \in \mathbb{R}^{T \times V}$, the \textbf{Masked Language Modeling} (MLM) operator:
+{\boldmath
 \begin{equation}
-\mathcal{L}_{\text{MLM}} = -\sum_{i \in \mathcal{M}} \log P(x_i \mid \tilde{\mathbf{x}}; \theta)
+\operatorname{MLM}: \mathbb{R}^{T \times V} \times \{0, \dots, T-1\}^M \times \{0, \dots, V-1\}^M \longrightarrow \mathbb{R}_{\ge 0} \times [0, 1] \times \{0, \dots, V-1\}^M
 \end{equation}
+}
+maps inputs to the triple $\{\mathcal{L}_{\text{MLM}}, \text{Acc}_{\text{MLM}}, \hat{\mathbf{y}}_{\mathcal{M}}\}$ defined by:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{MLM}} = \begin{cases} -\frac{1}{M} \sum_{m=1}^M \log P(y_{p_m} \mid \mathbf{Z}), & \text{if } M > 0 \\ 0.0, & \text{if } M = 0 \end{cases}
+\end{equation}
+}
+with greedy argmax discrete token reconstruction:
+{\boldmath
+\begin{equation}
+\hat{y}_{p_m} = \arg\max_{0 \le v < V} Z_{p_m, v}, \qquad m \in \{1, \dots, M\}
+\end{equation}
+}
+and top-1 exact-match reconstruction accuracy:
+{\boldmath
+\begin{equation}
+\text{Acc}_{\text{MLM}} = \begin{cases} \frac{1}{M} \sum_{m=1}^M \mathbb{I}(\hat{y}_{p_m} = y_{p_m}), & \text{if } M > 0 \\ 1.0, & \text{if } M = 0 \end{cases}
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+While causal language models (such as autoregressive text generators) read strictly from left to right with future words hidden, humans frequently solve language problems using **360-degree bidirectional context**. When solving a fill-in-the-blank puzzle or deciphering an illegible smudge on a handwritten letter, you do not just read the words that came before the smudge—you read the entire sentence before and after it.
+
+Masked Language Modeling (popularized by BERT) brings this bidirectional capability to neural networks:
+\begin{enumerate}
+    \item \textbf{Controlled Corruption}: A document is presented to the network, but approximately 15\% of the words are deliberately masked out (replaced by a special \texttt{[MASK]} token).
+    \item \textbf{Bidirectional Information Flow}: The Transformer attends across all positions simultaneously in every direction. Information from the beginning of the sentence and the end of the sentence flows together into the masked position.
+    \item \textbf{Contextual Cloze Denoising}: The model must deduce what word belongs under the mask. For instance, in the sentence \emph{``The [MASK] barked loudly at the mailman,''} seeing both \emph{``barked''} and \emph{``mailman''} makes it immediately obvious that the missing word is \emph{``dog''}.
+    \item \textbf{Sparse Target Loss}: The loss is computed solely on the masked positions. The unmasked tokens simply serve as contextual clues and incur zero direct reconstruction loss.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Fill-in-the-Blank Puzzle Book}:
+Imagine you are playing a fun puzzle game in a giant storybook where a mischievous elf has played a trick on you.
+
+\begin{itemize}
+    \item \textbf{The White Sticker Trick (Masked Positions $\mathcal{M}$)}:
+    The elf sneaks into your storybook and places white blank stickers over a few words in a sentence (for example, 3 stickers on a 20-word page).
+    
+    \item \textbf{The Two Clue Windows (Bidirectional Context)}:
+    The elf challenges you: \emph{``Can you guess the secret word hidden under each sticker?''}
+    You look through two magical windows:
+    \begin{itemize}
+        \item Window 1 looks to the left: \emph{``The fierce knight drew his shiny ...''}
+        \item Window 2 looks to the right: \emph{``... and slashed the thick jungle vines.''}
+    \end{itemize}
+    
+    \item \textbf{The Aha! Moment (Softmax Prediction)}:
+    Your brain combines both clues: knights have shiny swords, and people use swords to slash vines! You shout: \emph{``Sword!''}
+    
+    \item \textbf{Peeling the Sticker (The Loss $\mathcal{L}_{\text{MLM}}$)}:
+    You peel back the elf's sticker to see what was underneath. If it says \emph{``sword''}, you score a point! If it says \emph{``sword''} and you guessed \emph{``spoon''}, you lose points because a spoon doesn't slash vines very well.
+    
+    \item \textbf{The Gold Scoreboard (Accuracy $\text{Acc}_{\text{MLM}}$)}:
+    If there were 3 white stickers on the page, and you guessed all 3 words correctly, your score is $3/3 = 100\%$! That is your reconstruction accuracy.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Bidirectional Cloze Conditional Probability}}
+{\boldmath
+\begin{equation}
+P(x_i \mid \mathbf{x}_{\setminus i}) = \frac{\exp(Z_{i, x_i})}{\sum_{v=0}^{V-1} \exp(Z_{i, v})}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The posterior categorical distribution over vocabulary $\mathcal{V}$ conditioned on the full bidirectional context $\mathbf{x}_{\setminus i} = (x_1, \dots, x_{i-1}, x_{i+1}, \dots, x_T)$ surrounding index $i$.
+    \item \textbf{What It Means}:
+    The probability of the token at position $i$ depends symmetrically on all preceding and all succeeding tokens in the sequence.
+    \item \textbf{Why It Is Important}:
+    Bidirectional conditioning provides substantially richer representations for sentence understanding, classification, and retrieval than unidirectional autoregressive conditioning.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Log-Sum-Exp Stable Likelihood at Masked Coordinates}}
+{\boldmath
+\begin{equation}
+\log P(y_{p_m} \mid \mathbf{Z}) = Z_{p_m, y_{p_m}} - m_{p_m} - \log\left(\sum_{v=0}^{V-1} \exp(Z_{p_m, v} - m_{p_m})\right), \qquad m_{p_m} = \max_{0 \le v < V} Z_{p_m, v}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The translation-invariant log-softmax reduction evaluated exclusively along the row coordinates $p_m \in \mathcal{M}$ indexed by the masked position tuple.
+    \item \textbf{What It Means}:
+    It extracts the log-likelihood of the true target token at masked position $p_m$ without materializing un-normalized exponentials that could overflow floating-point limits.
+    \item \textbf{Why It Is Important}:
+    Evaluating log-softmax only at masked positions avoids computing loss over uncorrupted tokens, cutting objective evaluation compute by over 80\%.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Masked Mean Cross-Entropy Loss}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{MLM}} = -\frac{1}{M} \sum_{m=1}^M \log P(y_{p_m} \mid \mathbf{Z})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The empirical risk functional defined as the arithmetic mean of negative log-likelihoods over the subset of masked positions $\mathcal{M}$.
+    \item \textbf{What It Means}:
+    The overall penalty incurred by the model is the average surprise across the corrupted tokens in the sentence.
+    \item \textbf{Why It Is Important}:
+    Normalizing by $M$ ensures that batches with different numbers of masked tokens maintain consistent loss magnitude and gradient scale.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Greedy Discrete Argmax Token Reconstruction}}
+{\boldmath
+\begin{equation}
+\hat{y}_{p_m} = \arg\max_{0 \le v < V} Z_{p_m, v}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The mode projection of the discrete categorical distribution at masked position $p_m$.
+    \item \textbf{What It Means}:
+    The single word block in the vocabulary that received the highest confidence score from the encoder.
+    \item \textbf{Why It Is Important}:
+    Extracting greedy predictions enables real-time monitoring of reconstruction quality and model confidence throughout pretraining.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Exact-Match Reconstruction Accuracy}}
+{\boldmath
+\begin{equation}
+\text{Acc}_{\text{MLM}} = \frac{1}{M} \sum_{m=1}^M \mathbb{I}(\hat{y}_{p_m} = y_{p_m})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The normalized indicator summation evaluating the fraction of masked positions where the greedy prediction matches the true ground truth token.
+    \item \textbf{What It Means}:
+    The percentage of masked words correctly filled in by the model (ranging from $0.0$ to $1.0$).
+    \item \textbf{Why It Is Important}:
+    Accuracy provides an easily interpretable, scale-independent metric for comparing model performance and tracking training progression.
+\end{itemize}
+
+\subsection{\textbf{Equation 6: Analytic Gradient Sparsity}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}_{\text{MLM}}}{\partial Z_{i, v}} = \begin{cases} \frac{1}{M}\left( P(v \mid \mathbf{z}_i) - \mathbb{I}(v = y_i) \right), & \text{\textbf{if }} i \in \mathcal{M} \\ 0, & \text{\textbf{if }} i \notin \mathcal{M} \end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The sparse gradient tensor of the MLM objective with respect to the full $T \times V$ logit matrix.
+    \item \textbf{What It Means}:
+    Unmasked positions $i \notin \mathcal{M}$ produce exactly zero gradient at the loss layer ($\nabla_{\mathbf{z}_i} \mathcal{L} = \mathbf{0}$).
+    \item \textbf{Why It Is Important}:
+    Gradient sparsity allows backward passes to skip calculating logit gradients for unmasked tokens, significantly saving GPU memory bandwidth.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $T \in \mathbb{N}_{\ge 1}$: Sequence length.
+    \item $V \in \mathbb{N}_{\ge 1}$: Vocabulary size.
+    \item $M \in \mathbb{N}_{\ge 0}$: Cardinality of masked positions ($M \le T$).
+    \item $\mathcal{M} \subset \{0, \dots, T-1\}$: Set of masked position indices.
+    \item $\mathbf{Z} \in \mathbb{R}^{T \times V}$: Encoder output logit tensor.
+    \item $\mathbf{y}_{\mathcal{M}} \in \{0, \dots, V-1\}^M$: True ground truth target tokens.
+    \item $\hat{\mathbf{y}}_{\mathcal{M}} \in \{0, \dots, V-1\}^M$: Greedy token predictions.
+    \item $\mathcal{L}_{\text{MLM}} \in \mathbb{R}_{\ge 0}$: Average masked cross-entropy loss.
+    \item $\text{Acc}_{\text{MLM}} \in [0, 1]$: Exact-match reconstruction accuracy.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$T, V$ & \textbf{Defined} (Sequence / vocabulary dimension) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\mathcal{M}, M$ & \textbf{Defined / Sampled} (Mask corruption pattern) & Index set in $\{0, \dots, T-1\}^M$ \\
+$\mathbf{y}_{\mathcal{M}}$ & \textbf{Observed} (True target tokens) & Integer array in $\{0, \dots, V-1\}^M$ \\
+$\mathbf{Z}$ & \textbf{Calculated / Learned} (Encoder output) & Real matrix in $\mathbb{R}^{T \times V}$ \\
+$\hat{\mathbf{y}}_{\mathcal{M}}$ & \textbf{Calculated} (Discrete predictions) & Mode indices in $\{0, \dots, V-1\}^M$ \\
+$\mathcal{L}_{\text{MLM}}, \text{Acc}_{\text{MLM}}$ & \textbf{Calculated} (Objective & accuracy) & Non-negative bounded scalars \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{Z}, \mathcal{M}, \mathbf{y}_{\mathcal{M}}) \xrightarrow{\text{Gather } \mathcal{M}} \mathbf{Z}_{\mathcal{M}} \xrightarrow{\text{LogSumExp}} \log \mathbf{P}_{\mathcal{M}} \xrightarrow{\text{NLL}} \mathcal{L}_{\text{MLM}}, \quad \mathbf{Z}_{\mathcal{M}} \xrightarrow{\arg\max} \hat{\mathbf{y}} \xrightarrow{==} \text{Acc}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\mathbf{Z}_{\mathcal{M}} &\in [M \times V] \quad \text{\textbf{(Masked log-odds)}} \\
+\mathcal{L}_{\text{MLM}} &\in \mathbb{R}_{\ge 0} \quad \text{\textbf{(Average nats per masked position)}} \\
+\text{Acc}_{\text{MLM}} &\in [0.0, 1.0] \quad \text{\textbf{(Dimensionless accuracy ratio)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Perfect Reconstruction ($\hat{y}_{p_m} = y_{p_m}, P(y) \to 1.0$)}: Loss approaches $0.0$, and accuracy reaches $1.0$.
+    \item \textbf{Uniform Guessing ($Z_{i, v} = \text{const}$)}: Loss evaluates to $\log V$, and expected random-chance accuracy is $1/V$.
+    \item \textbf{Empty Mask Set ($M = 0$)}: When no tokens are masked, defensive fallbacks return $\mathcal{L}_{\text{MLM}} = 0.0$ and $\text{Acc}_{\text{MLM}} = 1.0$.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Mask Index Out-of-Bounds}: If any $p_m \ge T$, row indexing raises an error.
+    \item \textbf{Target Vocabulary Overflow}: Target tokens must satisfy $0 \le y_{p_m} < V$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Position Invariance}: Permuting the order of elements in $\mathcal{M}$ leaves $\mathcal{L}_{\text{MLM}}$ and $\text{Acc}_{\text{MLM}}$ strictly unchanged.
+\end{itemize}
+
+\subsection{[ ] Transfer: Connection to Denoising Autoencoders}
+Masked Language Modeling is a discrete non-parametric instance of Vincent et al.'s Denoising Autoencoder (DAE) framework, optimizing the variational lower bound on mutual information between corrupted sequence $\tilde{\mathbf{x}}$ and clean sequence $\mathbf{x}$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Gradient Sparsity of Unmasked Sequence Elements}]
+Let loss $\mathcal{L}_{\text{MLM}}$ be evaluated over masked positions $\mathcal{M} \subset \{0, \dots, T-1\}$. For every unmasked position $j \notin \mathcal{M}$, the partial derivative with respect to output logits is identically zero:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}_{\text{MLM}}}{\partial Z_{j, v}} = 0 \quad \text{for all } v \in \{0, \dots, V-1\}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition, $\mathcal{L}_{\text{MLM}} = -\frac{1}{M} \sum_{m=1}^M \log P(y_{p_m} \mid \mathbf{z}_{p_m})$.
+The functional depends only on rows $\mathbf{z}_{p_m}$ where $p_m \in \mathcal{M}$.
+For any row $j \notin \mathcal{M}$, the loss function has zero explicit dependence on $Z_{j, v}$:
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}_{\text{MLM}}}{\partial Z_{j, v}} = -\frac{1}{M} \sum_{m=1}^M \frac{\partial \log P(y_{p_m} \mid \mathbf{z}_{p_m})}{\partial Z_{j, v}} = -\frac{1}{M} \sum_{m=1}^M 0 = 0
+\end{equation}
+}
+Thus, error gradients only enter the network through the masked coordinates.
+\end{proof}
+
+\begin{theorem}[\textbf{Monotonic Cross-Entropy and Accuracy Consistency}]
+If for all masked positions $m \in \{1, \dots, M\}$, the target token probability satisfies $P(y_{p_m} \mid \mathbf{Z}) > 0.5$, then the exact-match accuracy is guaranteed to be strictly $1.0$:
+{\boldmath
+\begin{equation}
+\min_{1 \le m \le M} P(y_{p_m}) > 0.5 \implies \text{Acc}_{\text{MLM}} = 1.0
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Because $\sum_{v=0}^{V-1} P(v) = 1.0$, if $P(y_{p_m}) > 0.5$, then for any competing token $v' \ne y_{p_m}$, $P(v') \le 1 - P(y_{p_m}) < 0.5 < P(y_{p_m})$.
+Because the exponential function is strictly monotonic, $P(y_{p_m}) > P(v') \implies Z_{p_m, y_{p_m}} > Z_{p_m, v'}$ for all $v' \ne y_{p_m}$.
+Therefore, $\hat{y}_{p_m} = \arg\max_v Z_{p_m, v} \equiv y_{p_m}$.
+Hence, $\mathbb{I}(\hat{y}_{p_m} = y_{p_m}) = 1$ for all $m$, giving $\text{Acc}_{\text{MLM}} = \frac{1}{M}\sum_{m=1}^M 1 = 1.0$.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: 15\% Masking Rate Selection}}
+\textbf{Question}: Why does standard BERT use approximately 15\% masking instead of 50\% or 80\%?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What governs the trade-off between sufficient contextual conditioning and training signal density in denoising objectives?}
+    \item \textbf{Deep Answer}: If the corruption rate is too high (e.g. 50\%), too much context is erased; words lose their surrounding clues, turning the task into impossible guesswork and damaging bidirectional representations. Conversely, if the corruption rate is too low (e.g. 2\%), each sequence provides very few gradient updates, making pretraining extremely slow and compute-inefficient. Empirical studies confirmed that 15\% strikes the optimal balance between preserving rich bidirectional context and providing sufficient supervisory signal per token.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Why MLM Cannot Directly Generate Text}}
+\textbf{Question}: Why are bidirectional masked models like BERT ineffective at direct autoregressive story generation?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why does bidirectional attention violate the temporal causality required for progressive auto-regressive decoding?}
+    \item \textbf{Deep Answer}: MLM assumes all other tokens exist and can be attended to simultaneously. In text generation, future tokens do not yet exist. If a bidirectional model attempts to predict token $t$, its attention layers expect tokens $t+1, t+2, \dots$ to already be present. Without causal masking, generating text requires iterative mask-filling heuristics (like Gibbs sampling), which are orders of magnitude slower than causal autoregressive generation.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: The 80-10-10 Corruption Rule}}
+\textbf{Question}: In standard BERT MLM, why are selected tokens replaced by \texttt{[MASK]} only 80\% of the time, while 10\% are replaced by a random token and 10\% kept unchanged?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How do we prevent pretraining distribution shift from degrading downstream representation quality on uncorrupted clean text?}
+    \item \textbf{Deep Answer}: During downstream fine-tuning and inference, real text never contains \texttt{[MASK]} tokens. If the network only learned to predict words when looking at a \texttt{[MASK]} token, its representations for clean words would never be refined. The 80-10-10 rule forces the model to maintain strong representations for all tokens: it cannot simply ignore tokens that aren't masked because 10\% of the time an unmasked token might be corrupted or tested.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Computational Advantage of MLM over Full-Sequence Loss}}
+\textbf{Question}: Why does MLM evaluate loss only on masked positions rather than computing cross-entropy across all $T$ positions?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why would optimizing identity reconstruction on uncorrupted tokens produce trivial shortcut representations?}
+    \item \textbf{Deep Answer}: If loss were evaluated on uncorrupted tokens, the network would simply learn a trivial identity shortcut: copying token $i$ directly to output position $i$ without learning any semantic context. By computing loss only on masked positions ($M \approx 0.15 T$), the network is forced to learn deep semantic relationships, while saving over 85\% of the compute required for final projection and loss backpropagation.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoMaskedLanguageModeling} is formalized in Algorithm~\ref{alg:mlm}.
+
+\begin{algorithm}[H]
+\caption{Masked Language Modeling Evaluation Pipeline}
+\label{alg:mlm}
+\begin{algorithmic}[1]
+\Require Logits matrix $\mathbf{Z} \in \mathbb{R}^{T \times V}$, masked positions $\mathcal{M} = (p_1, \dots, p_M)$, target tokens $\mathbf{y}_{\mathcal{M}} \in \mathbb{Z}^M$
+\Ensure Mean loss $\mathcal{L}_{\text{MLM}}$, accuracy $\text{Acc}_{\text{MLM}}$, predictions $\hat{\mathbf{y}}_{\mathcal{M}}$
+\State $M \gets \text{len}(\mathcal{M})$
+\If{$M = 0$}
+    \State \Return $\{\text{loss}: 0.0, \text{accuracy}: 1.0, \text{predictions}: [\,]\}$
+\EndIf
+\State $\text{total\_loss} \gets 0.0, \quad \text{correct} \gets 0, \quad \hat{\mathbf{y}}_{\mathcal{M}} \gets \text{empty list}$
+\For{$m \gets 1 \textbf{ to } M$}
+    \State $p \gets p_m, \quad \text{target} \gets y_{\mathcal{M}}[m]$
+    \State $\textbf{Assert } 0 \le p < \text{rows}(\mathbf{Z}) \textbf{ and } 0 \le \text{target} < V$
+    \State $m_{\text{max}} \gets \max_{0 \le v < V} Z_{p, v}$
+    \State $S \gets \sum_{v=0}^{V-1} \exp(Z_{p, v} - m_{\text{max}})$
+    \State $\text{log\_prob} \gets (Z_{p, \text{target}} - m_{\text{max}}) - \log(S)$
+    \State $\text{total\_loss} \gets \text{total\_loss} - \text{log\_prob}$
+    \State $\text{pred} \gets \arg\max_{0 \le v < V} Z_{p, v}$
+    \State Append $\text{pred}$ to $\hat{\mathbf{y}}_{\mathcal{M}}$
+    \If{$\text{pred} = \text{target}$}
+        \State $\text{correct} \gets \text{correct} + 1$
+    \EndIf
+\EndFor
+\State $\mathcal{L}_{\text{MLM}} \gets \text{total\_loss} / M$
+\State $\text{Acc}_{\text{MLM}} \gets \text{correct} / M$
+\State \Return $\{\text{loss}: \mathcal{L}_{\text{MLM}}, \text{accuracy}: \text{Acc}_{\text{MLM}}, \text{predictions}: \hat{\mathbf{y}}_{\mathcal{M}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Masked log-sum-exp: $M \times V$ floating-point operations ($\Theta(M V)$ FLOPs).
+        \item Argmax extraction: $M \times V$ comparisons ($\Theta(M V)$ operations).
+        \item Total Time Complexity: $\Theta(M V)$ operations (independent of unmasked length $T$).
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Prediction array $\hat{\mathbf{y}}_{\mathcal{M}}$: $\Theta(M)$ integers.
+        \item Total Auxiliary Space: $\Theta(M)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

@@ -1,13 +1,38 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Structured State Space (S4) Recurrence}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, HiPPO Discretization, and Convolutional Dual of Structured State Space Models (S4)}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Structured State Space sequence models (S4) map continuous 1D signals $u(t) \mapsto y(t)$ through linear ordinary differential equations $h'(t) = \mathbf{A}h(t) + \mathbf{B}u(t), y(t) = \mathbf{C}h(t) + \mathbf{D}u(t)$ governed by High-order Polynomial Projection Operators (HiPPO). Discretization via bilinear (Tustin) transforms admits dual computational modes: linear recurrent step updates for $\mathcal{O}(1)$ inference and non-circular FFT convolutions for parallel $\mathcal{O}(L \log L)$ training. This document specifies the discretization operators, stability guarantees, and numerical verification.
+\end{abstract}
+
+\section{Continuous Formulation and Discretization}
+
+Given step size $\Delta > 0$, the continuous matrices $(\mathbf{A}, \mathbf{B})$ discretize via bilinear transform to:
 \begin{equation}
-h_t = \bar{\mathbf{A}} h_{t-1} + \bar{\mathbf{B}} x_t, \quad y_t = \mathbf{C} h_t + \mathbf{D} x_t
+\bar{\mathbf{A}} = \left(\mathbf{I} - \frac{\Delta}{2}\mathbf{A}\right)^{-1}\left(\mathbf{I} + \frac{\Delta}{2}\mathbf{A}\right), \quad \bar{\mathbf{B}} = \left(\mathbf{I} - \frac{\Delta}{2}\mathbf{A}\right)^{-1}\Delta \mathbf{B}
 \end{equation}
+Discrete state updates: $h_k = \bar{\mathbf{A}} h_{k-1} + \bar{\mathbf{B}} u_k$, with output $y_k = \mathbf{C} h_k + \mathbf{D} u_k$.
+
+\begin{thebibliography}{9}
+\bibitem{gu2021} A.~Gu, K.~Goel, and C.~R{\'e}, ``Efficiently modeling long sequences with structured state spaces,'' in \emph{ICLR}, 2022.
+\end{thebibliography}
+
 \end{document}

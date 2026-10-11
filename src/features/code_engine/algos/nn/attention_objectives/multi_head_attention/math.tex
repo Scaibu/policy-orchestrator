@@ -1,13 +1,380 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
 \title{\textbf{Multi-Head Attention}}
-\author{Architecture Policy Engine}
-\date{\today}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Multi-Head Attention Operator):}
+Let $d_{\text{model}}, h \in \mathbb{N}_{\ge 1}$ such that $d_k = d_{\text{model}} / h \in \mathbb{N}_{\ge 1}$. Let input domains be $\boldsymbol{\mathcal{D}}_q = \mathbb{R}^{N_q \times d_{\text{model}}}$, $\boldsymbol{\mathcal{D}}_k = \mathbb{R}^{N_k \times d_{\text{model}}}$, $\boldsymbol{\mathcal{D}}_v = \mathbb{R}^{N_k \times d_{\text{model}}}$, and $\boldsymbol{\mathcal{M}} = (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$.
+The \textbf{Multi-Head Attention} operator is the parameterized nonlinear mapping:
+{\boldmath
 \begin{equation}
-\text{MHA}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Concat}(\text{head}_1, \dots, \text{head}_h)\mathbf{W}^O
+\operatorname{MultiHead}: \boldsymbol{\mathcal{D}}_q \times \boldsymbol{\mathcal{D}}_k \times \boldsymbol{\mathcal{D}}_v \times \boldsymbol{\mathcal{M}} \longrightarrow \mathbb{R}^{N_q \times d_{\text{model}}}
 \end{equation}
+}
+defined uniquely by the direct sum and concatenation of $h$ independent subspace attention heads:
+{\boldmath
+\begin{equation}
+\operatorname{MultiHead}(\mathbf{Q}, \mathbf{K}, \mathbf{V}, \mathbf{M}) = \operatorname{Concat}\left(\mathbf{H}_1, \mathbf{H}_2, \dots, \mathbf{H}_h\right)
+\end{equation}
+}
+where each subspace head $\mathbf{H}_m \in \mathbb{R}^{N_q \times d_k}$ evaluates scaled dot-product attention over projected or partitioned column slices:
+{\boldmath
+\begin{equation}
+\mathbf{H}_m = \operatorname{softmax}\left(\frac{\mathbf{Q}^{(m)}(\mathbf{K}^{(m)})^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}^{(m)}, \qquad m \in \{1, \dots, h\}
+\end{equation}
+}
+with coordinate partitions $\mathbf{Q}^{(m)} = \mathbf{Q}[:, (m-1)d_k : m d_k]$, $\mathbf{K}^{(m)} = \mathbf{K}[:, (m-1)d_k : m d_k]$, and $\mathbf{V}^{(m)} = \mathbf{V}[:, (m-1)d_k : m d_k]$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+In single-head attention, a model is forced to average all relationships across a sequence into one single mixture. Imagine reading an intricate mystery novel where you are only allowed to focus on one single aspect of every sentence. If your attention is dedicated to tracking grammatical sentence structure (matching the subject with its verb), you cannot simultaneously track emotional sentiment, who is speaking, or clues about where the treasure is buried.
+
+Multi-Head Attention solves this limitation by equipping the neural network with **multiple independent lenses of perception**:
+\begin{enumerate}
+    \item \textbf{Subspace Specialization}: Instead of forcing a single massive vector of size $d_{\text{model}}$ to do everything, the representation is split into $h$ smaller, specialized subspaces of size $d_k = d_{\text{model}} / h$.
+    \item \textbf{Simultaneous Diverse Perspectives}: Each attention head functions as an autonomous observer looking through a different filter:
+    \begin{itemize}
+        \item Head 1 can focus strictly on local syntax (e.g., adjacent words and punctuation).
+        \item Head 2 can focus on long-range coreference (e.g., linking the pronoun \emph{``she''} back to \emph{``Dr. Watson''} three paragraphs earlier).
+        \item Head 3 can specialize in factual associations (e.g., linking cities with countries).
+        \item Head 4 can focus on tone, sentiment, and emotional polarity.
+    \end{itemize}
+    \item \textbf{Synthesis and Fusion}: After all $h$ heads independently explore the text from their unique viewpoints, their specialized discoveries are stitched side-by-side into a single comprehensive output vector.
+\end{enumerate}
+This architecture gives the model rich, multidimensional comprehension without increasing the total number of floating-point operations.
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Team of Specialized Little Detective Owls}:
+Imagine you are a detective child solving a mystery in an enchanted library, and you have a book with secret codes.
+
+\begin{itemize}
+    \item \textbf{The Book of Clues (Input Sequence $\mathbf{Q}, \mathbf{K}, \mathbf{V}$)}:
+    The book contains sentences where many exciting things are happening at the same time: knights fighting dragons, wizards casting spells, and secrets whispered in dark corners.
+    
+    \item \textbf{The Team of Owls (The $h$ Attention Heads)}:
+    Instead of trying to read the book all by yourself, you have a team of $h$ friendly, magical detective owls perched on your shoulders (for example, 8 little owls).
+    
+    \item \textbf{The Colored Glasses (Subspaces of Dimension $d_k$)}:
+    Each owl wears a different pair of magical glasses:
+    \begin{itemize}
+        \item Owl 1 wears \textbf{Red Glasses}: It only cares about \emph{Characters} (knights, kings, dragons).
+        \item Owl 2 wears \textbf{Blue Glasses}: It only cares about \emph{Actions} (flying, running, fighting).
+        \item Owl 3 wears \textbf{Green Glasses}: It only cares about \emph{Places} (caves, castles, forests).
+        \item Owl 4 wears \textbf{Yellow Glasses}: It only cares about \emph{Feelings} (brave, scared, happy).
+    \end{itemize}
+    
+    \item \textbf{Independent Investigation (Parallel Attention on Each Head)}:
+    All 8 owls fly over the pages of the open book at the exact same time. The Red Owl uses its red tuning fork to connect the knight to the dragon. The Green Owl uses its green tuning fork to connect the cave to the dark forest. They never bump into each other because each owl only investigates clues matching its colored glasses.
+    
+    \item \textbf{The Giant Briefing Board (Concatenation $\operatorname{Concat}(\mathbf{H}_1, \dots, \mathbf{H}_h)$)}:
+    When the owls finish reading, they land back at your desk. Each owl writes its findings on a colored strip of paper. You take all 8 strips of paper and line them up side-by-side on your detective board.
+    
+    \item \textbf{The Complete Mystery Solved (Output $\mathbf{O}$)}:
+    By looking at the complete board, you instantly see the full picture: \emph{``The brave knight (Red) fought (Blue) in the dark cave (Green) feeling fearless (Yellow)!''} A single detective could never have gathered all four clues at once.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Feature Dimension Partitioning}}
+{\boldmath
+\begin{equation}
+d_k = \frac{d_{\text{model}}}{h}, \qquad d_{\text{model}} \pmod h = 0
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The integer division mapping that partitions the total hidden model representation dimension $d_{\text{model}} \in \mathbb{N}_{\ge 1}$ into $h \in \mathbb{N}_{\ge 1}$ congruent orthogonal coordinate subspaces of dimensionality $d_k \in \mathbb{N}_{\ge 1}$, constrained by zero remainder.
+    \item \textbf{What It Means}:
+    It guarantees that the total representation budget of the neural network is evenly split among all heads, so that the combined width of all heads equals the original model width.
+    \item \textbf{Why It Is Important}:
+    This dimension relationship ensures that multi-head attention preserves exact dimensional symmetry across Transformer layers, enabling residual skip connections ($\mathbf{x} + \operatorname{MultiHead}(\mathbf{x})$) without requiring projection adapters.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Coordinate Subspace Slicing}}
+{\boldmath
+\begin{equation}
+\mathbf{Q}^{(m)} = \mathbf{Q}[:, (m-1)d_k : m d_k], \quad \mathbf{K}^{(m)} = \mathbf{K}[:, (m-1)d_k : m d_k], \quad \mathbf{V}^{(m)} = \mathbf{V}[:, (m-1)d_k : m d_k]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The coordinate projection operator $\pi_m: \mathbb{R}^{N \times d_{\text{model}}} \to \mathbb{R}^{N \times d_k}$ that extracts the $m$-th contiguous submatrix of column vectors for head index $m \in \{1, \dots, h\}$.
+    \item \textbf{What It Means}:
+    Each attention head receives an isolated, low-dimensional slice of the query, key, and value tensors containing exactly $d_k$ features per token.
+    \item \textbf{Why It Is Important}:
+    Slicing into orthogonal subspaces isolates the heads from one another, enabling the optimization process to learn distinct, non-redundant semantic representations across different attention channels.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Parallel Subspace Attention Head Execution}}
+{\boldmath
+\begin{equation}
+\mathbf{H}_m = \operatorname{softmax}\left(\frac{\mathbf{Q}^{(m)}(\mathbf{K}^{(m)})^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}^{(m)} \in \mathbb{R}^{N_q \times d_k}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The execution of the standard scaled dot-product attention operator $\operatorname{Attn}$ independently on each $m$-th triple of sliced representations with scale normalization $\tau = 1/\sqrt{d_k}$.
+    \item \textbf{What It Means}:
+    Every head constructs its own unique attention probability matrix $\mathbf{A}^{(m)} \in [0, 1]^{N_q \times N_k}$ and synthesizes its own private attended representation $\mathbf{H}_m$.
+    \item \textbf{Why It Is Important}:
+    Because each head computes its own softmax distribution, head $m_1$ can assign 99\% probability to token $j$ while head $m_2$ simultaneously assigns 99\% probability to a completely different token $k$, capturing multi-relational interactions that a single softmax distribution cannot express.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Direct Sum Concatenation Operator}}
+{\boldmath
+\begin{equation}
+\mathbf{O} = \operatorname{Concat}(\mathbf{H}_1, \mathbf{H}_2, \dots, \mathbf{H}_h) = \left[ \mathbf{H}_1 \; \mathbf{H}_2 \; \cdots \; \mathbf{H}_h \right] \in \mathbb{R}^{N_q \times d_{\text{model}}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The canonical horizontal concatenation mapping $\bigoplus_{m=1}^h \mathbb{R}^{N_q \times d_k} \to \mathbb{R}^{N_q \times d_{\text{model}}}$ that packs all $h$ head outputs into a contiguous tensor matching the model hidden dimension.
+    \item \textbf{What It Means}:
+    It merges the diverse information extracted across all $h$ semantic subspaces into a single, unified multi-relational representation vector for each token position.
+    \item \textbf{Why It Is Important}:
+    Concatenation preserves the entirety of the information gathered by each head without premature averaging or destructive dimensional contraction, preserving the maximum possible representation rank.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Multi-Head Backward Gradient Distribution}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathbf{H}_m} = \left(\frac{\partial \mathcal{L}}{\partial \mathbf{O}}\right)[:, (m-1)d_k : m d_k] \in \mathbb{R}^{N_q \times d_k}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The coordinate projection of the upstream loss gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{O}} \in \mathbb{R}^{N_q \times d_{\text{model}}}$ onto the subspace of the $m$-th attention head.
+    \item \textbf{What It Means}:
+    During backpropagation, each head receives strictly its own portion of the error signal corresponding to the features it contributed to the concatenated output.
+    \item \textbf{Why It Is Important}:
+    This provides decoupled, parallel gradient backpropagation: each attention head updates its internal query, key, and value weights based on how effectively its own subspace contributed to minimizing the loss.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $d_{\text{model}} \in \mathbb{N}_{\ge 1}$: Total model representation dimension.
+    \item $h \in \mathbb{N}_{\ge 1}$: Number of parallel attention heads.
+    \item $d_k = d_{\text{model}} / h \in \mathbb{N}_{\ge 1}$: Dimensionality of each subspace head.
+    \item $\mathbf{Q}, \mathbf{K}, \mathbf{V} \in \mathbb{R}^{N \times d_{\text{model}}}$: Full query, key, and value input matrices.
+    \item $\mathbf{Q}^{(m)}, \mathbf{K}^{(m)}, \mathbf{V}^{(m)} \in \mathbb{R}^{N \times d_k}$: Per-head sliced projection submatrices.
+    \item $\mathbf{H}_m \in \mathbb{R}^{N_q \times d_k}$: Output tensor produced by head $m$.
+    \item $\mathbf{O} \in \mathbb{R}^{N_q \times d_{\text{model}}}$: Final concatenated multi-head output.
+    \item $\mathbf{M} \in (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$: Optional structural attention mask.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$d_{\text{model}}, h$ & \textbf{Defined} (Architectural hyperparameter) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$d_k = d_{\text{model}} / h$ & \textbf{Calculated} (Derived structural constant) & Integer dimension $\mathbb{N}_{\ge 1}$ \\
+$\mathbf{M}$ & \textbf{Defined} (Constraint boundary) & Structured matrix in $(\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$ \\
+$\mathbf{Q}, \mathbf{K}, \mathbf{V}$ & \textbf{Calculated / Learned} (Layer activations) & Dense feature matrices \\
+$\mathbf{H}_m$ & \textbf{Calculated} (Intermediate subspace outputs) & Subspace attended matrices in $\mathbb{R}^{N_q \times d_k}$ \\
+$\mathbf{O}$ & \textbf{Calculated} (Layer output) & Full representation matrix in $\mathbb{R}^{N_q \times d_{\text{model}}}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+\mathbf{O} = \operatorname{Concat}_{m=1}^h \left( \operatorname{Attn}\left(\pi_m(\mathbf{Q}), \pi_m(\mathbf{K}), \pi_m(\mathbf{V}), \mathbf{M}\right) \right)
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\pi_m(\mathbf{Q}) &\in \mathbb{R}^{N_q \times d_k}, \quad \pi_m(\mathbf{K}) \in \mathbb{R}^{N_k \times d_k}, \quad \pi_m(\mathbf{V}) \in \mathbb{R}^{N_k \times d_k} \\
+\mathbf{H}_m &= \operatorname{Attn}(\mathbf{Q}^{(m)}, \mathbf{K}^{(m)}, \mathbf{V}^{(m)}) \in \mathbb{R}^{N_q \times d_k} \\
+\mathbf{O} &= [\mathbf{H}_1 \; \dots \; \mathbf{H}_h] \in \mathbb{R}^{N_q \times (h \cdot d_k)} = \mathbb{R}^{N_q \times d_{\text{model}}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Single-Head Limit ($h=1$)}: When $h=1$, $d_k = d_{\text{model}}$, and Multi-Head Attention degenerates identically to standard single-head Scaled Dot-Product Attention.
+    \item \textbf{Maximal-Head Limit ($h=d_{\text{model}}$)}: When $h=d_{\text{model}}$, each head operates on a scalar 1D space ($d_k=1$). The dot product becomes simple scalar multiplication, maximizing diversity but destroying high-dimensional geometric subspace interactions.
+    \item \textbf{Standard Architectural Regime}: Typically $h \in \{8, 16, 32, 64\}$ with fixed per-head dimension $d_k \in \{64, 128\}$, balancing subspace diversity with geometric representation capacity.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Divisibility Violation}: If $d_{\text{model}} \pmod h \ne 0$, integer feature partitioning fails. \emph{Defensive Guarantee}: The reference implementation performs strict modulo assertions: \texttt{assert d\_model \% h == 0}.
+    \item \textbf{Sequence Length Mismatch}: Queries and keys must agree on key length $N_k$ across all heads.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Head Independence}: Head operations commute; evaluating head $m_1$ before head $m_2$ produces bitwise identical outputs.
+    \item \textbf{Upper Bound on Representation Rank}: The linear algebraic rank of the concatenated multi-head output is bounded by the sum of individual head ranks:
+    {\boldmath
+    \begin{equation}
+    \operatorname{rank}(\mathbf{O}) \le \min\left(N_q, d_{\text{model}}, \sum_{m=1}^h \operatorname{rank}(\mathbf{H}_m)\right)
+    \end{equation}
+    }
+\end{itemize}
+
+\subsection{[ ] Transfer: Direct Sum Decomposition in Hilbert Spaces}
+Multi-Head Attention is isomorphic to a direct sum decomposition of non-parametric kernel regression over orthogonal Hilbert subspaces:
+{\boldmath
+\begin{equation}
+\mathcal{H}_{\text{total}} = \bigoplus_{m=1}^h \mathcal{H}_m
+\end{equation}
+}
+where each subspace $\mathcal{H}_m$ learns an independent data-dependent reproducing kernel $\mathcal{K}_m(\mathbf{q}^{(m)}, \mathbf{k}^{(m)})$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{FLOP Invariance of Multi-Head Partitioning}]
+Let single-head attention operate on dimension $d_{\text{model}}$ with sequence lengths $N_q, N_k$. Multi-head attention operating with $h$ heads on partitioned dimensions $d_k = d_{\text{model}} / h$ requires identically the same number of attention FLOPs as single-head attention.
+\end{theorem}
+
+\begin{proof}
+For a single attention head operating on full dimension $d_{\text{model}}$:
+The inner product $\mathbf{Q}\mathbf{K}^\top$ requires $N_q N_k d_{\text{model}}$ multiplications and additions. The value weighting $\mathbf{A}\mathbf{V}$ requires $N_q N_k d_{\text{model}}$ multiplications and additions. Total multiplications:
+{\boldmath
+\begin{equation}
+\text{FLOPs}_{\text{single}} = 2 N_q N_k d_{\text{model}}
+\end{equation}
+}
+For multi-head attention with $h$ heads of dimension $d_k = d_{\text{model}} / h$:
+Each individual head $m$ requires:
+{\boldmath
+\begin{equation}
+\text{FLOPs}_{\text{head } m} = 2 N_q N_k d_k = 2 N_q N_k \left(\frac{d_{\text{model}}}{h}\right)
+\end{equation}
+}
+Summing total FLOPs across all $h$ parallel heads:
+{\boldmath
+\begin{equation}
+\text{FLOPs}_{\text{total}} = \sum_{m=1}^h 2 N_q N_k \left(\frac{d_{\text{model}}}{h}\right) = h \cdot \left( 2 N_q N_k \frac{d_{\text{model}}}{h} \right) = 2 N_q N_k d_{\text{model}}
+\end{equation}
+}
+Thus, $\text{FLOPs}_{\text{total}} \equiv \text{FLOPs}_{\text{single}}$. Multi-head attention expands representation capacity into $h$ subspaces with zero increase in computational complexity.
+\end{proof}
+
+\begin{theorem}[\textbf{Strict Rank Superiority over Single-Head Attention}]
+Let $N_q, N_k > d_k$ with $d_k = d_{\text{model}} / h < d_{\text{model}}$. A single-head attention operator has maximum output rank $\operatorname{rank}(\mathbf{O}_{\text{single}}) \le \min(N_q, N_k, d_{\text{model}})$. However, when sequence lengths are large, single-head attention is constrained by a single softmax matrix $\operatorname{rank}(\mathbf{A}) \le \min(N_q, N_k)$. Multi-head attention allows the output to achieve a maximum rank of:
+{\boldmath
+\begin{equation}
+\operatorname{rank}(\mathbf{O}_{\text{multi}}) \le \min\left(N_q, d_{\text{model}}, \sum_{m=1}^h \operatorname{rank}(\mathbf{A}^{(m)})\right)
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+In single-head attention, $\mathbf{O} = \mathbf{A}\mathbf{V}$, where $\mathbf{A}$ is a single rank-constrained stochastic matrix. Every column of $\mathbf{O}$ must be a linear combination of the columns of $\mathbf{A}$. In multi-head attention, $\mathbf{O} = [\mathbf{A}^{(1)}\mathbf{V}^{(1)} \; \dots \; \mathbf{A}^{(h)}\mathbf{V}^{(h)}]$. Because each $\mathbf{A}^{(m)}$ is parameterized by independent query-key projections, the column spaces of distinct heads can be linearly independent. By Sylvester's rank theorem and block matrix rank properties, the rank of a horizontally concatenated matrix satisfies $\operatorname{rank}([\mathbf{H}_1 \dots \mathbf{H}_h]) \le \sum_{m=1}^h \operatorname{rank}(\mathbf{H}_m)$, allowing multi-head attention to span a subspace up to $h$ times richer than a single shared probability distribution.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Multiple Small Heads vs One Large Head}}
+\textbf{Question}: Why does splitting a large representation vector into $h$ smaller heads outperform using a single large attention head?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why is an ensemble of diverse low-dimensional stochastic simplices geometrically strictly more expressive than a single high-dimensional simplex?}
+    \item \textbf{Deep Answer}: A single attention head produces a single row-stochastic attention matrix $\mathbf{A} \in \Delta^{N_k - 1}$. Each query token can only assign its attention weights once. If token $i$ must attend to its grammatical modifier at position $j$, the softmax probability concentrates on $j$, leaving near-zero weight for an essential semantic antecedent at position $k$. By partitioning into $h$ heads, the model creates $h$ independent probability distributions over the same input. Head 1 can allocate 95\% attention to position $j$, while Head 2 simultaneously allocates 95\% attention to position $k$. The concatenated output contains both relationships simultaneously, providing multi-relational reasoning impossible for a single convex combination.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: FLOP Cost of Multi-Head Processing}}
+\textbf{Question}: Does Multi-Head Attention require $h$ times more computation than single-head attention?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does bilinear tensor contraction scale under dimensional partitioning versus sequence length scaling?}
+    \item \textbf{Deep Answer}: No. As proved in Theorem 4.1, the number of floating-point operations is identical. While there are $h$ distinct attention heads, each head operates on vectors of size $d_k = d_{\text{model}} / h$. Because matrix multiplication complexity scales linearly with the inner dimension ($N_q N_k d$), dividing the dimension by $h$ and repeating the process $h$ times yields $h \times (N_q N_k (d_{\text{model}} / h)) = N_q N_k d_{\text{model}}$. Thus, multi-head attention expands expressive subspace capacity with zero FLOP overhead.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Coordinate Slicing vs Explicit Projection Matrices}}
+\textbf{Question}: Why does the reference implementation use coordinate column slicing instead of distinct projection weight matrices $\mathbf{W}_m^Q$?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What is the algebraic equivalence between partitioned column views and block-diagonal linear projections?}
+    \item \textbf{Deep Answer}: In production Transformer engines, projecting input tokens through $h$ individual weight matrices $\mathbf{W}_m^Q \in \mathbb{R}^{d_{\text{model}} \times d_k}$ requires $h$ small sequential matrix multiplications, incurring high memory launch overhead. Instead, modern architectures project the entire input with a single large weight matrix $\mathbf{W}^Q \in \mathbb{R}^{d_{\text{model}} \times d_{\text{model}}}$, producing a dense tensor of width $d_{\text{model}}$ in one fused GEMM kernel. Slicing coordinate columns $[(m-1)d_k : m d_k]$ from this combined projection is mathematically identical to applying $h$ separate projections, but executes with maximum hardware throughput and zero memory fragmentation.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Memory Footprint Scaling with Head Count}}
+\textbf{Question}: How does the choice of head count $h$ affect the peak GPU memory footprint during training?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Which intermediate tensor dominates memory bandwidth during multi-head attention forward and backward passes?}
+    \item \textbf{Deep Answer}: Peak activation memory is dominated by the attention probability matrices $\mathbf{A}^{(m)}$. Storing attention weights requires $h \times N_q \times N_k$ floating-point numbers. While FLOPs remain constant regardless of $h$, the attention matrix memory scales linearly with $h$. When sequence lengths $N$ reach tens of thousands of tokens, storing $h$ separate $N \times N$ matrices becomes the primary bottleneck in GPU VRAM, which directly inspired memory-efficient variants such as Multi-Query Attention (MQA) and Grouped-Query Attention (GQA).
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoMultiHeadAttention} is formalized in Algorithm~\ref{alg:multi_head_attention}.
+
+\begin{algorithm}[H]
+\caption{Multi-Head Attention Forward Execution}
+\label{alg:multi_head_attention}
+\begin{algorithmic}[1]
+\Require Query $\mathbf{Q} \in \mathbb{R}^{N_q \times d_{\text{model}}}$, Key $\mathbf{K} \in \mathbb{R}^{N_k \times d_{\text{model}}}$, Value $\mathbf{V} \in \mathbb{R}^{N_k \times d_{\text{model}}}$
+\Require Number of heads $h \in \mathbb{N}_{\ge 1}$, optional mask $\mathbf{M} \in \mathbb{R}^{N_q \times N_k}$
+\Ensure Output matrix $\mathbf{O} \in \mathbb{R}^{N_q \times d_{\text{model}}}$, head dimension $d_k$, head count $h$
+\State $N_q \gets \text{rows}(\mathbf{Q}), \quad d_{\text{model}} \gets \text{cols}(\mathbf{Q})$
+\State \textbf{Assert} $d_{\text{model}} \pmod h = 0$ \Comment{Verify exact divisibility}
+\State $d_k \gets d_{\text{model}} / h$
+\State $\text{head\_outputs} \gets \text{empty list of size } h$
+\For{$m \gets 1 \textbf{ to } h$}
+    \State $s \gets (m-1) \cdot d_k, \quad e \gets m \cdot d_k$
+    \State $\mathbf{Q}^{(m)} \gets \mathbf{Q}[:, s:e]$ \Comment{Slice subspace query}
+    \State $\mathbf{K}^{(m)} \gets \mathbf{K}[:, s:e]$ \Comment{Slice subspace key}
+    \State $\mathbf{V}^{(m)} \gets \mathbf{V}[:, s:e]$ \Comment{Slice subspace value}
+    \State $\mathbf{H}_m \gets \text{ScaledDotProductAttention}(\mathbf{Q}^{(m)}, \mathbf{K}^{(m)}, \mathbf{V}^{(m)}, \mathbf{M})[\text{'output'}]$
+    \State $\text{head\_outputs}[m] \gets \mathbf{H}_m$
+\EndFor
+\State $\mathbf{O} \gets \text{zeros of shape } (N_q, d_{\text{model}})$
+\For{$i \gets 1 \textbf{ to } N_q$}
+    \State $\mathbf{O}[i] \gets \text{Concatenate}(\text{head\_outputs}[1][i], \dots, \text{head\_outputs}[h][i])$
+\EndFor
+\State \Return $\{\text{output}: \mathbf{O}, \text{head\_dim}: d_k, \text{num\_heads}: h\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Subspace attention per head: $\Theta(N_q N_k d_k)$ FLOPs.
+        \item Total across all $h$ heads: $h \times \Theta(N_q N_k d_k) = \Theta(N_q N_k d_{\text{model}})$ FLOPs.
+        \item Concatenation: $\Theta(N_q d_{\text{model}})$ memory moves.
+        \item Total Time Complexity: $\Theta(N_q N_k d_{\text{model}})$.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Multi-head attention buffers $\mathbf{A}$: $\Theta(h N_q N_k)$ floats.
+        \item Concatenated output $\mathbf{O}$: $\Theta(N_q d_{\text{model}})$ floats.
+        \item Total Auxiliary Space: $\Theta(h N_q N_k + N_q d_{\text{model}})$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

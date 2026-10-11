@@ -1,13 +1,405 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Rotary Position Embeddings (RoPE)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Rotary Position Embeddings}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Rotary Position Embedding Operator):}
+Let $T \in \mathbb{N}_{\ge 1}$ denote sequence length, $d \in 2\mathbb{N}_{\ge 1}$ denote an even vector dimension, and $B \in \mathbb{R}_{> 1}$ denote frequency base (typically $B = 10000.0$). Let $\mathbf{X} \in \mathbb{R}^{T \times d}$ be an input Query or Key tensor, and let $\mathbf{m} = (m_0, m_1, \dots, m_{T-1}) \in \mathbb{N}^T$ be a vector of discrete token positions.
+The \textbf{Rotary Position Embedding} (RoPE) operator:
+{\boldmath
 \begin{equation}
-\mathbf{R}_{\Theta, m}^d \mathbf{x} = \begin{pmatrix} x_0 \cos(m\theta_0) - x_1 \sin(m\theta_0) \\ x_0 \sin(m\theta_0) + x_1 \cos(m\theta_0) \\ \vdots \end{pmatrix}
+\operatorname{RoPE}: \mathbb{R}^{T \times d} \times \mathbb{N}^T \times \mathbb{R}_{> 1} \longrightarrow \mathbb{R}^{T \times d}
 \end{equation}
+}
+is the orthogonal linear rotation mapping defined for token row $t$ with position $m = m_t$ by:
+{\boldmath
+\begin{equation}
+\operatorname{RoPE}(\mathbf{x}, m) = \mathbf{R}_{\Theta, m}^{d} \mathbf{x}
+\end{equation}
+}
+where $\mathbf{R}_{\Theta, m}^{d} \in \mathrm{SO}(d)$ is a block-diagonal rotation matrix composed of $d/2$ planar rotation blocks $\mathbf{R}_{m, i} \in \mathrm{SO}(2)$ acting on consecutive 2D coordinates $(x_{2i}, x_{2i+1})$:
+{\boldmath
+\begin{equation}
+\begin{bmatrix} x_{2i}' \\ x_{2i+1}' \end{bmatrix} = \begin{bmatrix} \cos(m \theta_i) & -\sin(m \theta_i) \\ \sin(m \theta_i) & \cos(m \theta_i) \end{bmatrix} \begin{bmatrix} x_{2i} \\ x_{2i+1} \end{bmatrix}, \qquad \theta_i = B^{-2i/d}
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+For years, Transformer models injected positional awareness by adding positional vectors to word vectors ($\mathbf{x} + \mathbf{p}$). However, vector addition has a major flaw: adding positional numbers directly alters the semantic features of the word, corrupting its meaning and leaking positional noise into later layers of the network.
+
+Rotary Position Embedding (RoPE)—the mathematical breakthrough behind modern frontier models such as LLaMA, Mistral, and Gemma—solves this by replacing addition with **pure geometric rotation**:
+\begin{enumerate}
+    \item \textbf{Pairing Features into 2D Clocks}: RoPE groups the embedding coordinates of each token into pairs $(x_{2i}, x_{2i+1})$. Each pair acts like the $(x, y)$ coordinate of a hand on a clock face.
+    \item \textbf{Multiplicative Spinning}: Instead of adding numbers to the coordinates, RoPE rotates the clock hands by an angle that is strictly proportional to the token's position in the document: token 1 spins by 1 tick, token 5 spins by 5 ticks, and token 100 spins by 100 ticks.
+    \item \textbf{Natural Relative Distance Cancellation}: When a Query token at position $m$ computes its attention dot product with a Key token at position $n$, the two rotation matrices multiply: $\mathbf{R}_m^\top \mathbf{R}_n = \mathbf{R}_{n-m}$. The absolute positions $m$ and $n$ vanish completely, leaving only the relative distance $(n - m)$!
+    \item \textbf{Zero Magnitude Distortion}: Because pure rotation never stretches or shrinks a vector ($\|\mathbf{R}\mathbf{x}\| = \|\mathbf{x}\|$), RoPE preserves 100\% of the original semantic magnitude and energy of the word.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Clocks on the Dancers' Wrists}:
+Imagine a stage filled with dancers standing in a straight line, representing words in a sentence.
+
+\begin{itemize}
+    \item \textbf{The Toy Clocks on the Wrists}:
+    Every dancer wears several toy clocks on their wrists:
+    \begin{itemize}
+        \item Clock 0 has a tiny gear that turns very quickly.
+        \item Clock 1 has a medium gear.
+        \item Clock 50 has a giant gear that turns very slowly.
+    \end{itemize}
+    
+    \item \textbf{Setting the Hands by Position}:
+    Before the dance begins:
+    \begin{itemize}
+        \item Dancer 0 (the first word) keeps all clock hands pointing straight up at 12 o'clock.
+        \item Dancer 1 takes 1 step forward and turns their clock hands forward by 1 notch.
+        \item Dancer 5 takes 5 steps forward and turns their clock hands forward by 5 notches!
+    \end{itemize}
+    
+    \item \textbf{The Secret Handshake (The Dot Product)}:
+    When two dancers want to talk to each other, they hold their wrists together to compare their clock hands:
+    \begin{itemize}
+        \item Dancer 5 compares with Dancer 1: the difference between their clock hands is exactly $5 - 1 = 4$ notches!
+        \item If Dancer 105 compares with Dancer 101, the difference is also $105 - 101 = 4$ notches!
+    \end{itemize}
+    
+    \item \textbf{The Magic Secret}:
+    The dancers don't need to shout their seat numbers out loud! Just by looking at the angle between their clock hands, they instantly know exactly how many steps separate them anywhere on the stage.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Geometric Frequency Progression}}
+{\boldmath
+\begin{equation}
+\theta_i = B^{-2i/d} = \frac{1}{B^{2i/d}}, \qquad i \in \left\{0, 1, \dots, \frac{d}{2} - 1\right\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The exponentially decaying frequency spectrum parameterizing the rotation speed of the $i$-th 2D orthogonal subspace.
+    \item \textbf{What It Means}:
+    Channel $i=0$ rotates at the maximum angular velocity ($\theta_0 = 1.0$ rad/token), while channel $i = d/2 - 1$ rotates at the minimum velocity ($\theta_{\text{min}} = B^{-1} = 10^{-4}$ rad/token).
+    \item \textbf{Why It Is Important}:
+    Logarithmic frequency allocation allows RoPE to capture both high-frequency local grammatical structure and low-frequency long-range document context.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: 2D Planar Orthogonal Givens Rotation}}
+{\boldmath
+\begin{equation}
+\mathbf{R}_{m, i} = \begin{bmatrix} \cos(m \theta_i) & -\sin(m \theta_i) \\ \sin(m \theta_i) & \cos(m \theta_i) \end{bmatrix} \in \mathrm{SO}(2)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The special orthogonal Lie group element $\mathrm{SO}(2)$ acting as an orientation-preserving planar rotation by angle $m \theta_i$ radians.
+    \item \textbf{What It Means}:
+    It rotates the 2D feature coordinates of the token counter-clockwise on the Cartesian plane by an angle proportional to sequence position $m$.
+    \item \textbf{Why It Is Important}:
+    Because rotation matrices in $\mathrm{SO}(2)$ commute, composing rotations is algebraically equivalent to adding angles: $\mathbf{R}_{m_1} \mathbf{R}_{m_2} = \mathbf{R}_{m_1 + m_2}$.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Block-Diagonal Orthogonal RoPE Operator}}
+{\boldmath
+\begin{equation}
+\mathbf{R}_{\Theta, m}^{d} = \operatorname{diag}\left(\mathbf{R}_{m, 0}, \mathbf{R}_{m, 1}, \dots, \mathbf{R}_{m, d/2-1}\right) \in \mathrm{SO}(d)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The block-diagonal embedding of $d/2$ planar rotation blocks into the $d$-dimensional special orthogonal group $\mathrm{SO}(d)$.
+    \item \textbf{What It Means}:
+    The full $d$-dimensional vector is rotated independently across all $d/2$ orthogonal 2D subspaces simultaneously.
+    \item \textbf{Why It Is Important}:
+    Block-diagonal structure allows RoPE to be computed in $\mathcal{O}(d)$ linear time per token, completely avoiding expensive $d \times d$ dense matrix multiplications.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Complex Exponential Phasor Formulation}}
+{\boldmath
+\begin{equation}
+z_{m, i} = (x_{2i} + j x_{2i+1}) e^{j m \theta_i} = (x_{2i} + j x_{2i+1}) (\cos(m\theta_i) + j \sin(m\theta_i))
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The complex holomorphic representation of RoPE mapping pairs of real coordinates into the complex field $\mathbb{C}$ and multiplying by unit complex phasor $e^{j m \theta_i} \in \mathrm{U}(1)$.
+    \item \textbf{What It Means}:
+    Rotating a 2D real vector is mathematically identical to multiplying a single complex number by a unit phase factor $e^{j \theta}$.
+    \item \textbf{Why It Is Important}:
+    The complex representation provides a compact algebraic framework for proving relative position invariance and designing context extension algorithms (such as YaRN and RoPE scaling).
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Relative Distance Invariance of Attention Inner Products}}
+{\boldmath
+\begin{equation}
+\langle \operatorname{RoPE}(\mathbf{q}, m), \operatorname{RoPE}(\mathbf{k}, n) \rangle = \mathbf{q}^\top (\mathbf{R}_{\Theta, m}^d)^\top \mathbf{R}_{\Theta, n}^d \mathbf{k} = \mathbf{q}^\top \mathbf{R}_{\Theta, n-m}^d \mathbf{k} = g(\mathbf{q}, \mathbf{k}, n - m)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The fundamental inner product identity proving that the Euclidean dot product between rotated Query at position $m$ and Key at position $n$ depends solely on the relative displacement $n - m$.
+    \item \textbf{What It Means}:
+    The attention mechanism naturally measures how far apart two tokens are, completely invariant to where they appear in the absolute document.
+    \item \textbf{Why It Is Important}:
+    This is the core theoretical reason for RoPE's dominance in LLMs: it achieves perfect relative position encoding without requiring explicit relative position bias tables or attention matrix modifications.
+\end{itemize}
+
+\subsection{\textbf{Equation 6: Strict Euclidean Isometry (Energy Conservation)}}
+{\boldmath
+\begin{equation}
+\|\operatorname{RoPE}(\mathbf{x}, m)\|_2 = \|\mathbf{x}\|_2 \quad \text{\textbf{for all }} m \in \mathbb{N}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The isometric norm-preserving property of orthogonal transformation $\mathbf{R}_{\Theta, m}^d \in \mathrm{SO}(d)$, satisfying $(\mathbf{R})^\top \mathbf{R} = \mathbf{I}$.
+    \item \textbf{What It Means}:
+    Rotating a vector changes its directional angle in space but preserves its length exactly: $\|\mathbf{R}\mathbf{x}\|_2^2 = \mathbf{x}^\top \mathbf{R}^\top \mathbf{R} \mathbf{x} = \mathbf{x}^\top \mathbf{I} \mathbf{x} = \|\mathbf{x}\|_2^2$.
+    \item \textbf{Why It Is Important}:
+    Preserving vector norms guarantees that positional encoding does not introduce activation scaling artifacts, preventing gradient explosion or vanishing across deep network layers.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $T \in \mathbb{N}_{\ge 1}$: Sequence length.
+    \item $d \in 2\mathbb{N}_{\ge 1}$: Feature dimension (must be even).
+    \item $B \in \mathbb{R}_{> 1}$: Base frequency constant (default $10000.0$).
+    \item $m \in \mathbb{N}$: Discrete token position index.
+    \item $\theta_i = B^{-2i/d}$: Angular frequency for channel pair $i \in \{0, \dots, d/2 - 1\}$.
+    \item $\mathbf{R}_{m, i} \in \mathrm{SO}(2)$: 2D rotation matrix for coordinate pair $i$.
+    \item $\mathbf{R}_{\Theta, m}^d \in \mathrm{SO}(d)$: Full block-diagonal rotation matrix for position $m$.
+    \item $\mathbf{q}, \mathbf{k} \in \mathbb{R}^d$: Query and Key representation vectors.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$d, B$ & \textbf{Defined} (Architectural hyperparameter) & Natural number / real scalar \\
+$\mathbf{m}$ & \textbf{Observed / Defined} (Token positions) & Natural numbers in $\mathbb{N}^T$ \\
+$\mathbf{X}$ & \textbf{Calculated / Learned} (Layer activations) & Real matrix in $\mathbb{R}^{T \times d}$ \\
+$\theta_i$ & \textbf{Calculated} (Deterministic frequencies) & Strictly positive decreasing sequence \\
+$\mathbf{R}_{\Theta, m}^d$ & \textbf{Calculated} (Orthogonal rotation group element) & Lie group element in $\mathrm{SO}(d)$ \\
+$\mathbf{X}'$ & \textbf{Calculated} (Rotated representations) & Real matrix in $\mathbb{R}^{T \times d}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{X}, \mathbf{m}, B) \xrightarrow{\text{Freq Schedule}} \{\theta_i\} \xrightarrow{\text{Angle } m_t \theta_i} (\cos, \sin) \xrightarrow{\text{Planar Rotation}} \mathbf{X}' = \operatorname{RoPE}(\mathbf{X}, \mathbf{m})
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\mathbf{X} &\in \mathbb{R}^{T \times d} \\
+m_t \cdot \theta_i &\in \mathbb{R} \quad \text{\textbf{(Phase angle in radians)}} \\
+\mathbf{X}' = \operatorname{RoPE}(\mathbf{X}, \mathbf{m}) &\in \mathbb{R}^{T \times d} \quad \text{\textbf{(Exact shape & norm preservation)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Position Zero ($m = 0$)}: $\mathbf{R}_{0, i} = \mathbf{I}_2$. Vectors at position 0 are completely unrotated: $\operatorname{RoPE}(\mathbf{x}, 0) = \mathbf{x}$.
+    \item \textbf{High-Frequency Channels ($i = 0$)}: $\theta_0 = 1.0$ rad/token. Clocks rotate rapidly, completing a full $2\pi$ circle every $\approx 6.28$ tokens.
+    \item \textbf{Low-Frequency Channels ($i = d/2 - 1$)}: $\theta_{\text{min}} = 10^{-4}$ rad/token. Clocks rotate slowly, taking $\approx 62,831$ tokens per cycle.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Odd Dimension}: If $d$ is odd, coordinates cannot pair into 2D rotation planes. \emph{Precondition}: $d \pmod 2 = 0$.
+    \item \textbf{Dimension Mismatch}: Length of position array must match the row count of $\mathbf{X}$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Exact Isometry}: For every vector $\mathbf{x}$, $\|\operatorname{RoPE}(\mathbf{x}, m)\|_2 \equiv \|\mathbf{x}\|_2$.
+    \item \textbf{Orthogonality}: $(\mathbf{R}_{\Theta, m}^d)^\top \mathbf{R}_{\Theta, m}^d = \mathbf{I}_d$ for all positions $m$.
+\end{itemize}
+
+\subsection{[ ] Transfer: Unitary Group Representations on Complex Hilbert Spaces}
+RoPE is mathematically isomorphic to an abelian unitary representation of the additive group $(\mathbb{R}, +)$ on the complex vector space $\mathbb{C}^{d/2}$, mapping translation $m \mapsto \operatorname{diag}(e^{j m \theta_0}, \dots, e^{j m \theta_{d/2-1}})$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Relative Distance Factorization of the Inner Product}]
+For any query vector $\mathbf{q} \in \mathbb{R}^d$ at position $m$ and key vector $\mathbf{k} \in \mathbb{R}^d$ at position $n$, the inner product between their rotary-transformed representations depends strictly on relative offset $n - m$:
+{\boldmath
+\begin{equation}
+\langle \operatorname{RoPE}(\mathbf{q}, m), \operatorname{RoPE}(\mathbf{k}, n) \rangle = \mathbf{q}^\top \mathbf{R}_{\Theta, n - m}^d \mathbf{k}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By definition, $\operatorname{RoPE}(\mathbf{q}, m) = \mathbf{R}_{\Theta, m}^d \mathbf{q}$ and $\operatorname{RoPE}(\mathbf{k}, n) = \mathbf{R}_{\Theta, n}^d \mathbf{k}$.
+Evaluating their Euclidean dot product:
+{\boldmath
+\begin{equation}
+\langle \operatorname{RoPE}(\mathbf{q}, m), \operatorname{RoPE}(\mathbf{k}, n) \rangle = (\mathbf{R}_{\Theta, m}^d \mathbf{q})^\top (\mathbf{R}_{\Theta, n}^d \mathbf{k}) = \mathbf{q}^\top (\mathbf{R}_{\Theta, m}^d)^\top \mathbf{R}_{\Theta, n}^d \mathbf{k}
+\end{equation}
+}
+Since $\mathbf{R}_{\Theta, m}^d$ is a block-diagonal assembly of 2D rotations $\mathbf{R}_{m, i}$, we examine each 2D block:
+{\boldmath
+\begin{equation}
+(\mathbf{R}_{m, i})^\top \mathbf{R}_{n, i} = \begin{bmatrix} \cos(m\theta_i) & \sin(m\theta_i) \\ -\sin(m\theta_i) & \cos(m\theta_i) \end{bmatrix} \begin{bmatrix} \cos(n\theta_i) & -\sin(n\theta_i) \\ \sin(n\theta_i) & \cos(n\theta_i) \end{bmatrix}
+\end{equation}
+}
+Multiplying the matrices and using trigonometric addition formulas:
+{\boldmath
+\begin{align}
+\cos(m\theta_i)\cos(n\theta_i) + \sin(m\theta_i)\sin(n\theta_i) &= \cos((n-m)\theta_i) \\
+-\cos(m\theta_i)\sin(n\theta_i) + \sin(m\theta_i)\cos(n\theta_i) &= -\sin((n-m)\theta_i)
+\end{align}
+}
+Therefore:
+{\boldmath
+\begin{equation}
+(\mathbf{R}_{m, i})^\top \mathbf{R}_{n, i} = \begin{bmatrix} \cos((n-m)\theta_i) & -\sin((n-m)\theta_i) \\ \sin((n-m)\theta_i) & \cos((n-m)\theta_i) \end{bmatrix} = \mathbf{R}_{n-m, i}
+\end{equation}
+}
+Assembling all blocks yields $(\mathbf{R}_{\Theta, m}^d)^\top \mathbf{R}_{\Theta, n}^d = \mathbf{R}_{\Theta, n-m}^d$.
+Thus, $\langle \operatorname{RoPE}(\mathbf{q}, m), \operatorname{RoPE}(\mathbf{k}, n) \rangle = \mathbf{q}^\top \mathbf{R}_{\Theta, n-m}^d \mathbf{k}$, which depends only on relative distance $n-m$.
+\end{proof}
+
+\begin{theorem}[\textbf{Strict L2 Norm Conservation Invariant}]
+For any vector $\mathbf{x} \in \mathbb{R}^d$ and any position $m \in \mathbb{N}$:
+{\boldmath
+\begin{equation}
+\|\operatorname{RoPE}(\mathbf{x}, m)\|_2 = \|\mathbf{x}\|_2
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Evaluating the squared Euclidean norm of the rotated vector:
+{\boldmath
+\begin{equation}
+\|\operatorname{RoPE}(\mathbf{x}, m)\|_2^2 = (\mathbf{R}_{\Theta, m}^d \mathbf{x})^\top (\mathbf{R}_{\Theta, m}^d \mathbf{x}) = \mathbf{x}^\top (\mathbf{R}_{\Theta, m}^d)^\top \mathbf{R}_{\Theta, m}^d \mathbf{x}
+\end{equation}
+}
+Because each 2D rotation block $\mathbf{R}_{m, i} \in \mathrm{SO}(2)$ satisfies $(\mathbf{R}_{m, i})^\top \mathbf{R}_{m, i} = \mathbf{I}_2$, the entire block-diagonal matrix is orthogonal:
+$(\mathbf{R}_{\Theta, m}^d)^\top \mathbf{R}_{\Theta, m}^d = \mathbf{I}_d$.
+Substituting $\mathbf{I}_d$:
+{\boldmath
+\begin{equation}
+\|\operatorname{RoPE}(\mathbf{x}, m)\|_2^2 = \mathbf{x}^\top \mathbf{I}_d \mathbf{x} = \mathbf{x}^\top \mathbf{x} = \|\mathbf{x}\|_2^2
+\end{equation}
+}
+Taking square roots yields $\|\operatorname{RoPE}(\mathbf{x}, m)\|_2 = \|\mathbf{x}\|_2$.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Why RoPE Only Applies to Queries and Keys}}
+\textbf{Question}: Why does RoPE rotate Query and Key vectors ($\mathbf{Q}, \mathbf{K}$) but leaves Value vectors ($\mathbf{V}$) completely unrotated?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{In which architectural pathway (attention routing vs semantic payload synthesis) must relative spatial geometry be introduced?}
+    \item \textbf{Deep Answer}: Attention weights are computed via Query-Key inner products ($\mathbf{q}^\top \mathbf{k}$), which serve as the information routing switchboard. RoPE introduces relative distance into this switchboard so queries can locate relevant tokens based on proximity. Value vectors ($\mathbf{V}$), however, represent the semantic content that is weighted and averaged to form the layer output. Rotating Value vectors would distort the semantic representations before subsequent Feed-Forward and LayerNorm layers, creating destructive feature degradation without any routing benefit.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Why RoPE Outperforms Additive Sinusoidal Encodings}}
+\textbf{Question}: Why has RoPE almost completely replaced additive sinusoidal encodings in modern LLMs?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does multiplicative rotational isolation prevent cross-layer feature contamination compared to additive vector superposition?}
+    \item \textbf{Deep Answer}: Additive encodings ($\mathbf{x} + \mathbf{pe}$) force words and positions into the same vector space, causing positional noise to pass through nonlinear activation functions and LayerNorm normalizations, which corrupts relative distance signals. RoPE acts multiplicatively as an exact isometry directly inside each attention head. It preserves vector magnitudes perfectly and ensures that relative position is computed cleanly at the exact point of comparison ($\mathbf{q}^\top \mathbf{k}$).
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Base Frequency Scaling for Long Contexts}}
+\textbf{Question}: Why do models like LLaMA-3 increase the RoPE base frequency from $B = 10,000$ to $B = 500,000$ when scaling context windows to 128k tokens?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does base frequency expansion prevent rotational phase wrap-around across long sequences?}
+    \item \textbf{Deep Answer}: As sequence length $N$ grows to 128,000, high and medium frequency channels complete hundreds of full $2\pi$ rotations, leading to severe phase oscillation. Meanwhile, the slowest channels wrap around multiple times, destroying the uniqueness of distant token positions. Increasing $B$ to 500,000 or 1,000,000 decreases angular frequencies across the board ($\omega_i = B^{-2i/d} \ll 1$), slowing down rotation speeds so that positions across the entire 128k window remain geometrically distinct and non-repeating.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Computational Efficiency of RoPE}}
+\textbf{Question}: Does applying RoPE require multiplying by a dense $d \times d$ matrix for every token?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does block-diagonal sparsity reduce $\mathcal{O}(d^2)$ matrix-vector products to $\mathcal{O}(d)$ element-wise operations?}
+    \item \textbf{Deep Answer}: No. Because $\mathbf{R}_{\Theta, m}^d$ is block-diagonal with $2 \times 2$ blocks, rotating a vector does not require a full matrix multiplication. In code, RoPE is implemented element-wise:
+    $\mathbf{x}' = \mathbf{x} \odot \cos(m\boldsymbol{\theta}) + \operatorname{rotate\_half}(\mathbf{x}) \odot \sin(m\boldsymbol{\theta})$, requiring only $2d$ multiplications and $d$ additions per token ($\mathcal{O}(d)$ linear complexity), making it virtually free on modern GPUs.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoRotaryPositionEmbeddings} is formalized in Algorithm~\ref{alg:rope}.
+
+\begin{algorithm}[H]
+\caption{Rotary Position Embedding Execution}
+\label{alg:rope}
+\begin{algorithmic}[1]
+\Require Vector tensor $\mathbf{X} \in \mathbb{R}^{T \times d}$, position indices $\mathbf{m} \in \mathbb{N}^T$, frequency base $B \in \mathbb{R}_{> 1}$
+\Ensure Rotated tensor $\mathbf{X}' \in \mathbb{R}^{T \times d}$, feature dimension $d$
+\State $T \gets \text{rows}(\mathbf{X}), \quad d \gets \text{cols}(\mathbf{X})$
+\State $\textbf{Assert } d \ge 2 \textbf{ and } d \pmod 2 = 0 \textbf{ and } \text{len}(\mathbf{m}) = T$
+\State $d_{\text{half}} \gets d / 2$
+\State $\boldsymbol{\theta} \gets \text{array of size } d_{\text{half}}$
+\For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+    \State $\theta_i \gets \exp\left( -\frac{2 \cdot i}{d} \cdot \log B \right)$
+\EndFor
+\State $\mathbf{X}' \gets \text{zeros of shape } (T, d)$
+\For{$t \gets 0 \textbf{ to } T - 1$}
+    \State $pos \gets m_t$
+    \For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+        \State $\alpha \gets pos \cdot \theta_i$
+        \State $c \gets \cos(\alpha), \quad s \gets \sin(\alpha)$
+        \State $x_0 \gets X_{t, 2 \cdot i}, \quad x_1 \gets X_{t, 2 \cdot i + 1}$
+        \State $X'_{t, 2 \cdot i} \gets x_0 \cdot c - x_1 \cdot s$ \Comment{Planar rotation}
+        \State $X'_{t, 2 \cdot i + 1} \gets x_0 \cdot s + x_1 \cdot c$
+    \EndFor
+\EndFor
+\State \Return $\{\text{rotated\_vectors}: \mathbf{X}', \text{dim}: d\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Precomputing frequencies: $\Theta(d/2)$ operations.
+        \item Planar rotations: $T \times (d/2)$ 2D matrix-vector multiplications ($4$ multiplications and $2$ additions per pair).
+        \item Total Time Complexity: $\Theta(T \cdot d)$ floating-point operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Rotated output buffer $\mathbf{X}'$: $\Theta(T \cdot d)$ floats.
+        \item Total Auxiliary Space: $\Theta(T \cdot d)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

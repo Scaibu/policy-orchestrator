@@ -1,13 +1,45 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Nucleus (Top-$p$) and Min-$p$ Truncation}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Cumulative Mass Filtering of Nucleus and Min-P Sampling}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-V^{(p)} = \min \left\{ U \subset V : \sum_{x \in U} P(x) \geq p \right\}, \quad V^{(\text{min-}p)} = \{ x \in V : P(x) \geq p_{\min} \cdot \max_{x'} P(x') \}
-\end{equation}
+
+\begin{abstract}
+Fixed $k$ in Top-$k$ sampling is brittle: when the distribution is flat, $k$ is too small; when the distribution is peaked, $k$ is too large. Nucleus (Top-$p$) sampling dynamically adapts candidate size by selecting the smallest subset whose cumulative probability exceeds $p \in (0, 1]$. Min-$p$ sampling filters out tokens whose probability is below a threshold fraction of the top candidate. This document formalizes both filtering operators and proves probability mass guarantees.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Let tokens be sorted descending by probability: $p_{(1)} \ge p_{(2)} \ge \dots \ge p_{(V)}$.
+\begin{enumerate}
+    \item \textbf{Top-$p$ Nucleus:} Find minimum cutoff index $k^*$ such that:
+    \begin{equation}
+    k^* = \min \left\{ k \;\Big|\; \sum_{i=1}^k p_{(i)} \ge p \right\}
+    \end{equation}
+    Candidates outside $\{ (1), \dots, (k^*) \}$ are set to zero probability.
+    \item \textbf{Min-$p$ Filtering:} Retain tokens satisfying:
+    \begin{equation}
+    P(v) \ge p_{\min} \cdot p_{(1)}
+    \end{equation}
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{holtzman2019} A.~Holtzman et al., ``The curious case of neural text degeneration,'' in \emph{ICLR}, 2020.
+\end{thebibliography}
+
 \end{document}

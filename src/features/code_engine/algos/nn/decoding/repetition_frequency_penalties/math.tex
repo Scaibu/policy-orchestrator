@@ -1,13 +1,44 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Repetition, Frequency and Presence Logit Penalties}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Logit Transformations of Repetition and Frequency Penalties}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-z_i' = \frac{z_i}{\theta^{\mathbb{I}(c_i > 0)}} - \alpha c_i - \beta \mathbb{I}(c_i > 0)
-\end{equation}
+
+\begin{abstract}
+Autoregressive decoding is vulnerable to degenerative repetition loops. Repetition and frequency penalties penalize token logits based on prior emission frequency $c_v$. This document formalizes multiplicative repetition penalty $\theta$ and additive presence and frequency penalties, establishing monotonic logit attenuation guarantees.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+For each token $v \in \mathcal{V}$ with emission count $c_v$ in history context:
+\begin{enumerate}
+    \item \textbf{Multiplicative Repetition Penalty ($\theta \ge 1.0$):}
+    \begin{equation}
+    z_v' = \begin{cases} z_v / \theta, & \text{if } z_v > 0 \text{ and } c_v > 0 \\ z_v \cdot \theta, & \text{if } z_v \le 0 \text{ and } c_v > 0 \\ z_v, & \text{if } c_v = 0 \end{cases}
+    \end{equation}
+    \item \textbf{Additive Penalties ($\alpha_{\text{freq}}, \alpha_{\text{pres}}$):}
+    \begin{equation}
+    z_v'' = z_v' - \alpha_{\text{freq}} \cdot c_v - \alpha_{\text{pres}} \cdot \mathbb{I}(c_v > 0)
+    \end{equation}
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{keskar2019} N.~S.~Keskar et al., ``CTRL: A conditional transformer language model for controllable generation,'' \emph{arXiv:1909.05858}, 2019.
+\end{thebibliography}
+
 \end{document}

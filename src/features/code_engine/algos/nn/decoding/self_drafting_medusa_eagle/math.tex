@@ -1,13 +1,30 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Medusa Tree Attention Verification Mask}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Tree-Attention Verification of Self-Drafting (Medusa)}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-M_{u, v} = \begin{cases} 0 & \text{if } v \in \text{Ancestors}(u) \cup \{u\} \\ -\infty & \text{otherwise} \end{cases}
-\end{equation}
+
+\begin{abstract}
+Speculative decoding typically requires hosting two separate models. Medusa attaches multiple lightweight parameter heads directly to the primary transformer's final hidden state, predicting future tokens simultaneously and assembling candidate trajectories into a tree structure evaluated in parallel via tree-masked attention.
+\end{abstract}
+
+\begin{thebibliography}{9}
+\bibitem{cai2024} T.~Cai et al., ``Medusa: Simple LLM inference acceleration framework with multiple decoding heads,'' \emph{arXiv:2401.10774}, 2024.
+\end{thebibliography}
+
 \end{document}

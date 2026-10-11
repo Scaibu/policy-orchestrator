@@ -1,13 +1,85 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Cross-Attention Context Conditioning}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Multimodal Steering of Cross-Attention Conditioning}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-\mathbf{Z}_{\text{cond}} = \text{softmax}\left(\frac{\mathbf{Q}_{\text{latent}}\mathbf{K}_{\text{text}}^\top}{\sqrt{d}}\right)\mathbf{V}_{\text{text}}
-\end{equation}
+
+\begin{abstract}
+Cross-Attention Context Conditioning modulates a primary generative stream (e.g. latent diffusion representations) with external multimodal conditioning signals (e.g. text prompt embeddings, audio representations, or structural controls). Queries are formed from the primary stream, while keys and values are projected from the conditioning context. This document specifies the conditioning operator, proved gradient backpropagation dynamics, and details step-by-step numerical execution.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $\mathbf{Z} \in \mathbb{R}^{N_1 \times d}$ denote the primary latent feature stream, and let $\mathbf{C} \in \mathbb{R}^{N_2 \times d}$ denote the external conditioning context sequence.
+
+\begin{itemize}
+    \item $\mathbf{Q} = \mathbf{Z} \mathbf{W}_Q \in \mathbb{R}^{N_1 \times d}$: Latent query projections.
+    \item $\mathbf{K} = \mathbf{C} \mathbf{W}_K \in \mathbb{R}^{N_2 \times d}, \mathbf{V} = \mathbf{C} \mathbf{W}_V \in \mathbb{R}^{N_2 \times d}$: Context key and value projections.
+    \item $\mathbf{A} = \operatorname{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d}}\right) \in \mathbb{R}^{N_1 \times N_2}$: Steering cross-attention weight matrix.
+    \item $\mathbf{Z}_{\text{cond}} = \mathbf{A}\mathbf{V} \in \mathbb{R}^{N_1 \times d}$: Conditioned output representations.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\caption{Mathematical Notation for Cross-Attention Conditioning}
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Domain} & \textbf{Description} \\
+\midrule
+$N_1, N_2$ & $\mathbb{N}_{\ge 1}$ & Primary sequence length and context sequence length \\
+$d$ & $\mathbb{N}_{\ge 1}$ & Feature representation dimension \\
+$\mathbf{Z}$ & $\mathbb{R}^{N_1 \times d}$ & Primary latent feature stream \\
+$\mathbf{C}$ & $\mathbb{R}^{N_2 \times d}$ & Context conditioning signal tensor \\
+$\mathbf{Z}_{\text{cond}}$ & $\mathbb{R}^{N_1 \times d}$ & Context-steered output tensor \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Problem Definition and Algorithmic Execution}
+
+\begin{algorithm}[H]
+\caption{Cross-Attention Context Conditioning Forward Pass}
+\label{alg:cross_attn_cond}
+\begin{algorithmic}[1]
+\Require Primary stream $\mathbf{Z} \in \mathbb{R}^{N_1 \times d}$, context conditioning $\mathbf{C} \in \mathbb{R}^{N_2 \times d}$
+\Ensure Conditioned representations $\mathbf{Z}_{\text{cond}} \in \mathbb{R}^{N_1 \times d}$
+\State $N_1 \gets \text{rows}(\mathbf{Z}), \quad N_2 \gets \text{rows}(\mathbf{C}), \quad d \gets \text{cols}(\mathbf{Z})$
+\State \textbf{Assert} $\text{cols}(\mathbf{C}) = d$
+\State $\mathbf{Z}_{\text{cond}} \gets \operatorname{ScaledDotProductAttention}(\mathbf{Z}, \mathbf{C}, \mathbf{C})[\text{'output'}]$
+\State \Return $\{\text{conditioned\_output}: \mathbf{Z}_{\text{cond}}, \text{primary\_len}: N_1, \text{context\_len}: N_2\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} $\Theta(N_1 N_2 d)$ FLOPs.
+    \item \textbf{Space Complexity:} $\Theta(N_1 N_2 + N_1 d)$ memory.
+\end{itemize}
+
+\section{Worked Numerical Example}
+Let $N_1 = 2, N_2 = 2, d = 2$:
+Primary stream $\mathbf{Z} = \begin{bmatrix} 1.0 & 0.0 \\ 0.0 & 1.0 \end{bmatrix}$, Context $\mathbf{C} = \begin{bmatrix} 1.0 & 0.0 \\ 0.0 & 1.0 \end{bmatrix}$.
+Dot products $\mathbf{Z}\mathbf{C}^\top / \sqrt{2} = \begin{bmatrix} 0.7071 & 0.0 \\ 0.0 & 0.7071 \end{bmatrix}$.
+Row 0 softmax: $A_{0, 0} \approx 0.6698, A_{0, 1} \approx 0.3302$.
+Conditioned output row 0: $0.6698 [1, 0] + 0.3302 [0, 1] = [0.6698, 0.3302]$.
+
+\begin{thebibliography}{9}
+\bibitem{rombach2022} R.~Rombach et al., ``High-resolution image synthesis with latent diffusion models,'' in \emph{CVPR}, 2022.
+\end{thebibliography}
+
 \end{document}

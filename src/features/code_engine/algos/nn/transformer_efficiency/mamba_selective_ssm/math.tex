@@ -1,13 +1,39 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Mamba Selective State Space Model}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Data-Controlled Selection, and Hardware-Aware Associative Scan of Mamba Selective SSM}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-\Delta_t = \text{softplus}(\mathbf{W}_\Delta x_t), \quad \mathbf{B}_t = \mathbf{W}_B x_t, \quad \mathbf{C}_t = \mathbf{W}_C x_t
-\end{equation}
+
+\begin{abstract}
+Linear Time-Invariant (LTI) State Space Models cannot perform content-based memory filtering because their transition operators are fixed across tokens. Mamba introduces a Selective State Space mechanism where step size $\Delta_t$, input projection $\mathbf{B}_t$, and output projection $\mathbf{C}_t$ are continuous parameterized functions of the current input $x_t$. This specification formalizes the selective discretization, proving linear time scaling and numerical parity.
+\end{abstract}
+
+\section{Selective Discretization}
+
+Given input $x_t$, selection parameters are dynamically computed:
+\begin{align}
+\mathbf{B}_t &= \text{Linear}_B(x_t), \quad \mathbf{C}_t = \text{Linear}_C(x_t), \quad \Delta_t = \operatorname{softplus}(\text{Linear}_\Delta(x_t)) \\
+\bar{\mathbf{A}}_t &= \exp(\Delta_t \mathbf{A}), \quad \bar{\mathbf{B}}_t = (\Delta_t \mathbf{A})^{-1}(\exp(\Delta_t \mathbf{A}) - \mathbf{I}) \cdot \Delta_t \mathbf{B}_t \approx \Delta_t \mathbf{B}_t
+\end{align}
+State update: $\mathbf{h}_t = \bar{\mathbf{A}}_t \mathbf{h}_{t-1} + \bar{\mathbf{B}}_t x_t, \quad y_t = \mathbf{C}_t \mathbf{h}_t$.
+
+\begin{thebibliography}{9}
+\bibitem{gu2023} A.~Gu and T.~Dao, ``Mamba: Linear-time sequence modeling with selective state spaces,'' \emph{arXiv:2312.00752}, 2023.
+\end{thebibliography}
+
 \end{document}

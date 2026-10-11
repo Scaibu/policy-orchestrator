@@ -1,13 +1,38 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Jacobi Fixed-Point Parallel Decoding}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Fixed-Point Iteration, and Jacobi Parallelism of Lookahead Decoding}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Autoregressive decoding is inherently serial. Lookahead (Jacobi) decoding formulates multi-token generation as solving a system of non-linear fixed-point equations in parallel. An $n$-token candidate window is updated simultaneously across all positions using Jacobi iterations until numerical convergence $x_t^{(k+1)} = x_t^{(k)}$. This specification formalizes the Jacobi fixed-point mapping and convergence dynamics.
+\end{abstract}
+
+\section{Fixed-Point Formulation}
+
+For window tokens $\mathbf{x} = (x_1, \dots, x_W)$, the simultaneous Jacobi iteration satisfies:
 \begin{equation}
-\mathbf{y}^{(k+1)} = f(\mathbf{y}^{(k)}), \quad \mathbf{y}^* = \lim_{k \to \infty} \mathbf{y}^{(k)} = \text{GreedyAutoregressive}(\mathbf{x})
+x_t^{(k+1)} = \arg\max_v P_\theta\left(v \;\Big|\; x_1^{(k)}, \dots, x_{t-1}^{(k)}\right)
 \end{equation}
+Iterating continues until $\mathbf{x}^{(k+1)} = \mathbf{x}^{(k)}$ or iteration limit $K$ is reached.
+
+\begin{thebibliography}{9}
+\bibitem{fu2024} Y.~Fu et al., ``Break the sequential dependency of LLM inference using lookahead decoding,'' in \emph{ICLR}, 2024.
+\end{thebibliography}
+
 \end{document}

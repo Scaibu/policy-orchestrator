@@ -1,13 +1,47 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Sliding Window Attention (SWA)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Banded Receptive Fields, and Complexity Bounds of Sliding Window Attention}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-M_{i, j} = \begin{cases} 0 & \text{if } i - W \leq j \leq i \\ -\infty & \text{otherwise} \end{cases}
-\end{equation}
+
+\begin{abstract}
+Full self-attention scales quadratically $\mathcal{O}(N^2)$ with sequence length $N$. Sliding Window Attention restricts attention connectivity to a local temporal band of width $W$, yielding linear $\mathcal{O}(N \cdot W)$ computational and memory complexity while achieving an effective receptive field of $L \cdot W$ across $L$ stacked layers. This specification details the banded masking formulation, complexity derivations, and worked numerical example.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $N \in \mathbb{N}_{\ge 1}$ denote sequence length, and let $W \in \mathbb{N}_{\ge 1}$ denote window radius.
+
+\begin{itemize}
+    \item $\mathbf{M}_{i, j} \in \{0, -\infty\}$: Banded attention mask:
+    \begin{equation}
+    M_{i, j} = \begin{cases} 0, & \text{if } |i - j| \le W \\ -\infty, & \text{otherwise} \end{cases}
+    \end{equation}
+\end{itemize}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} $\Theta(N \cdot W \cdot d)$ scalar operations.
+    \item \textbf{Space Complexity:} $\Theta(N \cdot W + N \cdot d)$ memory footprint.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{beltagy2020} I.~Beltagy, M.~E.~Peters, and A.~Cohan, ``Longformer: The long-document transformer,'' \emph{arXiv:2004.05150}, 2020.
+\end{thebibliography}
+
 \end{document}

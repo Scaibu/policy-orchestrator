@@ -1,13 +1,387 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Causal Language Modeling Objective}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Causal Language Modeling}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Causal Language Modeling Objective):}
+Let $\mathcal{V} = \{0, 1, \dots, V-1\}$ be a discrete vocabulary of size $V \in \mathbb{N}_{\ge 1}$, and let $I \in \mathbb{Z}$ denote a designated ignore index (typically $-100$). Given a target token sequence $\mathbf{y} = (y_1, y_2, \dots, y_T) \in (\mathcal{V} \cup \{I\})^T$ and unnormalized autoregressive logit matrix $\mathbf{Z} \in \mathbb{R}^{T \times V}$, the \textbf{Causal Language Modeling} (CLM) operator:
+{\boldmath
 \begin{equation}
-\mathcal{L}_{\text{CLM}} = -\frac{1}{T}\sum_{t=1}^T \log P(x_t \mid x_{<t}; \theta)
+\operatorname{CLM}: \mathbb{R}^{T \times V} \times (\mathcal{V} \cup \{I\})^T \times \mathbb{Z} \longrightarrow \mathbb{R}_{\ge 0} \times \mathbb{R}_{\ge 1} \times \mathbb{R}^T \times \mathbb{N}
 \end{equation}
+}
+maps inputs to the quadruple $\{\mathcal{L}_{\text{CLM}}, \text{PPL}, \boldsymbol{\ell}, N_{\text{active}}\}$ defined uniquely by:
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{CLM}} = \begin{cases} \frac{1}{N_{\text{active}}} \sum_{t=1}^T \ell_t, & \text{if } N_{\text{active}} > 0 \\ 0.0, & \text{if } N_{\text{active}} = 0 \end{cases}, \qquad \text{PPL} = \exp(\mathcal{L}_{\text{CLM}})
+\end{equation}
+}
+where the per-token negative log-likelihood $\ell_t$ is computed via:
+{\boldmath
+\begin{equation}
+\ell_t = \begin{cases} -\log P(y_t \mid \mathbf{y}_{<t}; \mathbf{Z}) = -Z_{t, y_t} + \log\left(\sum_{v=0}^{V-1} \exp(Z_{t, v})\right), & \text{if } y_t \ne I \\ 0.0, & \text{if } y_t = I \end{cases}
+\end{equation}
+}
+with active non-ignored token count $N_{\text{active}} = \sum_{t=1}^T \mathbb{I}(y_t \ne I)$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+At its core, Causal Language Modeling is the fundamental training objective behind modern generative artificial intelligence (including models like GPT, LLaMA, and Claude). It trains a neural network to master the art of **next-token prediction** under strict temporal causality: given everything written so far, what is the exact probability of the next word?
+
+The mechanics are based on three core principles:
+\begin{enumerate}
+    \item \textbf{Strict Causal Horizon (No Peeking at the Future)}: When predicting word $t$, the model is strictly forbidden from looking at any future words $t+1, t+2, \dots$. It must rely exclusively on the preceding context $\mathbf{y}_{<t} = (y_1, \dots, y_{t-1})$.
+    \item \textbf{Surprise as Loss (Negative Log-Likelihood)}: For every step, the model outputs confidence scores across all $V$ possible vocabulary words. If the ground-truth word was \emph{``coffee''} in the sentence \emph{``Every morning I drink a cup of ...''}, and the model assigned 99\% probability to \emph{``coffee''}, the model is completely unsurprised, and its loss is almost 0. But if the model assigned only 0.01\% probability to \emph{``coffee''}, it receives a massive penalty (high loss). The loss directly quantifies the model's surprise.
+    \item \textbf{Perplexity (The Branching Metric)}: Perplexity is the exponentiated loss ($\exp(\text{Loss})$). It answers the intuitive question: \emph{``On average, how many equally likely words was the model hesitating between?''} A perplexity of $1.0$ represents absolute perfection (zero doubt). A perplexity of $10$ means the model's uncertainty is equivalent to picking among 10 equally plausible words.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Storyteller's Guessing Game}:
+Imagine you and a friendly wizard are sitting by a glowing fireplace writing a grand adventure book together, one single word at a time.
+
+\begin{itemize}
+    \item \textbf{The Giant Box of Wooden Word Blocks (Vocabulary $\mathcal{V}$)}:
+    Sitting on the carpet is a giant toy box containing $V$ little wooden blocks (for example, 50,000 blocks). Every block has a different word carved on it: \emph{dragon}, \emph{castle}, \emph{apple}, \emph{flying}, and so on.
+    
+    \item \textbf{The Hidden Word (Target $y_t$)}:
+    The wizard is reading from the ancient story scroll. He covers the next word in the story with his wooden hand and asks you: \emph{``What word comes next in our adventure?''}
+    
+    \item \textbf{The Gold Coins (Logits $Z_{t, v}$)}:
+    You have a bag of gold coins. You place coins onto the wooden blocks you think fit best. If the story says: \emph{``The brave knight jumped onto his ...''}, you put 1,000 coins on \emph{``horse''}, 200 coins on \emph{``dragon''}, and 0 coins on \emph{``banana''}.
+    
+    \item \textbf{The Magic Star or the Honking Horn (The Loss $\ell_t$)}:
+    The wizard lifts his hand to show you the real word!
+    \begin{itemize}
+        \item If the word was \emph{``horse''} (where you placed 1,000 coins), the wizard smiles, claps his hands, and gives you a glowing golden star! Your surprise is 0.
+        \item If the real word was \emph{``dragon''} (where you placed 200 coins), the wizard gives you a small silver star.
+        \item If the real word was \emph{``banana''} (where you placed 0 coins), the wizard makes a loud, funny horn sound \emph{``Honk!''} and you have to do 10 jumping jacks! That big horn sound is your high loss (high surprise).
+    \end{itemize}
+    
+    \item \textbf{The Grey Stickers (The Ignore Index $I = -100$)}:
+    Some words in the scroll have grey tape over them (for example, instructions or question prompts). The wizard says: \emph{``These words don't count for points; skip them!''} You don't get tested on taped words.
+    
+    \item \textbf{The Juggling Wizard (Perplexity $\text{PPL}$)}:
+    Perplexity is like asking: \emph{``How many balls were you juggling in the air while trying to guess?''} If your perplexity is 2, you were only choosing between two great ideas! If your perplexity is 50,000, you were completely guessing in the dark.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Autoregressive Joint Probability Factorization}}
+{\boldmath
+\begin{equation}
+P(\mathbf{y}; \theta) = \prod_{t=1}^T P(y_t \mid y_1, \dots, y_{t-1}; \theta) = \prod_{t=1}^T P(y_t \mid \mathbf{y}_{<t}; \theta)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The exact decomposition of a joint probability distribution over discrete sequences $\mathbf{y} \in \mathcal{V}^T$ into a sequential product of conditional univariate distributions via Kolmogorov's probability chain rule.
+    \item \textbf{What It Means}:
+    The likelihood of an entire multi-word document is the exact product of the conditional probability of each individual word given its preceding history, without requiring any independent or Markovian assumptions.
+    \item \textbf{Why It Is Important}:
+    This factorization is the mathematical foundation of all autoregressive sequence models; it enables exact maximum likelihood estimation across variable-length text without combinatorial approximation.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Log-Sum-Exp Numerically Stable Log-Probability}}
+{\boldmath
+\begin{equation}
+\log P(y_t \mid \mathbf{y}_{<t}) = Z_{t, y_t} - m_t - \log\left(\sum_{v=0}^{V-1} \exp(Z_{t, v} - m_t)\right), \qquad m_t = \max_{0 \le v < V} Z_{t, v}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The translation-invariant log-softmax transformation that evaluates the logarithm of the categorical distribution directly from the logit vector $\mathbf{z}_t \in \mathbb{R}^V$ centered by its supremum norm $m_t \in \mathbb{R}$.
+    \item \textbf{What It Means}:
+    It computes the log-probability of the target token without ever calculating raw probabilities $\exp(Z) / \sum \exp(Z)$ followed by $\log(\cdot)$.
+    \item \textbf{Why It Is Important}:
+    Directly computing $\log(\exp(z)/\Omega)$ causes catastrophic numerical underflow when target probabilities are very small (yielding $\log(0) = -\infty$), or overflow when logits are large ($\exp(z) \to +\infty$). Centering by $m_t$ guarantees complete IEEE 754 numerical stability across all floating-point formats.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Masked Per-Token Cross-Entropy Loss}}
+{\boldmath
+\begin{equation}
+\ell_t = \begin{cases} -\log P(y_t \mid \mathbf{y}_{<t}), & \text{\textbf{if }} y_t \ne I \\ 0.0, & \text{\textbf{if }} y_t = I \end{cases}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The indicator-gated negative log-likelihood evaluation that maps target token $y_t \in \mathcal{V} \cup \{I\}$ to non-negative real loss $\ell_t \in \mathbb{R}_{\ge 0}$.
+    \item \textbf{What It Means}:
+    Each valid token incurs a loss proportional to the logarithm of its assigned probability; positions marked with ignore index $I = -100$ contribute exactly zero loss.
+    \item \textbf{Why It Is Important}:
+    Masking is essential for supervised instruction fine-tuning (SFT) and prompt-completion training, ensuring the model is only penalized for its answers, not for generating the prompt text or padding.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Sequence-Averaged Negative Log-Likelihood}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{CLM}} = \frac{1}{N_{\text{active}}} \sum_{t=1}^T \ell_t, \qquad N_{\text{active}} = \sum_{t=1}^T \mathbb{I}(y_t \ne I)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The empirical mean risk functional computed by normalizing the sum of non-ignored per-token losses by the cardinal count of active tokens $N_{\text{active}} \in \mathbb{N}$.
+    \item \textbf{What It Means}:
+    It measures the average cross-entropy penalty per generated token across the active portions of the batch.
+    \item \textbf{Why It Is Important}:
+    Normalizing by active token count ensures that batch loss is invariant to sequence length, padding amount, or prompt size, preventing variable-length batches from skewing gradient scales during training.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Sequence Perplexity Metric}}
+{\boldmath
+\begin{equation}
+\text{PPL} = \exp(\mathcal{L}_{\text{CLM}}) = \exp\left( -\frac{1}{N_{\text{active}}} \sum_{t=1}^T \log P(y_t \mid \mathbf{y}_{<t}) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The exponential geometric mean of reciprocal target probabilities across active tokens, mapping mean nll loss $\mathbb{R}_{\ge 0}$ to the real interval $[1, V]$.
+    \item \textbf{What It Means}:
+    Perplexity measures the effective branching factor of the language model—the number of equally probable words among which the model is hesitating.
+    \item \textbf{Why It Is Important}:
+    Perplexity provides an intuitive, language-independent metric for benchmarking models across architectures, datasets, and vocabulary sizes.
+\end{itemize}
+
+\subsection{\textbf{Equation 6: Analytic Gradient with respect to Output Logits}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}_{\text{CLM}}}{\partial Z_{t, v}} = \frac{1}{N_{\text{active}}} \left( P(v \mid \mathbf{y}_{<t}) - \mathbb{I}(v = y_t) \right) \cdot \mathbb{I}(y_t \ne I)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The directional derivative of the cross-entropy objective with respect to the pre-softmax logit coordinate $Z_{t, v} \in \mathbb{R}$.
+    \item \textbf{What It Means}:
+    The gradient is simply the difference between the model's predicted probability distribution and the true one-hot target distribution, scaled by $1/N_{\text{active}}$.
+    \item \textbf{Why It Is Important}:
+    This remarkably simple gradient form ($P - Y$) means that backpropagation requires zero complicated tensor factorizations, enabling high-speed parallel computation on modern GPU/TPU accelerators.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $T \in \mathbb{N}_{\ge 1}$: Sequence length (number of time steps).
+    \item $V \in \mathbb{N}_{\ge 1}$: Vocabulary size.
+    \item $\mathbf{Z} \in \mathbb{R}^{T \times V}$: Pre-softmax output logit matrix.
+    \item $\mathbf{y} \in (\mathcal{V} \cup \{I\})^T$: Ground truth target token sequence.
+    \item $I \in \mathbb{Z}$: Designated ignore index (default $-100$).
+    \item $m_t \in \mathbb{R}$: Maximum logit for time step $t$.
+    \item $\ell_t \in \mathbb{R}_{\ge 0}$: Per-token cross-entropy loss.
+    \item $\mathcal{L}_{\text{CLM}} \in \mathbb{R}_{\ge 0}$: Mean sequence negative log-likelihood.
+    \item $\text{PPL} \in \mathbb{R}_{\ge 1}$: Exponentiated sequence perplexity.
+    \item $N_{\text{active}} \in \mathbb{N}$: Count of non-ignored active target tokens.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$T, V$ & \textbf{Defined} (Sequence / vocabulary dimension) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$I$ & \textbf{Defined} (Masking sentinel constant) & Integer $\mathbb{Z}$ (e.g. $-100$) \\
+$\mathbf{Z}$ & \textbf{Calculated / Learned} (Model output) & Real matrix in $\mathbb{R}^{T \times V}$ \\
+$\mathbf{y}$ & \textbf{Observed} (Ground truth targets) & Discrete sequence in $(\mathcal{V} \cup \{I\})^T$ \\
+$m_t, \ell_t, N_{\text{active}}$ & \textbf{Calculated} (Intermediate reductions) & Scalars and vectors \\
+$\mathcal{L}_{\text{CLM}}, \text{PPL}$ & \textbf{Calculated} (Final objective metrics) & Bounded non-negative scalars \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+\mathbf{Z} \xrightarrow{\text{LogSumExp}} \log \mathbf{P} \xrightarrow{\text{Index } y_t} -\log P(y_t) \xrightarrow{\text{Mask } \mathbb{I}(y_t \ne I)} \boldsymbol{\ell} \xrightarrow{\frac{1}{N_{\text{active}}}\sum} \mathcal{L}_{\text{CLM}} \xrightarrow{\exp(\cdot)} \text{PPL}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\mathbf{Z} &\in [T \times V] \quad \text{\textbf{(Dimensionless log-odds)}} \\
+\log P(y_t \mid \mathbf{y}_{<t}) &\in \mathbb{R} \quad \text{\textbf{(Nats of information)}} \\
+\mathcal{L}_{\text{CLM}} &\in \mathbb{R}_{\ge 0} \quad \text{\textbf{(Average nats per token)}} \\
+\text{PPL} = \exp(\mathcal{L}_{\text{CLM}}) &\in [1, V] \quad \text{\textbf{(Effective vocabulary branching factor)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Perfect Predictive Certainty ($P(y_t) \to 1.0$)}: As $Z_{t, y_t} \gg Z_{t, v \ne y_t}$, $\log P(y_t) \to 0$, giving $\mathcal{L}_{\text{CLM}} \to 0$ and $\text{PPL} \to \exp(0) = 1.0$.
+    \item \textbf{Uniform Random Guessing ($Z_{t, v} = \text{const}$)}: When all logits are identical, $P(y_t) = 1/V$. The loss evaluates to $\mathcal{L}_{\text{CLM}} = -\log(1/V) = \log V$, and $\text{PPL} = \exp(\log V) = V$.
+    \item \textbf{Catastrophic Prediction Error ($P(y_t) \to 0$)}: As the target probability vanishes, loss diverges to $+\infty$ and perplexity diverges to $+\infty$.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Zero Active Tokens ($N_{\text{active}} = 0$)}: If all target tokens are $I = -100$, division by zero is prevented by explicitly setting $\mathcal{L}_{\text{CLM}} = 0.0$ and $\text{PPL} = 1.0$.
+    \item \textbf{Target Out-of-Bounds}: If $y_t \ne I$ and $y_t \notin [0, V-1]$, array indexing fails. A defensive assertion enforces $0 \le y_t < V$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Zero Net Gradient Flow}: The sum of unnormalized gradients across the entire vocabulary at each step is identically zero:
+    {\boldmath
+    \begin{equation}
+    \sum_{v=0}^{V-1} \frac{\partial \mathcal{L}}{\partial Z_{t, v}} = \frac{1}{N_{\text{active}}} \left( \sum_{v=0}^{V-1} P(v) - \sum_{v=0}^{V-1} \mathbb{I}(v = y_t) \right) = \frac{1}{N_{\text{active}}}(1 - 1) = 0
+    \end{equation}
+    }
+\end{itemize}
+
+\subsection{[ ] Transfer: Isomorphism to Kullback-Leibler Divergence}
+Minimizing the Causal Language Modeling negative log-likelihood is mathematically identical to minimizing the forward Kullback-Leibler divergence between the empirical distribution $Q(v) = \delta_{v, y_t}$ and the model distribution $P_{\theta}(v)$:
+{\boldmath
+\begin{equation}
+D_{\text{KL}}(Q \,\|\, P_{\theta}) = \sum_{v} Q(v) \log \frac{Q(v)}{P_{\theta}(v)} = \underbrace{- \sum_v Q(v) \log P_{\theta}(v)}_{\mathcal{L}_{\text{CLM}}} - \underbrace{H(Q)}_{0} = \mathcal{L}_{\text{CLM}}
+\end{equation}
+}
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Numerical Stability of Shifted Log-Sum-Exp}]
+For any logit vector $\mathbf{z} \in \mathbb{R}^V$ with $m = \max_v z_v$, the algebraic identity:
+{\boldmath
+\begin{equation}
+\log \left( \sum_{v=0}^{V-1} \exp(z_v) \right) \equiv m + \log \left( \sum_{v=0}^{V-1} \exp(z_v - m) \right)
+\end{equation}
+}
+holds identically, with all exponential arguments strictly bounded in $(-\infty, 0]$, completely preventing IEEE 754 arithmetic overflow.
+\end{theorem}
+
+\begin{proof}
+Factoring out $\exp(m) > 0$ from the summation:
+{\boldmath
+\begin{align}
+\log \left( \sum_{v=0}^{V-1} \exp(z_v) \right) &= \log \left( \sum_{v=0}^{V-1} \exp(z_v - m + m) \right) \\
+&= \log \left( \exp(m) \sum_{v=0}^{V-1} \exp(z_v - m) \right) \\
+&= \log(\exp(m)) + \log \left( \sum_{v=0}^{V-1} \exp(z_v - m) \right) \\
+&= m + \log \left( \sum_{v=0}^{V-1} \exp(z_v - m) \right)
+\end{align}
+}
+Because $m = \max_v z_v$, $z_v - m \le 0$ for all $v \in \{0, \dots, V-1\}$. Therefore, $0 < \exp(z_v - m) \le 1.0$. The sum is bounded by $1.0 \le \sum_{v=0}^{V-1} \exp(z_v - m) \le V$, guaranteeing that the argument to the logarithm is strictly positive and finite.
+\end{proof}
+
+\begin{theorem}[\textbf{Monotonicity and Global Minimum of Perplexity}]
+For any valid sequence loss $\mathcal{L}_{\text{CLM}} \ge 0$, the perplexity function $\text{PPL}(\mathcal{L}) = \exp(\mathcal{L})$ is strictly monotonically increasing and achieves its unique global infimum $\text{PPL}^* = 1.0$ if and only if the model predicts the exact ground truth token with probability $1.0$ at every active step.
+\end{theorem}
+
+\begin{proof}
+The derivative of perplexity with respect to loss is $\frac{d}{d \mathcal{L}} \exp(\mathcal{L}) = \exp(\mathcal{L}) > 0$ for all $\mathcal{L} \in \mathbb{R}$. Because the derivative is strictly positive everywhere, $\text{PPL}$ is strictly monotonically increasing.
+Since $0 < P(y_t \mid \mathbf{y}_{<t}) \le 1.0$, $-\log P(y_t) \ge 0$. Thus, $\mathcal{L}_{\text{CLM}} \ge 0$.
+The exponential function on $[0, \infty)$ attains its minimum at $\mathcal{L} = 0$, giving $\text{PPL}(0) = \exp(0) = 1.0$.
+$\mathcal{L}_{\text{CLM}} = 0$ holds if and only if $\ell_t = 0$ for all active $t$, which implies $-\log P(y_t) = 0 \iff P(y_t) = 1.0$.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Cross-Entropy vs Mean Squared Error for Language}}
+\textbf{Question}: Why does language modeling optimize categorical cross-entropy rather than mean squared error over token embeddings?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why is continuous Euclidean distance structurally ill-suited for modeling multimodal discrete probability spaces?}
+    \item \textbf{Deep Answer}: Human language is fundamentally discrete and multimodal. Given the prompt \emph{``The color was ...''}, multiple completely distinct answers are equally valid (e.g., \emph{``red''}, \emph{``blue''}, \emph{``green''}). If trained with MSE in continuous embedding space, the model would be penalized toward predicting the geometric average of \emph{``red''} and \emph{``green''}, producing a blurry, non-existent hybrid word. Categorical cross-entropy models a full discrete probability distribution over all $V$ distinct vocabulary words, permitting multiple distinct sharp peaks simultaneously.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Why Perplexity Uses the Exponential}}
+\textbf{Question}: Why is perplexity defined as $\exp(\mathcal{L})$ instead of evaluating the raw arithmetic average of probabilities?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why must multi-step sequential likelihoods be aggregated under geometric means rather than arithmetic means?}
+    \item \textbf{Deep Answer}: Sequence probabilities are multiplicative across time steps ($P(\mathbf{y}) = \prod P(y_t)$). Evaluating an arithmetic average of probabilities ($\frac{1}{T}\sum P(y_t)$) would allow a single lucky 100\% prediction to mask a disastrous 0\% prediction. By taking the logarithm, we convert the multiplicative product into an additive sum, and exponentiating the average loss $\exp(\frac{1}{T}\sum -\log P) = (\prod P(y_t))^{-1/T}$ computes the true geometric mean of uncertainty per step.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: The Role of the Ignore Index (-100)}}
+\textbf{Question}: Why is $I = -100$ universally used in PyTorch and Transformer codebases for masking?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does sentinel index masking prevent prompt bias during instruction tuning?}
+    \item \textbf{Deep Answer}: In Supervised Fine-Tuning (SFT), training data consists of an input prompt followed by an assistant response. The model must learn how to generate the response, but should not be penalized for how the user phrased the prompt. Setting prompt token targets to $-100$ completely zeroes out both the forward loss contribution and the backward gradient for prompt tokens, allowing the network to condition on the prompt without updating weights on prompt generation.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Vocabulary Bottleneck and Softmax Costs}}
+\textbf{Question}: Why is the vocabulary size $V$ typically capped between 32,000 and 128,000 tokens?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does the compute and memory complexity of the final projection layer scale with vocabulary granularity?}
+    \item \textbf{Deep Answer}: The final projection layer maps hidden states $d_{\text{model}}$ to $V$ logits, requiring $T \times V$ elements. When $V$ is excessively large (e.g., 500,000), materializing logits requires massive GPU high-bandwidth memory (HBM). Setting $V \approx 64,000$ to $128,000$ using byte-pair encoding (BPE) balances expressive subword coverage with manageable memory and FLOP requirements during log-sum-exp evaluation.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoCausalLanguageModeling} is formalized in Algorithm~\ref{alg:clm}.
+
+\begin{algorithm}[H]
+\caption{Causal Language Modeling Loss and Perplexity Evaluation}
+\label{alg:clm}
+\begin{algorithmic}[1]
+\Require Logits matrix $\mathbf{Z} \in \mathbb{R}^{T \times V}$, targets $\mathbf{y} \in \mathbb{Z}^T$, ignore index $I \in \mathbb{Z}$ (default $-100$)
+\Ensure Mean loss $\mathcal{L}_{\text{CLM}}$, perplexity $\text{PPL}$, per-token losses $\boldsymbol{\ell}$, active count $N_{\text{active}}$
+\State $T \gets \text{len}(\mathbf{y}), \quad V \gets \text{cols}(\mathbf{Z})$
+\State $\text{total\_loss} \gets 0.0, \quad N_{\text{active}} \gets 0, \quad \boldsymbol{\ell} \gets \text{empty list}$
+\For{$t \gets 1 \textbf{ to } T$}
+    \State $\text{target} \gets y_t$
+    \If{$\text{target} = I$}
+        \State Append $0.0$ to $\boldsymbol{\ell}$
+        \State \textbf{continue}
+    \EndIf
+    \State \textbf{Assert} $0 \le \text{target} < V$ \Comment{Verify valid token index}
+    \State $m_t \gets \max_{0 \le v < V} Z_{t, v}$ \Comment{Compute numerical maximum}
+    \State $S_t \gets \sum_{v=0}^{V-1} \exp(Z_{t, v} - m_t)$ \Comment{Sum shifted exponentials}
+    \State $\text{log\_prob} \gets (Z_{t, \text{target}} - m_t) - \log(S_t)$ \Comment{Stable log-softmax}
+    \State $\text{nll} \gets -\text{log\_prob}$
+    \State Append $\text{nll}$ to $\boldsymbol{\ell}$
+    \State $\text{total\_loss} \gets \text{total\_loss} + \text{nll}$
+    \State $N_{\text{active}} \gets N_{\text{active}} + 1$
+\EndFor
+\If{$N_{\text{active}} > 0$}
+    \State $\mathcal{L}_{\text{CLM}} \gets \text{total\_loss} / N_{\text{active}}$
+    \State $\text{PPL} \gets \exp(\mathcal{L}_{\text{CLM}})$
+\Else
+    \State $\mathcal{L}_{\text{CLM}} \gets 0.0$
+    \State $\text{PPL} \gets 1.0$
+\EndIf
+\State \Return $\{\text{loss}: \mathcal{L}_{\text{CLM}}, \text{perplexity}: \text{PPL}, \text{token\_losses}: \boldsymbol{\ell}, \text{num\_active\_tokens}: N_{\text{active}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Row maximum search: $T \times V$ comparisons ($\Theta(TV)$ operations).
+        \item Exponentiation and partition sum: $T \times V$ floating-point operations ($\Theta(TV)$ FLOPs).
+        \item Target indexing and division: $\mathcal{O}(T)$ operations.
+        \item Total Time Complexity: $\Theta(T V)$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Per-token losses buffer $\boldsymbol{\ell}$: $\Theta(T)$ floats.
+        \item Internal intermediate scalars: $\mathcal{O}(1)$.
+        \item Total Auxiliary Space: $\Theta(T)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

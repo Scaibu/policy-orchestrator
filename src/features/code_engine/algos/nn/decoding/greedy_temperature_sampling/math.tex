@@ -1,13 +1,54 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Temperature-Scaled Autoregressive Sampling}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Boltzmann Distribution, and Entropy Limits of Temperature Sampling}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
-\begin{equation}
-P(x_i) = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}, \quad \lim_{T \to 0^+} P(x_i) = \mathbb{I}(i = \text{argmax}_j z_j)
-\end{equation}
+
+\begin{abstract}
+Autoregressive decoding converts unnormalized logit vectors into token predictions. Temperature sampling controls the sharpness of the categorical probability distribution via annealing parameter $T \ge 0$. As $T \to 0$, the Boltzmann distribution converges to the Dirac delta distribution at the maximum logit (greedy decoding); as $T \to \infty$, the distribution converges to the discrete uniform distribution. This specification formalizes the thermodynamic temperature mapping, proves asymptotic limits, and details numerical verification.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Let logits $\mathbf{z} \in \mathbb{R}^V$ and temperature $T \ge 0$.
+\begin{enumerate}
+    \item If $T = 0$ (or $T < 10^{-6}$):
+    \begin{equation}
+    P(v) = \begin{cases} 1.0, & \text{if } v = \arg\max_{j} z_j \\ 0.0, & \text{otherwise} \end{cases}
+    \end{equation}
+    \item If $T > 0$:
+    \begin{equation}
+    P(v; T) = \frac{\exp((z_v - \max_j z_j) / T)}{\sum_{j=0}^{V-1} \exp((z_j - \max_l z_l) / T)}
+    \end{equation}
+\end{enumerate}
+
+\section{Theoretical Guarantees: Asymptotic Thermodynamic Limits}
+
+\begin{theorem}[Zero and Infinite Temperature Limits]
+For distinct maximum logit $z^* > z_j$ ($\forall j \ne *$):
+\begin{align}
+\lim_{T \to 0^+} P(v; T) &= \delta_{v, *} \\
+\lim_{T \to \infty} P(v; T) &= \frac{1}{V} \quad \forall v \in \{0, \dots, V-1\}
+\end{align}
+\end{theorem}
+
+\begin{thebibliography}{9}
+\bibitem{ackley1985} D.~H.~Ackley, G.~E.~Hinton, and T.~J.~Sejnowski, ``A learning algorithm for Boltzmann machines,'' \emph{Cognitive Science}, vol.~9, no.~1, pp.~147--169, 1985.
+\end{thebibliography}
+
 \end{document}

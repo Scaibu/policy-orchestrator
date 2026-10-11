@@ -1,13 +1,300 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
 \title{\textbf{Learned Absolute Position Embeddings}}
-\author{Architecture Policy Engine}
-\date{\today}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Learned Absolute Position Embedding Operator):}
+Let $T \in \mathbb{N}_{\ge 1}$ denote input sequence length, $L_{\text{max}} \in \mathbb{N}_{\ge 1}$ denote maximum supported sequence capacity, $d_{\text{model}} \in \mathbb{N}_{\ge 1}$ denote embedding dimension, and $\Delta \in \mathbb{N}_{\ge 0}$ denote an optional starting offset.
+Let $\mathbf{X} \in \mathbb{R}^{T \times d_{\text{model}}}$ be the token embedding matrix, and let $\mathbf{P} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$ be the learned positional parameter tensor.
+The \textbf{Learned Absolute Position Embedding} operator:
+{\boldmath
 \begin{equation}
-\mathbf{h}_i = \mathbf{e}_{\text{tok}}(x_i) + \mathbf{W}_{\text{pos}}[i]
+\operatorname{LearnedPos}: \mathbb{R}^{T \times d_{\text{model}}} \times \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}} \times \mathbb{N}_{\ge 0} \longrightarrow \mathbb{R}^{T \times d_{\text{model}}}
 \end{equation}
+}
+is the parameter addition mapping defined row-wise for all positions $t \in \{0, \dots, T-1\}$ by:
+{\boldmath
+\begin{equation}
+\mathbf{y}_t = \mathbf{x}_t + \mathbf{p}_{t + \Delta}
+\end{equation}
+}
+subject strictly to the boundary precondition $T + \Delta \le L_{\text{max}}$.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+While sinusoidal encodings calculate positions using fixed, non-learnable trigonometric formulas, Learned Absolute Position Embeddings (employed in pioneering architectures like BERT, GPT-1, and GPT-2) treat each position in a document as an independent, learnable entry in a lookup dictionary:
+\begin{enumerate}
+    \item \textbf{A Private Vector for Every Slot}: Position 0 has its own dedicated parameter vector, position 1 has its own vector, and position 511 has another vector. None of these vectors share formulas; each is an unconstrained collection of trainable weights.
+    \item \textbf{Data-Driven Geometric Sculpting}: During pretraining on hundreds of billions of words, gradient descent freely updates each position vector. Position 0 learns the statistical features of sentence openers (capitalized nouns, articles); position 511 learns the features of document conclusions or truncation boundaries.
+    \item \textbf{Additive Fusion}: For every token in an input sentence, its semantic word embedding (representing \emph{what} the word means) is added element-wise to its positional embedding (representing \emph{where} the word sits), producing a unified representation that feeds directly into the Transformer's self-attention layers.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Name Badges on Classroom Desks}:
+Imagine an enchanted classroom with 512 desks arranged in a single long row, numbered Desk 0, Desk 1, Desk 2, up to Desk 511.
+
+\begin{itemize}
+    \item \textbf{The Student Cards (Token Embeddings $\mathbf{X}$)}:
+    Every student who walks through the classroom door holds a picture card showing who they are: one student has a card that says \emph{``Cat''}, another says \emph{``Jumps''}, another says \emph{``Fence''}.
+    
+    \item \textbf{The Glowing Seat Cushions (Position Embeddings $\mathbf{P}$)}:
+    On every single desk rests a magical glowing seat cushion that has learned what kind of job that desk has:
+    \begin{itemize}
+        \item Cushion 0 gives whoever sits on it a shiny \emph{``Leader of the Line''} badge.
+        \item Cushion 1 gives whoever sits on it a \emph{``Second in Line''} badge.
+        \item Cushion 511 gives whoever sits on it a \emph{``Rear Guard''} badge.
+    \end{itemize}
+    
+    \item \textbf{Sitting Down (Vector Addition $\mathbf{x}_t + \mathbf{p}_t$)}:
+    When the \emph{Cat} student sits down on Desk 0, the magic cushion instantly blends into the student! Now, when the teacher looks at Desk 0, she doesn't just see a cat; she sees: \emph{``A Cat who is Leading the Line!''}
+    
+    \item \textbf{The Full Classroom Boundary ($L_{\text{max}}$)}:
+    If 513 students try to enter the classroom, student number 513 cannot sit down because there are only 512 desks! That is why learned position models have a strict maximum length limit: there are no cushions past desk 511.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Element-wise Additive Positional Fusion}}
+{\boldmath
+\begin{equation}
+\mathbf{Y} = \mathbf{X} + \mathbf{P}[\Delta : \Delta + T, :] \quad \Longleftrightarrow \quad Y_{t, d} = X_{t, d} + P_{t + \Delta, d}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The matrix addition of token embedding tensor $\mathbf{X} \in \mathbb{R}^{T \times d_{\text{model}}}$ and the sliced submatrix of the learned positional parameter tensor $\mathbf{P} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$.
+    \item \textbf{What It Means}:
+    Every token representation is shifted in the $d_{\text{model}}$-dimensional embedding space by the learned displacement vector corresponding to its discrete sequence position.
+    \item \textbf{Why It Is Important}:
+    Additive superposition injects spatial order directly into token activations in a single $\mathcal{O}(T \cdot d_{\text{model}})$ operation without increasing the dimensionality of the Transformer layers.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Context Horizon Boundary Precondition}}
+{\boldmath
+\begin{equation}
+T + \Delta \le L_{\text{max}} \quad \Longleftrightarrow \quad \Delta \in [0, L_{\text{max}} - T]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The domain constraint guaranteeing that all requested sequence indices fall strictly within the pre-allocated row dimension of the parameter table $\mathbf{P}$.
+    \item \textbf{What It Means}:
+    The model cannot process sequences longer than its maximum pretraining capacity $L_{\text{max}}$, nor can an offset push indices beyond the table boundaries.
+    \item \textbf{Why It Is Important}:
+    Violating this bound results in index-out-of-range memory faults; defensive contract verification prevents silent crashes in production serving.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Direct Gradient Backpropagation into Position Weights}}
+{\boldmath
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathbf{p}_{t + \Delta}} = \frac{\partial \mathcal{L}}{\partial \mathbf{y}_t} = \left(\frac{\partial \mathcal{L}}{\partial \mathbf{Y}}\right)[t, :]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The adjoint derivative mapping showing that the gradient with respect to positional vector $\mathbf{p}_{t + \Delta}$ equals the exact upstream gradient arriving at output activation $\mathbf{y}_t$.
+    \item \textbf{What It Means}:
+    Position parameters receive direct, unfiltered error signals from the entire network, adjusting their weights during every training step where position $t+\Delta$ is occupied.
+    \item \textbf{Why It Is Important}:
+    Direct gradient flow allows position vectors to adapt freely to complex empirical token distributions without being constrained by rigid mathematical formulas.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Bilinear Attention Logit Decomposition}}
+{\boldmath
+\begin{equation}
+S_{i, j} = \frac{1}{\sqrt{d}} \left( \mathbf{x}_i^\top \mathbf{W}^{QK} \mathbf{x}_j + \mathbf{x}_i^\top \mathbf{W}^{QK} \mathbf{p}_j + \mathbf{p}_i^\top \mathbf{W}^{QK} \mathbf{x}_j + \mathbf{p}_i^\top \mathbf{W}^{QK} \mathbf{p}_j \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The four-term expansion of the attention logit inner product $(\mathbf{x}_i + \mathbf{p}_i)^\top \mathbf{W}^{QK} (\mathbf{x}_j + \mathbf{p}_j)$ where $\mathbf{W}^{QK} = \mathbf{W}^Q (\mathbf{W}^K)^\top$.
+    \item \textbf{What It Means}:
+    Attention scores decompose into: token-to-token semantic affinity ($\mathbf{x}_i^\top \mathbf{x}_j$), token-to-position bias ($\mathbf{x}_i^\top \mathbf{p}_j$), position-to-token bias ($\mathbf{p}_i^\top \mathbf{x}_j$), and position-to-position structural geometry ($\mathbf{p}_i^\top \mathbf{p}_j$).
+    \item \textbf{Why It Is Important}:
+    This decomposition reveals that learned position embeddings allow the model to learn both content-independent positional biases and content-dependent positional preferences.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $T \in \mathbb{N}_{\ge 1}$: Sequence length.
+    \item $L_{\text{max}} \in \mathbb{N}_{\ge 1}$: Maximum sequence capacity of position table.
+    \item $d_{\text{model}} \in \mathbb{N}_{\ge 1}$: Hidden feature dimension.
+    \item $\Delta \in \mathbb{N}_{\ge 0}$: Starting position offset.
+    \item $\mathbf{X} \in \mathbb{R}^{T \times d_{\text{model}}}$: Input token embeddings.
+    \item $\mathbf{P} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$: Trainable position embedding table.
+    \item $\mathbf{Y} \in \mathbb{R}^{T \times d_{\text{model}}}$: Position-augmented output representations.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$T, L_{\text{max}}, d_{\text{model}}, \Delta$ & \textbf{Defined} (Architectural parameters) & Natural numbers $\mathbb{N}$ \\
+$\mathbf{X}$ & \textbf{Calculated / Learned} (Token representations) & Real matrix in $\mathbb{R}^{T \times d_{\text{model}}}$ \\
+$\mathbf{P}$ & \textbf{Learned} (Free parameters) & Trainable matrix in $\mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$ \\
+$\mathbf{Y}$ & \textbf{Calculated} (Layer activations) & Dense feature matrix in $\mathbb{R}^{T \times d_{\text{model}}}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{X}, \mathbf{P}, \Delta) \xrightarrow{\text{Slice } \mathbf{P}[\Delta:\Delta+T]} \mathbf{P}_{\text{active}} \xrightarrow{+} \mathbf{Y} = \mathbf{X} + \mathbf{P}_{\text{active}}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\mathbf{X} &\in \mathbb{R}^{T \times d_{\text{model}}} \\
+\mathbf{P}[\Delta : \Delta + T, :] &\in \mathbb{R}^{T \times d_{\text{model}}} \\
+\mathbf{Y} = \mathbf{X} + \mathbf{P}_{\text{active}} &\in \mathbb{R}^{T \times d_{\text{model}}} \quad \text{\textbf{(Exact shape preservation)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Zero Offset ($\Delta = 0$)}: Standard sequence input starting at the first position row $\mathbf{P}[0:T, :]$.
+    \item \textbf{Maximal Capacity ($T + \Delta = L_{\text{max}}$)}: The active slice reaches the final row of the parameter table.
+    \item \textbf{Length Extrapolation Failure ($T > L_{\text{max}}$)}: The model cannot evaluate tokens beyond $L_{\text{max}}$ because no parameters exist for positions $\ge L_{\text{max}}$.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Index Out-of-Bounds}: If $T + \Delta > L_{\text{max}}$, row slicing fails. \emph{Defensive Assertion}: \texttt{assert seq\_len + offset <= max\_seq\_len}.
+    \item \textbf{Dimension Mismatch}: $\operatorname{cols}(\mathbf{X})$ must strictly match $\operatorname{cols}(\mathbf{P})$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Additive Linearity}: The operator is strictly linear with respect to both $\mathbf{X}$ and the active slice of $\mathbf{P}$.
+\end{itemize}
+
+\subsection{[ ] Transfer: Isomorphism to Word Embedding Lookups}
+Learned position embedding lookup is isomorphic to standard categorical vocabulary embedding lookups $\mathbf{W}_{\text{vocab}} \in \mathbb{R}^{V \times d}$, where sequence index $t \in \{0, \dots, L_{\text{max}}-1\}$ replaces discrete word ID $v \in \{0, \dots, V-1\}$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Unconstrained Geometric Parameter Expressivity}]
+Let $\mathbf{P} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$ be unconstrained learnable parameters. The set of positional configurations representable by learned position embeddings contains the set of all sinusoidal encodings as a measure-zero subspace.
+\end{theorem}
+
+\begin{proof}
+Sinusoidal encodings constrain each vector coordinate to a strict trigonometric form $P_{t, 2i} = \sin(t \omega_i)$ and $P_{t, 2i+1} = \cos(t \omega_i)$.
+This restricts the entire $L_{\text{max}} \times d_{\text{model}}$ parameter space to a low-dimensional manifold parameterized only by frequency schedule $\{\omega_i\}$.
+In contrast, learned position embeddings define the parameter space as the unconstrained Euclidean manifold $\mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$.
+Any sinusoidal matrix $\operatorname{PE} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$ can be instantiated simply by setting $\mathbf{P} = \operatorname{PE}$, whereas almost all matrices in $\mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$ cannot be expressed by sinusoidal equations.
+\end{proof}
+
+\begin{theorem}[\textbf{Extrapolation Inability beyond Maximum Context}]
+Let a model be trained with learned position embeddings $\mathbf{P} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$. For any token position $t \ge L_{\text{max}}$, the positional representation $\mathbf{p}_t$ is undefined without heuristic re-interpolation or retraining.
+\end{theorem}
+
+\begin{proof}
+By definition, $\mathbf{P}$ is parameterized as a finite discrete table of $L_{\text{max}}$ row vectors.
+The index set is the discrete bounded set $\{0, 1, \dots, L_{\text{max}} - 1\}$.
+For any index $t \ge L_{\text{max}}$, $t$ lies strictly outside the index domain of the parameter tensor.
+Since $\mathbf{P}$ contains no closed-form functional dependence on $t$, $\mathbf{p}_t$ does not exist in the parameter manifold.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Learned vs Sinusoidal Positional Embeddings}}
+\textbf{Question}: Why did BERT and GPT-2 adopt learned position embeddings over sinusoidal encodings?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{When does empirical parameter optimization outperform analytical inductive biases in representation learning?}
+    \item \textbf{Deep Answer}: While sinusoidal encodings provide clean theoretical properties (e.g. relative shift linearity), real-world language datasets often have asymmetric structural anomalies (e.g., the very first token \texttt{[CLS]} serves a unique classification aggregation role, and the final token serves a boundary role). Learned position embeddings allow gradient descent to optimize position vectors specifically tailored to these empirical task roles without being constrained by symmetric trigonometric curves.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: The Context Length Hard Wall}}
+\textbf{Question}: Why is extending the context window of GPT-2 (1,024 tokens) or BERT (512 tokens) fundamentally difficult?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does discrete parameter lookup create an architectural barrier to sequence length generalization?}
+    \item \textbf{Deep Answer}: Because learned position embeddings assign an independent parameter vector to each discrete position, positions beyond $L_{\text{max}}$ literally have no weights in the checkpoint. To evaluate token 1,025 in GPT-2, one must either truncate the input, invent heuristic interpolation methods (like position interpolation), or initialize new random weights and conduct extensive continued pretraining.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Positional Embedding Gradient Sparsity During Training}}
+\textbf{Question}: How does sequence length distribution in training data affect the quality of learned position embeddings?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why do late position embeddings in learned tables suffer from higher variance and undertraining?}
+    \item \textbf{Deep Answer}: In typical pretraining corpora, shorter sentences are far more frequent than maximum-length sentences ($T = L_{\text{max}}$). Position $\mathbf{p}_0$ receives gradient updates from 100\% of all training examples. However, position $\mathbf{p}_{511}$ receives updates only from the small fraction of documents that reach full length. As a result, vectors at the end of the position table receive orders of magnitude fewer gradient updates, leading to higher estimation variance and potential undertraining.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Absolute vs Relative Bias in Modern Architectures}}
+\textbf{Question}: Why have recent models largely abandoned learned absolute position embeddings in favor of RoPE or ALiBi?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why is relative distance invariant under translation, while absolute position is not?}
+    \item \textbf{Deep Answer}: In natural language, the semantic relationship between a verb and its direct object depends on the distance between them (e.g., 2 words apart), not whether they appear at position 10 or position 2,000 in the book. Absolute position embeddings force the model to learn the same syntactic relationship over and over again at every absolute coordinate. Relative position frameworks (such as RoPE and ALiBi) encode translational invariance directly into the architecture, enabling superior length generalization and zero context-boundary walls.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoLearnedAbsolutePositionEmbeddings} is formalized in Algorithm~\ref{alg:learned_pos}.
+
+\begin{algorithm}[H]
+\caption{Learned Absolute Position Embedding Addition}
+\label{alg:learned_pos}
+\begin{algorithmic}[1]
+\Require Token embeddings $\mathbf{X} \in \mathbb{R}^{T \times d_{\text{model}}}$, position table $\mathbf{P} \in \mathbb{R}^{L_{\text{max}} \times d_{\text{model}}}$, offset $\Delta \in \mathbb{N}_{\ge 0}$
+\Ensure Position-augmented embeddings $\mathbf{Y} \in \mathbb{R}^{T \times d_{\text{model}}}$, sequence length $T$, dimension $d_{\text{model}}$
+\State $T \gets \text{rows}(\mathbf{X}), \quad d_{\text{model}} \gets \text{cols}(\mathbf{X}), \quad L_{\text{max}} \gets \text{rows}(\mathbf{P})$
+\State $\textbf{Assert } \text{cols}(\mathbf{P}) = d_{\text{model}}$ \Comment{Verify dimension match}
+\State $\textbf{Assert } T + \Delta \le L_{\text{max}}$ \Comment{Verify context boundary}
+\State $\mathbf{Y} \gets \text{zeros of shape } (T, d_{\text{model}})$
+\For{$t \gets 0 \textbf{ to } T - 1$}
+    \State $p\_idx \gets t + \Delta$
+    \For{$d \gets 0 \textbf{ to } d_{\text{model}} - 1$}
+        \State $Y_{t, d} \gets X_{t, d} + P_{p\_idx, d}$ \Comment{Additive superposition}
+    \EndFor
+\EndFor
+\State \Return $\{\text{output\_embeddings}: \mathbf{Y}, \text{seq\_len}: T, \text{d\_model}: d_{\text{model}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Element-wise tensor addition: $T \times d_{\text{model}}$ floating-point additions.
+        \item Total Time Complexity: $\Theta(T \cdot d_{\text{model}})$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Output matrix buffer $\mathbf{Y}$: $\Theta(T \cdot d_{\text{model}})$ floats.
+        \item Total Auxiliary Space: $\Theta(T \cdot d_{\text{model}})$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

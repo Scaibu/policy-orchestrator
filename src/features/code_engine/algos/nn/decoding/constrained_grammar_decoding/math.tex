@@ -1,13 +1,41 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Constrained Grammar-Guided Logit Masking}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Formal Language Automata of Constrained Grammar Decoding}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Constrained Grammar Decoding enforces structured generation (such as valid JSON, SQL, or compiler ASTs) by coupling language model decoding with deterministic finite automata (DFA) or context-free parsers. At each decoding step, the grammar state identifies the valid allowed token set $\mathcal{A} \subset \mathcal{V}$ and masks invalid logits to $-\infty$. This specification formalizes logit masking and language containment guarantees.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Given current parse state $q \in Q$ and vocabulary $\mathcal{V}$, the transition function defines allowed tokens:
 \begin{equation}
-z_i' = \begin{cases} z_i & \text{if } i \in \mathcal{A}(\text{State}) \\ -\infty & \text{otherwise} \end{cases}
+\mathcal{A}(q) = \{ v \in \mathcal{V} \mid \delta(q, v) \ne \emptyset \}
 \end{equation}
+Logit masking:
+\begin{equation}
+\tilde{z}_v = \begin{cases} z_v, & \text{if } v \in \mathcal{A}(q) \\ -\infty, & \text{if } v \notin \mathcal{A}(q) \end{cases}
+\end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{willard2023} B.~T.~Willard and R.~Louf, ``Efficient guided generation for large language models,'' \emph{arXiv:2307.09702}, 2023.
+\end{thebibliography}
+
 \end{document}

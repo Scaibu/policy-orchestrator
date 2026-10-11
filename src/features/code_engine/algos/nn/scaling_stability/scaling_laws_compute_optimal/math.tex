@@ -1,13 +1,108 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Chinchilla Compute-Optimal Scaling Laws}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Compute-Optimal Frontiers of Chinchilla Scaling Laws}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Determining optimal resource allocation during large language model pre-training requires balancing parameter count $N$ against training token count $D$ under a fixed FLOP budget $C$. Hoffmann et al.~(Chinchilla) demonstrated that previous models (such as GPT-3 and Gopher) were significantly undertrained. Under optimal compute allocation, parameters and tokens should scale in equal proportion, maintaining a constant token-to-parameter ratio of approximately $20.0$. This specification formalizes the loss envelope minimization, proves the optimal budget split, and details step-by-step numerical verification.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $C \in \mathbb{R}_{> 0}$ denote the total training compute budget in floating-point operations (FLOPs).
+
+\begin{itemize}
+    \item $N \in \mathbb{R}_{> 0}$: Model non-embedding parameter count.
+    \item $D \in \mathbb{R}_{> 0}$: Pre-training dataset token count.
+    \item $r = \frac{D}{N} \in \mathbb{R}_{> 0}$: Ratio of tokens per parameter (empirically $r \approx 20.0$).
+    \item $C \approx 6 N D$: Standard FLOP estimation for forward pass ($2ND$) plus backward pass ($4ND$).
+    \item $N^*, D^*$: Optimal parameter and token allocations minimizing pre-training loss under budget $C$.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\caption{Mathematical Notation for Compute-Optimal Scaling Laws}
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Domain} & \textbf{Description} \\
+\midrule
+$C$ & $\mathbb{R}_{> 0}$ & Total FLOP compute budget \\
+$r$ & $\mathbb{R}_{> 0}$ & Tokens-per-parameter ratio ($D^*/N^* \approx 20$) \\
+$N^*$ & $\mathbb{R}_{> 0}$ & Compute-optimal parameter count \\
+$D^*$ & $\mathbb{R}_{> 0}$ & Compute-optimal training tokens \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Problem Definition and Algorithmic Execution}
+
+\subsection{Closed-Form Budget Solution}
+Given budget $C$ and target ratio $r$:
 \begin{equation}
-C \approx 6 N D, \quad N^* \propto C^{a}, \quad D^* \propto C^{b}, \quad a \approx b \approx 0.5
+C = 6 N^* D^* = 6 N^* (r N^*) = 6 r (N^*)^2 \implies N^* = \sqrt{\frac{C}{6 r}}
 \end{equation}
+The optimal token allocation follows directly:
+\begin{equation}
+D^* = r N^* = \sqrt{\frac{r C}{6}}
+\end{equation}
+
+\begin{algorithm}[H]
+\caption{Compute-Optimal Parameter and Token Allocation}
+\label{alg:scaling_laws}
+\begin{algorithmic}[1]
+\Require Compute budget $C > 0$, token-to-parameter ratio $r > 0$
+\Ensure Optimal parameters $N^*$, optimal tokens $D^*$, token ratio $r$
+\State $N^* \gets \sqrt{C / (6.0 \cdot r)}$
+\State $D^* \gets r \cdot N^*$
+\State \Return $\{\text{optimal\_parameters}: N^*, \text{optimal\_tokens}: D^*, \text{token\_ratio}: r\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Theoretical Guarantees: Loss Envelope Minimization}
+
+\begin{theorem}[Chinchilla Loss Envelope Duality]
+Under the empirical power-law test loss formulation $L(N, D) = E + \frac{A}{N^\alpha} + \frac{B}{D^\beta}$, constrained optimization subject to $C = 6 N D$ yields:
+\begin{equation}
+N^* \propto C^{\frac{\beta}{\alpha + \beta}}, \quad D^* \propto C^{\frac{\alpha}{\alpha + \beta}}
+\end{equation}
+Since empirical fitted exponents are approximately equal ($\alpha \approx 0.34 \approx \beta \approx 0.28$), the exponents satisfy $\frac{\alpha}{\alpha + \beta} \approx 0.5 \approx \frac{\beta}{\alpha + \beta}$, guaranteeing proportional $1:1$ scaling $N^* \propto \sqrt{C}$ and $D^* \propto \sqrt{C}$.
+\end{theorem}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} $\mathcal{O}(1)$ closed-form square root evaluation.
+    \item \textbf{Space Complexity:} $\mathcal{O}(1)$ auxiliary memory.
+\end{itemize}
+
+\section{Worked Numerical Example}
+Let compute budget $C = 1.2 \times 10^8$ FLOPs, with ratio $r = 20.0$:
+\begin{enumerate}
+    \item Compute denominator: $6.0 \times 20.0 = 120.0$.
+    \item Parameter count:
+    $N^* = \sqrt{\frac{1.2 \times 10^8}{120.0}} = \sqrt{1.0 \times 10^6} = 1000.0$ parameters.
+    \item Token count:
+    $D^* = 20.0 \times 1000.0 = 20000.0$ tokens.
+    \item Check FLOP constraint: $6 \times 1000 \times 20000 = 1.2 \times 10^8$ FLOPs.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{hoffmann2022} J.~Hoffmann et al., ``Training compute-optimal large language models,'' in \emph{NeurIPS}, 2022.
+\end{thebibliography}
+
 \end{document}

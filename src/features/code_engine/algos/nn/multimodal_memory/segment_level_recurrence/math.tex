@@ -1,13 +1,38 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Segment-Level Recurrence (Transformer-XL)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Memory Caching of Segment-Level Recurrence}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Fixed-length context limits induce context fragmentation. Segment-level recurrence (Transformer-XL) caches previous segment hidden states as non-differentiable historical memory $\mathbf{M}$, concatenating them along the sequence axis to allow attention across multiple segment horizons without backpropagation through memory.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+Let current segment be $\mathbf{S}_\tau \in \mathbb{R}^{L \times d}$ and cached memory be $\mathbf{M}_{\tau-1} \in \mathbb{R}^{M \times d}$. Extended representation is:
 \begin{equation}
-\tilde{\mathbf{h}}_\tau^n = [\text{SG}(\mathbf{h}_{\tau-1}^n) \circ \mathbf{h}_\tau^n], \quad \mathbf{q}_\tau^n = \mathbf{h}_\tau^n \mathbf{W}_q, \quad \mathbf{k}_\tau^n = \tilde{\mathbf{h}}_\tau^n \mathbf{W}_k
+\tilde{\mathbf{H}}_\tau = [\operatorname{stop\_gradient}(\mathbf{M}_{\tau-1}); \mathbf{S}_\tau] \in \mathbb{R}^{(M + L) \times d}
 \end{equation}
+Queries attend across $\tilde{\mathbf{H}}_\tau$, enabling information reuse across segments.
+
+\begin{thebibliography}{9}
+\bibitem{dai2019} Z.~Dai et al., ``Transformer-XL: Attentive language models beyond a fixed-length context,'' in \emph{ACL}, 2019.
+\end{thebibliography}
+
 \end{document}

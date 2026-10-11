@@ -1,13 +1,112 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Expert-Choice MoE Routing}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Inverted Dual Assignment of Expert Choice Routing}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Traditional MoE routing allows tokens to choose their preferred experts, causing severe load imbalance and token dropping when popular experts exceed buffer limits. Expert Choice Routing inverts this routing topology: each expert independently selects its top-$C$ tokens from the affinity matrix. This specification formalizes the dual routing operator, proves deterministic zero load variance, establishes complexity bounds, and details numerical verification.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $T \in \mathbb{N}_{\ge 1}$ denote the total tokens, and let $E \in \mathbb{N}_{\ge 1}$ denote the number of experts.
+
+\begin{itemize}
+    \item $\mathbf{A} \in \mathbb{R}^{T \times E}$: Token-to-expert affinity score matrix.
+    \item $C \in \mathbb{N}_{\ge 1}$: Capacity allotment (number of tokens chosen per expert, $C \le T$).
+    \item $\mathcal{S}_e = \operatorname{argtopk}(\mathbf{A}_{:, e}, C) \subset \{0, \dots, T-1\}$: Set of tokens chosen by expert $e$.
+    \item $\mathbf{h} \in \mathbb{N}^T$: Token hit count, tracking how many experts selected token $t$.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\caption{Mathematical Notation for Expert Choice Routing}
+\begin{tabular}{lll}
+\toprule
+\textbf{Symbol} & \textbf{Domain} & \textbf{Description} \\
+\midrule
+$T, E$ & $\mathbb{N}_{\ge 1}$ & Token count and expert count \\
+$C$ & $\{1, \dots, T\}$ & Fixed capacity tokens selected per expert \\
+$\mathbf{A}$ & $\mathbb{R}^{T \times E}$ & Affinity scores matrix \\
+$\mathcal{S}_e$ & $\{0, \dots, T-1\}^C$ & Tokens assigned to expert $e$ \\
+$U$ & $\mathbb{N}_{\ge 0}$ & Number of unassigned tokens \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Problem Definition and Algorithmic Execution}
+
+\begin{algorithm}[H]
+\caption{Expert Choice Routing Forward Pass}
+\label{alg:expert_choice}
+\begin{algorithmic}[1]
+\Require Affinity matrix $\mathbf{A} \in \mathbb{R}^{T \times E}$, capacity per expert $C \le T$
+\Ensure Expert assignments $\boldsymbol{\mathcal{S}}$, unassigned count $U$
+\State $T \gets \text{rows}(\mathbf{A}), \quad E \gets \text{cols}(\mathbf{A})$
+\State Initialize hit counts $\mathbf{h} \gets \text{zeros of size } T$
+\State $\boldsymbol{\mathcal{S}} \gets \text{empty list of size } E$
+\For{$e \gets 0 \textbf{ to } E - 1$}
+    \State Extract column scores $\mathbf{s}_e = [(t, A[t][e]) \text{ for } t \in \{0, \dots, T-1\}]$
+    \State Sort $\mathbf{s}_e$ by descending score
+    \State $\text{chosen} \gets [t \text{ for } (t, \cdot) \in \mathbf{s}_e[:C]]$
+    \For{$t \in \text{chosen}$}
+        \State $h[t] \gets h[t] + 1$
+    \EndFor
+    \State $\mathcal{S}[e] \gets \text{chosen}$
+\EndFor
+\State $U \gets \sum_{t=0}^{T-1} \mathbb{I}(h[t] = 0)$
+\State \Return $\{\text{expert\_assignments}: \boldsymbol{\mathcal{S}}, \text{load\_variance}: 0.0, \text{unassigned\_tokens}: U\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Theoretical Guarantees: Guaranteed Zero Load Variance}
+
+\begin{theorem}[Perfect Load Balance Guarantee]
+Under Expert Choice Routing with fixed capacity $C$, every expert processes exactly $C$ tokens, guaranteeing zero inter-expert load variance:
 \begin{equation}
-\mathcal{T}_e = \text{Top-}k_{t \in [1..T]}(S_{t, e}), \quad \forall e \in \{1, \dots, E\}
+\operatorname{Var}(\text{tokens per expert}) = \frac{1}{E} \sum_{e=1}^E (C - C)^2 = 0.0
 \end{equation}
+completely eliminating buffer overflow and token dropping.
+\end{theorem}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} For each of the $E$ experts, sorting $T$ token affinities requires $\mathcal{O}(T \log T)$. Total time is $\Theta(E \cdot T \log T)$.
+    \item \textbf{Space Complexity:} $\Theta(E \cdot C)$ storage for expert assignments.
+\end{itemize}
+
+\section{Worked Numerical Example}
+Let $T = 3, E = 2, C = 1$:
+Affinity matrix $\mathbf{A} = \begin{bmatrix} 2.0 & 0.1 \\ 0.5 & 1.5 \\ 1.0 & 0.2 \end{bmatrix}$.
+\begin{enumerate}
+    \item Expert 0 inspects column 0: scores are $[2.0, 0.5, 1.0]$.
+    Descending: token $0$ ($2.0$), token $2$ ($1.0$), token $1$ ($0.5$).
+    Top-$1$ selected: $\mathcal{S}_0 = [0]$.
+    \item Expert 1 inspects column 1: scores are $[0.1, 1.5, 0.2]$.
+    Descending: token $1$ ($1.5$), token $2$ ($0.2$), token $0$ ($0.1$).
+    Top-$1$ selected: $\mathcal{S}_1 = [1]$.
+    \item Hit counts: token $0$: 1, token $1$: 1, token $2$: 0.
+    Unassigned tokens: $U = 1$ (token 2 was not selected by any expert).
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\bibitem{zhou2022} Y.~Zhou et al., ``Mixture-of-experts with expert choice routing,'' in \emph{NeurIPS}, 2022.
+\end{thebibliography}
+
 \end{document}

@@ -1,14 +1,337 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Span Corruption Denoising Objective (T5)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Span Corruption}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
-Replaces spans of length $L$ with sentinel tokens $S_k$:
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Span Corruption Operator):}
+Let $\mathcal{V} = \{0, 1, \dots, V-1\}$ denote a vocabulary of size $V \in \mathbb{N}_{\ge 1}$, and let $\mathbf{x} = (x_0, x_1, \dots, x_{T-1}) \in \mathcal{V}^T$ be a clean sequence of length $T \in \mathbb{N}_{\ge 1}$. Let $\mathcal{S} = \{(s_0, e_0), (s_1, e_1), \dots, (s_{K-1}, e_{K-1})\}$ be a strictly ordered set of $K \in \mathbb{N}_{\ge 0}$ non-overlapping intervals satisfying $0 \le s_0 < e_0 \le s_1 < e_1 \le \dots < e_{K-1} \le T$. Let $S_0 \in \mathbb{N}_{\ge V}$ denote the base integer identifier for a family of distinct sentinel tokens $\{\sigma_k = S_0 + k\}_{k=0}^{K-1}$.
+The \textbf{Span Corruption} operator:
+{\boldmath
 \begin{equation}
-\mathbf{x}_{\text{corrupt}} = [x_1, \dots, S_1, x_i, \dots], \quad \mathbf{y}_{\text{target}} = [S_1, x_{\text{span}_1}, S_2, x_{\text{span}_2}, \dots]
+\operatorname{SpanCorrupt}: \mathcal{V}^T \times \mathcal{P}(\mathbb{N} \times \mathbb{N}) \times \mathbb{N}_{\ge V} \longrightarrow \mathbb{Z}^{T_{\text{enc}}} \times \mathbb{Z}^{T_{\text{dec}}} \times \mathbb{N}
 \end{equation}
+}
+maps inputs to the triple $\{\tilde{\mathbf{x}}, \mathbf{y}_{\text{target}}, K\}$, where the corrupted encoder input $\tilde{\mathbf{x}}$ replaces each span $[s_k, e_k)$ by a single sentinel $\sigma_k$:
+{\boldmath
+\begin{equation}
+\tilde{\mathbf{x}} = \mathbf{x}[0:s_0] \circ (\sigma_0) \circ \mathbf{x}[e_0:s_1] \circ (\sigma_1) \circ \dots \circ (\sigma_{K-1}) \circ \mathbf{x}[e_{K-1}:T]
+\end{equation}
+}
+and the autoregressive decoder target $\mathbf{y}_{\text{target}}$ is the concatenation of sentinels followed by their corresponding extracted span tokens:
+{\boldmath
+\begin{equation}
+\mathbf{y}_{\text{target}} = \bigoplus_{k=0}^{K-1} \left( (\sigma_k) \circ \mathbf{x}[s_k:e_k] \right)
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+While single-token masking (like BERT) erases words one by one, natural human communication consists of multi-word ideas, idioms, and phrases (such as \emph{``in the nick of time''} or \emph{``renewable energy sources''}). If an AI only learns to fill in single isolated words, it struggles to generate fluid multi-word sentences.
+
+Span Corruption (the core pretraining technique of models like T5) scales this to multi-word chunks:
+\begin{enumerate}
+    \item \textbf{Chunk Removal}: Instead of erasing single words, the algorithm cuts out entire contiguous spans of words (for example, 3 to 5 words at a time).
+    \item \textbf{Unique Placeholder Badges}: Each missing chunk is replaced by a unique sentinel badge: \texttt{<extra\_id\_0>}, \texttt{<extra\_id\_1>}, and so forth.
+    \item \textbf{Target Answer Sheet Creation}: The target for the decoder is not the entire original document, but an efficient summary answer sheet:
+    \begin{itemize}
+        \item Badge 0: [the missing words that were in chunk 0]
+        \item Badge 1: [the missing words that were in chunk 1]
+    \end{itemize}
+    \item \textbf{Compact Encoder-Decoder Training}: The encoder reads the shortened corrupted document, and the decoder learns to generate only the missing pieces in order. This trains the model to plan multi-token completions, making it an extraordinary foundation for translation, summarization, and question answering.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Secret Code Treasure Map with Numbered Keys}:
+Imagine you have an adventure map describing how to find hidden treasure, but a playful pirate has cut holes in the paper!
+
+\begin{itemize}
+    \item \textbf{The Pirate's Scissors (Span Selection $\mathcal{S}$)}:
+    The pirate takes his scissors and snips out whole sentences and phrases: snip, snip, snip!
+    
+    \item \textbf{The Numbered Keyholes (Sentinels $\sigma_k$)}:
+    Over each hole, the pirate places a shiny golden keyhole sticker: Keyhole 0, Keyhole 1, Keyhole 2.
+    The story now looks like:
+    \emph{``The captain sailed his ship through [Keyhole 0] and found the [Keyhole 1] on the skull island.''}
+    
+    \item \textbf{The Decoder's Secret Answer Sheet (Target Sequence $\mathbf{y}_{\text{target}}$)}:
+    The pirate challenges you to write the missing pieces on an index card:
+    \begin{itemize}
+        \item First, write [Keyhole 0], then write what went inside: \emph{``the stormy dark ocean''}!
+        \item Next, write [Keyhole 1], then write what went inside: \emph{``ancient chest of gold coins''}!
+    \end{itemize}
+    
+    \item \textbf{The Victory}:
+    By reading the map with the keyholes and writing the missing pieces in order, your brain learns how whole sentences fit together, not just single words!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Non-Overlapping Span Interval Validity}}
+{\boldmath
+\begin{equation}
+0 \le s_0 < e_0 \le s_1 < e_1 \le \dots \le s_{K-1} < e_{K-1} \le T
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The strict ordering constraint on the set of half-open intervals $[s_k, e_k) \subset [0, T)$ guaranteeing pairwise disjointness: $[s_j, e_j) \cap [s_k, e_k) = \emptyset$ for all $j \ne k$.
+    \item \textbf{What It Means}:
+    No two corruption spans can overlap or be out of chronological order; each span occupies a distinct, strictly positive slice of the original text.
+    \item \textbf{Why It Is Important}:
+    Pairwise disjointness ensures that the sequence decomposition is unambiguous and well-defined, preventing duplicate sentinels or conflicting ground truth targets.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Encoder Input Token Assembly}}
+{\boldmath
+\begin{equation}
+\tilde{\mathbf{x}} = \mathbf{x}[0:s_0] \circ (\sigma_0) \circ \mathbf{x}[e_0:s_1] \circ (\sigma_1) \circ \dots \circ (\sigma_{K-1}) \circ \mathbf{x}[e_{K-1}:T]
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The piecewise concatenation of uncorrupted text intervals and singular sentinel tokens $\sigma_k = S_0 + k$.
+    \item \textbf{What It Means}:
+    The encoder receives the clean text punctuated by numbered placeholder markers where missing information was removed.
+    \item \textbf{Why It Is Important}:
+    Replacing multi-token spans with single sentinels shortens the sequence length, dramatically speeding up quadratic self-attention in the encoder ($\mathcal{O}(T_{\text{enc}}^2)$).
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Decoder Interleaved Target Sequence}}
+{\boldmath
+\begin{equation}
+\mathbf{y}_{\text{target}} = \bigoplus_{k=0}^{K-1} \left( (\sigma_k) \circ (x_{s_k}, x_{s_k + 1}, \dots, x_{e_k - 1}) \right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The direct sum concatenation of sentinel tags and their corresponding extracted span substrings.
+    \item \textbf{What It Means}:
+    The decoder generates an interleaved target: it outputs a sentinel token to declare which hole it is answering, followed by the exact missing words that belong in that hole.
+    \item \textbf{Why It Is Important}:
+    Interleaving sentinels into the decoder target allows the model to predict variable-length missing text without hallucinating where one missing span ends and the next begins.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Sequence Length Contraction Factor}}
+{\boldmath
+\begin{equation}
+T_{\text{enc}} = T - \sum_{k=0}^{K-1} (e_k - s_k - 1), \qquad T_{\text{dec}} = K + \sum_{k=0}^{K-1} (e_k - s_k)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The exact discrete length equations governing the dimensional footprint of the encoder input and decoder target sequences.
+    \item \textbf{What It Means}:
+    Whenever a span has length $e_k - s_k > 1$, replacing it with a single sentinel token strictly compresses the sequence length ($T_{\text{enc}} < T$).
+    \item \textbf{Why It Is Important}:
+    This length compression reduces the memory and compute required during pretraining, allowing models to process significantly longer documents for the same compute budget.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Span-Level Denoising Loss}}
+{\boldmath
+\begin{equation}
+\mathcal{L}_{\text{span}} = -\frac{1}{T_{\text{dec}}} \sum_{j=1}^{T_{\text{dec}}} \log P(y_{\text{target}, j} \mid \mathbf{y}_{\text{target}, <j}, \tilde{\mathbf{x}})
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The autoregressive cross-entropy loss evaluated exclusively on the compact decoder target sequence conditioned on bidirectional encoder representation $\tilde{\mathbf{x}}$.
+    \item \textbf{What It Means}:
+    The model is penalized only on its ability to output the sentinel markers and reconstruct the missing multi-word text.
+    \item \textbf{Why It Is Important}:
+    The model does not waste compute predicting uncorrupted tokens; 100\% of the decoder's loss capacity is dedicated to generating missing content.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $T \in \mathbb{N}_{\ge 1}$: Clean sequence length.
+    \item $\mathbf{x} \in \mathcal{V}^T$: Clean token sequence.
+    \item $K \in \mathbb{N}_{\ge 0}$: Number of corruption spans.
+    \item $(s_k, e_k)$: Half-open interval defining the start and end of span $k$.
+    \item $S_0 \in \mathbb{N}_{\ge V}$: Base identifier for unique sentinel tokens.
+    \item $\sigma_k = S_0 + k$: Sentinel token for span $k$.
+    \item $\tilde{\mathbf{x}} \in \mathbb{Z}^{T_{\text{enc}}}$: Corrupted encoder input sequence.
+    \item $\mathbf{y}_{\text{target}} \in \mathbb{Z}^{T_{\text{dec}}}$: Interleaved target sequence for decoder.
+    \item $\circ$: Sequence concatenation operator.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$T, S_0$ & \textbf{Defined} (Sequence / sentinel configuration) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$\mathbf{x}$ & \textbf{Observed} (Input document tokens) & Integer array in $\mathcal{V}^T$ \\
+$\mathcal{S}, K$ & \textbf{Sampled / Defined} (Corruption plan) & Disjoint index pairs \\
+$\tilde{\mathbf{x}}, \mathbf{y}_{\text{target}}$ & \textbf{Calculated} (Transformed token sequences) & Integer vectors in $\mathbb{Z}^*$ \\
+$T_{\text{enc}}, T_{\text{dec}}$ & \textbf{Calculated} (Sequence lengths) & Natural numbers $\mathbb{N}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{x}, \mathcal{S}, S_0) \xrightarrow{\text{Slice \& Replace}} \tilde{\mathbf{x}} \quad \text{and} \quad (\mathbf{x}, \mathcal{S}, S_0) \xrightarrow{\text{Interleave Sentinels}} \mathbf{y}_{\text{target}}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\tilde{\mathbf{x}} &\in \mathbb{Z}^{T_{\text{enc}}}, \qquad T_{\text{enc}} \le T \\
+\mathbf{y}_{\text{target}} &\in \mathbb{Z}^{T_{\text{dec}}}, \qquad T_{\text{dec}} = K + \sum_k (e_k - s_k)
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Zero Spans ($K = 0$)}: If no spans are selected, $\tilde{\mathbf{x}} = \mathbf{x}$ and $\mathbf{y}_{\text{target}} = [\,]$.
+    \item \textbf{Single-Token Spans ($e_k = s_k + 1$)}: If all spans are single tokens, $T_{\text{enc}} = T$, behaving like sentinel-based masked language modeling.
+    \item \textbf{Full Corruption ($s_0 = 0, e_0 = T$)}: The encoder input collapses to a single token $[\sigma_0]$, and the decoder must generate the entire original sequence from scratch.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Overlapping Spans}: If $s_{k+1} < e_k$, intervals intersect, violating contract preconditions.
+    \item \textbf{Out-of-Bounds Indices}: Preconditions enforce $0 \le s_k < e_k \le T$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Token Conservation}: Every token in the original sequence $\mathbf{x}$ appears either in $\tilde{\mathbf{x}}$ or in $\mathbf{y}_{\text{target}}$, and never in both unless repeated in clean text.
+\end{itemize}
+
+\subsection{[ ] Transfer: Isomorphism to Sequence-to-Sequence Denoising}
+Span corruption is a discrete projection of the generalized sequence-to-sequence autoencoding framework, mapping arbitrary length token subsets into target-directed generative decoders.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Bijective Information Conservation}]
+Let clean sequence $\mathbf{x} \in \mathcal{V}^T$ be corrupted into encoder input $\tilde{\mathbf{x}}$ and decoder target $\mathbf{y}_{\text{target}}$ using non-overlapping spans $\mathcal{S}$. The mapping $(\mathbf{x}, \mathcal{S}) \mapsto (\tilde{\mathbf{x}}, \mathbf{y}_{\text{target}})$ is strictly invertible: $\mathbf{x}$ can be reconstructed losslessly from $\tilde{\mathbf{x}}$ and $\mathbf{y}_{\text{target}}$ with zero information loss.
+\end{theorem}
+
+\begin{proof}
+By construction, $\tilde{\mathbf{x}}$ contains all tokens $x_i$ for $i \notin \bigcup_k [s_k, e_k)$ in their exact original relative order, with sentinel $\sigma_k$ marking the exact location where span $k$ was removed.
+$\mathbf{y}_{\text{target}}$ contains each sentinel $\sigma_k$ immediately followed by the exact sequence of tokens $(x_{s_k}, \dots, x_{e_k - 1})$ that was removed.
+Replacing each $\sigma_k$ in $\tilde{\mathbf{x}}$ with the corresponding token sequence extracted after $\sigma_k$ in $\mathbf{y}_{\text{target}}$ yields the exact sequence $\mathbf{x}$ of length $T$. Hence, the corruption transformation is an information-preserving bijection.
+\end{proof}
+
+\begin{theorem}[\textbf{Encoder Sequence Compression Bound}]
+Whenever the average span length satisfies $\bar{L}_{\text{span}} = \frac{1}{K}\sum_{k=0}^{K-1}(e_k - s_k) > 1$, the encoder sequence length is strictly contracted: $T_{\text{enc}} < T$.
+\end{theorem}
+
+\begin{proof}
+From Equation 4, $T_{\text{enc}} = T - \sum_{k=0}^{K-1} (e_k - s_k - 1)$.
+Rewriting the sum: $\sum_{k=0}^{K-1} (e_k - s_k - 1) = K \bar{L}_{\text{span}} - K = K(\bar{L}_{\text{span}} - 1)$.
+If $\bar{L}_{\text{span}} > 1$ and $K \ge 1$, then $K(\bar{L}_{\text{span}} - 1) > 0$.
+Therefore, $T_{\text{enc}} = T - K(\bar{L}_{\text{span}} - 1) < T$.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Span Corruption vs Single-Token Masking}}
+\textbf{Question}: Why does span corruption outperform single-token masking when training encoder-decoder models like T5?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does multi-token contiguous masking force the model to learn long-range semantic coherence rather than local syntactic co-occurrence?}
+    \item \textbf{Deep Answer}: When a single token is masked (e.g. \emph{``New [MASK] City''}), the answer \emph{``York''} is trivial to predict from immediate n-gram collocations without reading the rest of the document. When an entire span is masked (e.g. \emph{``The president traveled to [MASK] to sign the landmark treaty''}), the model cannot rely on local n-gram memorization; it must integrate high-level factual and semantic clues from the entire context to reconstruct the multi-word entity, forcing deep document-level reasoning.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Why Sentinels are Included in the Decoder Target}}
+\textbf{Question}: Why does the decoder target repeat the sentinel token before each missing chunk instead of just predicting the missing words?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How do structural delimiter tokens in target sequences prevent span boundary ambiguity during autoregressive generation?}
+    \item \textbf{Deep Answer}: If the target were simply the concatenation of all missing chunks without sentinels, the decoder would have no mechanism to indicate when chunk 0 ended and chunk 1 began. Repeating $\sigma_k$ in the target explicitly delimits chunk boundaries, providing a clear structural anchor that aligns the autoregressive decoder directly to the corresponding position in the encoder.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Choosing Average Span Length}}
+\textbf{Question}: Why is the mean span length typically chosen to be 3 tokens with a corruption rate of 15\% in T5?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What governs the statistical distribution of phrase lengths in natural language pretraining?}
+    \item \textbf{Deep Answer}: In linguistic corpora, most syntactic entities (noun phrases, prepositional phrases, and verbal groups) span 2 to 4 tokens. A mean length of 3 tokens (modeled via a Poisson or geometric distribution) closely matches the natural granularity of human phrases. Masking 15\% of total tokens with length 3 creates approximately 5 distinct spans per 100 tokens, providing rich reconstruction targets without destroying the surrounding context.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Efficiency of Short Target Sequences}}
+\textbf{Question}: Why is training faster with span corruption than with standard sequence denoising (like BART, which predicts the entire sequence)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why does restricting decoder generation to corrupted content eliminate redundant computation?}
+    \item \textbf{Deep Answer}: In full-sequence denoising, the decoder must generate all $T$ tokens, including the 85\% of tokens that were completely uncorrupted, wasting massive GPU compute copying clean text. In T5 span corruption, the decoder only generates the corrupted tokens and sentinels ($T_{\text{dec}} \approx 0.15 T + K$). This shortens the decoder sequence length by over 80\%, accelerating pretraining speed dramatically.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoSpanCorruption} is formalized in Algorithm~\ref{alg:span_corruption}.
+
+\begin{algorithm}[H]
+\caption{Span Corruption Pipeline}
+\label{alg:span_corruption}
+\begin{algorithmic}[1]
+\Require Token sequence $\mathbf{x} \in \mathbb{Z}^T$, span tuples $\mathcal{S} = \{(s_k, e_k)\}_{k=0}^{K-1}$, sentinel base $S_0 \in \mathbb{Z}$
+\Ensure Corrupted sequence $\tilde{\mathbf{x}}$, target sequence $\mathbf{y}_{\text{target}}$, span count $K$
+\State $K \gets \text{len}(\mathcal{S})$
+\If{$K = 0$}
+    \State \Return $\{\text{corrupted\_inputs}: \mathbf{x}, \text{target\_sequence}: [\,], \text{num\_spans\_corrupted}: 0\}$
+\EndIf
+\State Sort spans $\mathcal{S}$ by $s_k$ ascending
+\State $\tilde{\mathbf{x}} \gets \text{empty list}, \quad \mathbf{y}_{\text{target}} \gets \text{empty list}, \quad \text{last\_end} \gets 0$
+\For{$k \gets 0 \textbf{ to } K-1$}
+    \State $(s, e) \gets \mathcal{S}[k]$
+    \State $\textbf{Assert } \text{last\_end} \le s < e \le T$ \Comment{Verify ordering and valid bounds}
+    \State Append tokens $\mathbf{x}[\text{last\_end}:s]$ to $\tilde{\mathbf{x}}$
+    \State $\text{sentinel} \gets S_0 + k$
+    \State Append $\text{sentinel}$ to $\tilde{\mathbf{x}}$
+    \State Append $\text{sentinel}$ to $\mathbf{y}_{\text{target}}$
+    \State Append tokens $\mathbf{x}[s:e]$ to $\mathbf{y}_{\text{target}}$
+    \State $\text{last\_end} \gets e$
+\EndFor
+\State Append remaining tokens $\mathbf{x}[\text{last\_end}:T]$ to $\tilde{\mathbf{x}}$
+\State \Return $\{\text{corrupted\_inputs}: \tilde{\mathbf{x}}, \text{target\_sequence}: \mathbf{y}_{\text{target}}, \text{num\_spans\_corrupted}: K\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Sorting $K$ spans: $\mathcal{O}(K \log K)$ operations.
+        \item Linear sequence scanning and slicing: $\Theta(T)$ operations.
+        \item Total Time Complexity: $\Theta(T + K \log K)$, effectively $\Theta(T)$ since $K \ll T$.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Corrupted input buffer $\tilde{\mathbf{x}}$: $\Theta(T_{\text{enc}}) \le \Theta(T)$ integers.
+        \item Target sequence buffer $\mathbf{y}_{\text{target}}$: $\Theta(T_{\text{dec}}) \le \Theta(T)$ integers.
+        \item Total Auxiliary Space: $\Theta(T)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

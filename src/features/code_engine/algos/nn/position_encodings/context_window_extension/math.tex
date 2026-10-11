@@ -1,13 +1,343 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Context Window Extension Formulations}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Context Window Extension}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Context Window Extension Operator):}
+Let $L_{\text{orig}} \in \mathbb{N}_{\ge 1}$ denote the original pretrained maximum sequence length, $s \in \mathbb{R}_{\ge 1}$ denote the context window expansion ratio, $d \in 2\mathbb{N}_{\ge 1}$ denote the vector dimension, and $B \in \mathbb{R}_{> 1}$ denote the base frequency. Let $\mathcal{M} = \{\text{``linear\_interpolation''}, \text{``ntk\_aware''}, \text{``yarn''}\}$ denote the set of scaling methodologies.
+The \textbf{Context Window Extension} operator:
+{\boldmath
 \begin{equation}
-b_{\text{NTK}} = b \cdot s^{d / (d-2)}, \quad \theta_i^{\text{interp}} = \frac{\theta_i}{s}
+\operatorname{ExtendContext}: \mathbb{R}_{\ge 1} \times \mathcal{M} \times \mathbb{N}_{\ge 1} \times 2\mathbb{N}_{\ge 1} \times \mathbb{R}_{> 1} \longrightarrow \mathbb{N}_{\ge 1} \times \mathbb{R}^{d/2} \times \mathbb{R}
 \end{equation}
+}
+maps configuration inputs to the triple $\{L_{\text{ext}}, \boldsymbol{\omega}', s\}$, where the extended sequence capacity is:
+{\boldmath
+\begin{equation}
+L_{\text{ext}} = \lfloor s \cdot L_{\text{orig}} \rfloor \ge L_{\text{orig}}
+\end{equation}
+}
+and the scaled angular frequency vector $\boldsymbol{\omega}' = (\omega_0', \dots, \omega_{d/2-1}')$ modifies RoPE rotation speeds to prevent phase divergence beyond the original pretraining horizon.
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Large language models are initially trained on fixed-length documents (such as 4,096 tokens). If an application attempts to feed a 16,384-token book chapter into such a model, the RoPE positional clock hands spin into unfamiliar rotational territory ($m > 4,096$), causing perplexity to explode and turning coherent text into nonsensical gibberish.
+
+Context Window Extension algorithms enable models to process long documents without needing expensive pretraining from scratch:
+\begin{enumerate}
+    \item \textbf{Position Interpolation (Linear Scaling)}: The simplest method uniformly slows down all RoPE clocks by scale factor $s$: token 8,000 is mapped to position $8,000 / s = 2,000$. While this prevents out-of-distribution angles, uniformly slowing down the highest frequencies compresses nearby words too tightly together, degrading fine-grained local syntax.
+    \item \textbf{NTK-Aware Scaling}: Instead of slowing down all frequencies equally, Neural Tangent Kernel (NTK) scaling alters the base $B_{\text{new}} = B \cdot s^{d / (d-2)}$. This keeps the fast, high-frequency clocks running near normal speed while selectively stretching the slow, low-frequency clocks.
+    \item \textbf{YaRN (Yet another RoPE extensioN)}: The gold-standard state-of-the-art technique. YaRN splits the frequency spectrum into three distinct physical wavelength regimes:
+    \begin{itemize}
+        \item \emph{Short Wavelengths}: Clocks that complete multiple oscillations within the context window are left completely untouched ($0\%$ stretch) to preserve 100\% of local grammatical precision.
+        \item \emph{Long Wavelengths}: Clocks that barely complete a single swing are fully scaled by $1/s$ to fit the extended document.
+        \item \emph{Medium Wavelengths}: A smooth linear ramp blends between unscaled and scaled regimes.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Film Projector with the Smart Gearbox}:
+Imagine you have a magic cartoon projector designed to play reels that have 4,000 pictures.
+
+\begin{itemize}
+    \item \textbf{The Giant Movie Reel ($s = 4$)}:
+    Someone brings you a giant new movie reel containing 16,000 pictures! If you shove the giant reel into the projector, the film rolls too fast and snaps.
+    
+    \item \textbf{The Old Slowdown Trick (Linear Interpolation)}:
+    You slow down the entire motor to 1/4 speed. All 16,000 pictures now fit onto the screen! But because you slowed down everything:
+    \begin{itemize}
+        \item The music sounds weird and deep!
+        \item Quick actions (like a humming bird flapping its wings) blur into a smear because the fast frames were slowed down too much.
+    \end{itemize}
+    
+    \item \textbf{The Smart Gearbox (YaRN)}:
+    You install a magical gearbox with multiple gears:
+    \begin{itemize}
+        \item \textbf{The Fast Gear}: For tiny rapid motions (hummingbird wings, blinking eyes), the gear runs at 100\% normal speed so quick details stay razor sharp!
+        \item \textbf{The Slow Gear}: For slow background changes (the sun slowly setting in the sky), the gear runs at 1/4 speed so the big story fits on the reel!
+        \item \textbf{The Blending Gear}: A smooth middle gear connects them so the picture never jerks.
+    \end{itemize}
+    You now watch the entire 16,000-picture movie with crystal-clear action and zero blur!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Linear Position Interpolation (PI)}}
+{\boldmath
+\begin{equation}
+\omega_i^{(\text{PI})} = \frac{1}{s \cdot B^{2i / d}} = \frac{\omega_i}{s}, \qquad i \in \left\{0, 1, \dots, \frac{d}{2} - 1\right\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The uniform homothety that contracts all angular frequencies $\omega_i \in \mathbb{R}_{> 0}$ by scalar factor $1/s$.
+    \item \textbf{What It Means}:
+    All rotation speeds are slowed down by factor $s$, mapping expanded position $p \in [0, s L_{\text{orig}}]$ to interpolated phase angle $p / s \in [0, L_{\text{orig}}]$.
+    \item \textbf{Why It Is Important}:
+    Position interpolation converts an out-of-distribution extrapolation problem into an in-distribution interpolation problem, requiring minimal fine-tuning to adapt.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: NTK-Aware Base Frequency Rescaling}}
+{\boldmath
+\begin{equation}
+B_{\text{new}} = B \cdot s^{\frac{d}{d - 2}}, \qquad \omega_i^{(\text{NTK})} = B_{\text{new}}^{-2i / d} = \frac{1}{\left( B \cdot s^{\frac{d}{d-2}} \right)^{2i / d}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The non-linear frequency warping that rescales the geometric base $B$ while preserving the highest frequency $\omega_0 = 1.0$.
+    \item \textbf{What It Means}:
+    For channel $i=0$, $\omega_0^{(\text{NTK})} = 1.0$ (zero slowdown). As index $i$ increases toward $d/2 - 1$, the slowdown factor approaches $1/s$.
+    \item \textbf{Why It Is Important}:
+    NTK scaling preserves high-frequency local positional resolution without fine-tuning, dramatically reducing perplexity on short-distance reasoning.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Harmonic Wavelength Determination}}
+{\boldmath
+\begin{equation}
+\lambda_i = \frac{2\pi}{\omega_i} = 2\pi B^{2i / d}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The spatial period in token steps required for the $i$-th 2D RoPE subspace to complete a full $2\pi$ radian rotation.
+    \item \textbf{What It Means}:
+    Channels with small $\lambda_i$ oscillate multiple times within a document; channels with large $\lambda_i$ complete less than one rotation across the entire sequence.
+    \item \textbf{Why It Is Important}:
+    Wavelength $\lambda_i$ serves as the exact physical metric separating channels that need interpolation from channels that must be left untouched.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: YaRN Tri-Band Wavelength Blending}}
+{\boldmath
+\begin{equation}
+\omega_i^{(\text{YaRN})} = \begin{cases} \omega_i, & \text{\textbf{if }} \lambda_i < \frac{L_{\text{orig}}}{4} \\ \frac{\omega_i}{s}, & \text{\textbf{if }} \lambda_i > L_{\text{orig}} \\ (1 - \alpha_i) \frac{\omega_i}{s} + \alpha_i \omega_i, & \text{\textbf{otherwise}} \end{cases}, \qquad \alpha_i = \frac{L_{\text{orig}} - \lambda_i}{\frac{3}{4} L_{\text{orig}}}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The piecewise linear ramp operator interpolating between the unscaled high-frequency regime and the fully scaled low-frequency regime.
+    \item \textbf{What It Means}:
+    High-frequency channels ($\lambda_i < L_{\text{orig}}/4$) undergo zero scaling ($\alpha_i = 1.0$), low-frequency channels ($\lambda_i > L_{\text{orig}}$) undergo full $1/s$ scaling ($\alpha_i = 0.0$), and intermediate channels blend continuously.
+    \item \textbf{Why It Is Important}:
+    YaRN provides the optimal trade-off in language modeling: zero loss in local syntactic precision combined with full length extrapolation up to 32x context lengths.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $L_{\text{orig}} \in \mathbb{N}_{\ge 1}$: Original pretrained sequence length.
+    \item $s \in \mathbb{R}_{\ge 1}$: Context extension scale factor.
+    \item $L_{\text{ext}} = \lfloor s \cdot L_{\text{orig}} \rfloor$: Extended sequence capacity.
+    \item $d \in 2\mathbb{N}_{\ge 1}$: Vector feature dimension.
+    \item $B \in \mathbb{R}_{> 1}$: Frequency base (default $10000.0$).
+    \item $\omega_i = B^{-2i/d}$: Unscaled RoPE frequency.
+    \item $\omega_i'$: Scaled RoPE frequency under chosen extension method.
+    \item $\lambda_i = 2\pi / \omega_i$: Physical wavelength in token steps.
+    \item $\alpha_i \in [0, 1]$: YaRN continuous blending weight.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$L_{\text{orig}}, d, B, s$ & \textbf{Defined} (Hyperparameters) & Natural / real numbers \\
+$\text{method}$ & \textbf{Defined} (Algorithmic strategy) & Categorical enum \\
+$\omega_i, \lambda_i$ & \textbf{Calculated} (Base physical constants) & Real frequencies & wavelengths \\
+$B_{\text{new}}, \alpha_i$ & \textbf{Calculated} (Intermediate scaling values) & Reals \\
+$L_{\text{ext}}, \boldsymbol{\omega}'$ & \textbf{Calculated} (Operator outputs) & Natural number & real frequency array \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(s, \text{method}, L_{\text{orig}}, d, B) \xrightarrow{\text{Method Branch}} \begin{cases} \text{PI}: & \omega_i / s \\ \text{NTK}: & B_{\text{new}}^{-2i/d} \\ \text{YaRN}: & \text{Piecewise Blend}(\lambda_i) \end{cases} \xrightarrow{} \boldsymbol{\omega}'
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+s &\in \mathbb{R}_{\ge 1} \quad \text{\textbf{(Dimensionless scaling ratio)}} \\
+L_{\text{orig}}, L_{\text{ext}} &\in \mathbb{N} \quad \text{\textbf{(Sequence length in tokens)}} \\
+\omega_i, \omega_i' &\in \mathbb{R}_{> 0} \quad \text{\textbf{(Radians per token step)}} \\
+\lambda_i &\in \mathbb{R}_{> 0} \quad \text{\textbf{(Tokens per complete oscillation)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Identity Limit ($s = 1.0$)}: All methods degenerate strictly to original RoPE: $\omega_i' = \omega_i$ and $L_{\text{ext}} = L_{\text{orig}}$.
+    \item \textbf{Infinite Scaling Limit ($s \to \infty$)}: In linear PI, all frequencies collapse to zero ($\omega_i' \to 0$), destroying position differentiation. In YaRN, high-frequency channels remain invariant, preserving local order regardless of $s$.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Invalid Scale Factor}: Preconditions enforce $s \ge 1.0$.
+    \item \textbf{Non-Positive Length}: Preconditions enforce $L_{\text{orig}} \ge 1$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Monotonic Frequency Ordering}: For all methods, scaled frequencies maintain strictly decreasing order: $\omega_0' > \omega_1' > \dots > \omega_{d/2-1}' > 0$.
+\end{itemize}
+
+\subsection{[ ] Transfer: Subband Wavelet Coding}
+YaRN's frequency-dependent scaling is mathematically isomorphic to subband multirate filter banks in wavelet signal processing, applying distinct sampling rates across disparate spectral subbands.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Preservation of High-Frequency Grammatical Resolution under YaRN}]
+For any expansion scale factor $s > 1.0$, all frequency channels satisfying $\lambda_i < L_{\text{orig}} / 4$ retain exactly $100\%$ of their original angular velocity under YaRN:
+{\boldmath
+\begin{equation}
+\omega_i^{(\text{YaRN})} \equiv \omega_i \quad \text{for all } i \text{ where } \lambda_i < \frac{L_{\text{orig}}}{4}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+By Equation 4, when $\lambda_i < L_{\text{orig}}/4$, the algorithm explicitly assigns $\omega_i^{(\text{YaRN})} = \omega_i$.
+In this frequency band, the phase difference between adjacent tokens $(p+1) - p = 1$ is $\Delta \theta_i = \omega_i$.
+Because $\omega_i$ is completely unmodified by $s$, the dot product $\mathbf{q}^\top \mathbf{R}_1 \mathbf{k}$ between adjacent tokens is mathematically identical to that of the original pretrained model, guaranteeing zero loss of short-range grammatical acuity.
+\end{proof}
+
+\begin{theorem}[\textbf{Phase Horizon Containment under Linear Position Interpolation}]
+Under linear position interpolation with scale $s \ge 1$, the maximum phase angle achieved by token $p \in [0, L_{\text{ext}}]$ under frequency $\omega_i^{(\text{PI})}$ is strictly bounded by the maximum phase angle achieved during pretraining:
+{\boldmath
+\begin{equation}
+\max_{0 \le p \le L_{\text{ext}}} p \cdot \omega_i^{(\text{PI})} \le L_{\text{orig}} \cdot \omega_i
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+From Equation 1 and Equation 2: $L_{\text{ext}} = \lfloor s L_{\text{orig}} \rfloor \le s L_{\text{orig}}$ and $\omega_i^{(\text{PI})} = \omega_i / s$.
+Evaluating the maximum phase angle over the extended domain:
+{\boldmath
+\begin{equation}
+\max_{0 \le p \le L_{\text{ext}}} p \cdot \omega_i^{(\text{PI})} = L_{\text{ext}} \cdot \left(\frac{\omega_i}{s}\right) \le (s L_{\text{orig}}) \cdot \left(\frac{\omega_i}{s}\right) = L_{\text{orig}} \cdot \omega_i
+\end{equation}
+}
+Because the phase angle never exceeds $L_{\text{orig}} \cdot \omega_i$, all inputs to the sine and cosine functions fall strictly within the domain observed during pretraining, completely eliminating out-of-distribution rotational extrapolation.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Why Linear Interpolation Fails on Local Tasks}}
+\textbf{Question}: Why does naive Linear Position Interpolation degrade short-distance reasoning when extending context windows?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does uniform spectral compression compress high-frequency manifold separation beyond the network's resolving power?}
+    \item \textbf{Deep Answer}: In RoPE, the highest frequency channels ($\lambda \approx 6$ tokens) have large phase differences between adjacent words ($\Delta \theta \approx 1$ radian). If we apply linear scaling with $s = 8$, the phase difference drops to $1/8 \approx 0.125$ radians. The model cannot reliably distinguish adjacent tokens from identical tokens, corrupting local syntax, part-of-speech agreement, and spelling resolution.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: The Core Intuition Behind YaRN}}
+\textbf{Question}: Why does YaRN selectively interpolate low frequencies while preserving high frequencies?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does the ratio of token context length to spatial wavelength govern whether a feature requires interpolation versus extrapolation?}
+    \item \textbf{Deep Answer}: High-frequency channels have wavelengths $\lambda \ll L_{\text{orig}}$. During pretraining on 4,096 tokens, a channel with $\lambda = 10$ has completed over 400 full rotations; the network already knows every possible angle of this channel intimately. It needs zero interpolation! Low-frequency channels, however, have wavelengths $\lambda \gg L_{\text{orig}}$ and have never completed a full rotation. They are the only channels at risk of out-of-distribution angles, and thus the only channels that require $1/s$ interpolation.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Fine-Tuning Compute Requirements}}
+\textbf{Question}: How much compute and fine-tuning data is required to extend an LLM from 4k to 32k tokens using YaRN?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why does preserving the high-frequency inductive bias accelerate transfer learning across extended horizons?}
+    \item \textbf{Deep Answer}: Minimal compute. Because YaRN keeps high-frequency local representations identical to pretraining, the model does not need to relearn grammar, facts, or reasoning. It only needs to adjust its attention to the slower global frequencies. In practice, models like LLaMA-2 were successfully extended from 4k to 32k or 64k tokens with less than 400 steps of continued training on long documents, representing less than 0.1\% of the original pretraining compute.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Temperature Scaling in Long Contexts}}
+\textbf{Question}: Why does YaRN also apply a temperature multiplier $\sqrt{t}$ to attention logits during inference?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does sequence length expansion alter the entropy of the softmax distribution?}
+    \item \textbf{Deep Answer}: When sequence length expands from 4,096 to 65,536 tokens, the softmax denominator $\sum_{j=1}^N \exp(S_{i, j})$ sums over 16 times more elements. Even if attention is distributed cleanly, summing over more tokens increases the entropy of the distribution, making attention overly diffuse and flat. YaRN introduces a small temperature scale factor $\sqrt{t} \approx 0.1 \log s + 1$ that sharpens logits, restoring the original attention entropy observed during short-context pretraining.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoContextWindowExtension} is formalized in Algorithm~\ref{alg:context_extension}.
+
+\begin{algorithm}[H]
+\caption{Context Window Extension Frequency Scaling}
+\label{alg:context_extension}
+\begin{algorithmic}[1]
+\Require Expansion scale $s \in \mathbb{R}_{\ge 1}$, method name $m \in \mathcal{M}$, original length $L_{\text{orig}} \in \mathbb{N}_{\ge 1}$
+\Require Dimension $d \in 2\mathbb{N}_{\ge 1}$ (default 128), base frequency $B \in \mathbb{R}_{> 1}$ (default 10000.0)
+\Ensure Extended length $L_{\text{ext}}$, scaled frequencies $\boldsymbol{\omega}'$, effective scale $s$
+\State $\textbf{Assert } s \ge 1.0 \textbf{ and } L_{\text{orig}} \ge 1 \textbf{ and } d \pmod 2 = 0$
+\State $d_{\text{half}} \gets d / 2$
+\State $L_{\text{ext}} \gets \lfloor s \cdot L_{\text{orig}} \rfloor$
+\State $\boldsymbol{\omega}' \gets \text{empty list of size } d_{\text{half}}$
+\If{$m = \text{``linear\_interpolation''}$}
+    \For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+        \State $\omega_i' \gets 1.0 / (s \cdot B^{2i / d})$
+    \EndFor
+\ElsIf{$m = \text{``ntk\_aware''}$}
+    \State $B_{\text{new}} \gets B \cdot s^{d / (d - 2)}$
+    \For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+        \State $\omega_i' \gets 1.0 / (B_{\text{new}}^{2i / d})$
+    \EndFor
+\ElsIf{$m = \text{``yarn''}$}
+    \For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+        \State $\omega \gets 1.0 / B^{2i / d}, \quad \lambda \gets 2\pi / \omega$
+        \If{$\lambda < L_{\text{orig}} / 4.0$}
+            \State $\omega_i' \gets \omega$ \Comment{High frequency: keep unscaled}
+        \ElsIf{$\lambda > L_{\text{orig}}$}
+            \State $\omega_i' \gets \omega / s$ \Comment{Low frequency: full scale}
+        \Else
+            \State $\alpha \gets (L_{\text{orig}} - \lambda) / (0.75 \cdot L_{\text{orig}})$
+            \State $\omega_i' \gets (1.0 - \alpha) \cdot (\omega / s) + \alpha \cdot \omega$ \Comment{Piecewise blend}
+        \EndIf
+    \EndFor
+\Else
+    \State \textbf{Error}: Unknown method $m$
+\EndIf
+\State \Return $\{\text{extended\_max\_len}: L_{\text{ext}}, \text{scaled\_frequencies}: \boldsymbol{\omega}', \text{effective\_scale}: s\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Computing $d/2$ scaled frequencies: $\Theta(d)$ elementary operations.
+        \item Total Time Complexity: $\Theta(d)$, completely independent of sequence length $L_{\text{ext}}$.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Frequency array buffer $\boldsymbol{\omega}'$: $\Theta(d/2)$ floats.
+        \item Total Auxiliary Space: $\Theta(d)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

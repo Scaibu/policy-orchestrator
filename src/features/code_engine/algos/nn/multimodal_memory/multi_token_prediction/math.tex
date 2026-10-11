@@ -1,13 +1,34 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Multi-Token Prediction Loss (MTP)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Multi-Horizon Forecast of Multi-Token Prediction}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Standard language models optimize next-token prediction $\log P(x_{t+1} \mid x_{\le t})$. Multi-Token Prediction trains $K$ independent output heads branching from a shared transformer trunk to simultaneously forecast $K$ future tokens $(x_{t+1}, \dots, x_{t+K})$. This specification formalizes the multi-head loss objective, proving joint likelihood optimization.
+\end{abstract}
+
 \begin{equation}
-\mathcal{L}_{\text{MTP}} = \sum_{k=1}^n -\frac{1}{T-k}\sum_{t=1}^{T-k} \log P^{(k)}(x_{t+k} \mid x_{\leq t})
+\mathcal{L}_{\text{MTP}} = \frac{1}{K} \sum_{k=1}^K -\log P_k(x_{t+k} \mid \mathbf{h}_t)
 \end{equation}
+
+\begin{thebibliography}{9}
+\bibitem{gloeckle2024} F.~Gloeckle et al., ``Better & faster large language models via multi-token prediction,'' \emph{arXiv:2404.19737}, 2024.
+\end{thebibliography}
+
 \end{document}

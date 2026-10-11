@@ -1,13 +1,72 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Encoder-Decoder Cross-Attention}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification of Encoder-Decoder Cross-Attention}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Encoder-Decoder architectures process source sequences bidirectionally through an encoder and generate target sequences autoregressively through a decoder. Communication between the two systems is mediated by cross-attention, wherein decoder queries attend over encoder key-value memory representations. This document formalizes cross-attention kinematics, proves asymmetric sequence length invariance, derives complexity bounds, and details numerical verification.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $\mathbf{H}_{\text{enc}} \in \mathbb{R}^{N_{\text{enc}} \times d}$ denote encoder representations, and let $\mathbf{H}_{\text{dec}} \in \mathbb{R}^{N_{\text{dec}} \times d}$ denote decoder representations.
+
+\begin{itemize}
+    \item $\mathbf{Q} = \mathbf{H}_{\text{dec}} \in \mathbb{R}^{N_{\text{dec}} \times d}$: Decoder queries.
+    \item $\mathbf{K} = \mathbf{H}_{\text{enc}} \in \mathbb{R}^{N_{\text{enc}} \times d}, \mathbf{V} = \mathbf{H}_{\text{enc}} \in \mathbb{R}^{N_{\text{enc}} \times d}$: Encoder keys and values.
+    \item $\mathbf{A} \in [0, 1]^{N_{\text{dec}} \times N_{\text{enc}}}$: Cross-attention alignment probability matrix.
+    \item $\mathbf{O}_{\text{cross}} \in \mathbb{R}^{N_{\text{dec}} \times d}$: Context output tensor.
+\end{itemize}
+
+\section{Problem Definition and Algorithmic Execution}
+
 \begin{equation}
-\text{CrossAttention}(\mathbf{H}_{\text{dec}}, \mathbf{H}_{\text{enc}}) = \text{softmax}\left(\frac{\mathbf{H}_{\text{dec}}\mathbf{H}_{\text{enc}}^\top}{\sqrt{d}}\right)\mathbf{H}_{\text{enc}}
+\mathbf{O}_{\text{cross}} = \text{softmax}\left(\frac{\mathbf{H}_{\text{dec}} \mathbf{H}_{\text{enc}}^\top}{\sqrt{d}} + \mathbf{M}_{\text{cross}}\right) \mathbf{H}_{\text{enc}}
 \end{equation}
+
+\begin{algorithm}[H]
+\caption{Encoder-Decoder Cross-Attention Forward Pass}
+\label{alg:enc_dec_attn}
+\begin{algorithmic}[1]
+\Require Encoder states $\mathbf{H}_{\text{enc}} \in \mathbb{R}^{N_{\text{enc}} \times d}$, decoder states $\mathbf{H}_{\text{dec}} \in \mathbb{R}^{N_{\text{dec}} \times d}$, mask $\mathbf{M}$
+\Ensure Cross-attended representations $\mathbf{O} \in \mathbb{R}^{N_{\text{dec}} \times d}$
+\State $N_{\text{dec}} \gets \text{rows}(\mathbf{H}_{\text{dec}}), \quad N_{\text{enc}} \gets \text{rows}(\mathbf{H}_{\text{enc}}), \quad d \gets \text{cols}(\mathbf{H}_{\text{dec}})$
+\State $\mathbf{O} \gets \operatorname{ScaledDotProductAttention}(\mathbf{H}_{\text{dec}}, \mathbf{H}_{\text{enc}}, \mathbf{H}_{\text{enc}}, \text{mask}=\mathbf{M})[\text{'output'}]$
+\State \Return $\{\text{output}: \mathbf{O}, \text{enc\_len}: N_{\text{enc}}, \text{dec\_len}: N_{\text{dec}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity:} $\Theta(N_{\text{dec}} N_{\text{enc}} d)$ FLOPs per cross-attention layer.
+    \item \textbf{Space Complexity:} $\Theta(N_{\text{dec}} N_{\text{enc}} + N_{\text{dec}} d)$ auxiliary memory.
+\end{itemize}
+
+\section{Worked Numerical Example}
+Let $N_{\text{dec}} = 1, N_{\text{enc}} = 2, d = 2$:
+$\mathbf{H}_{\text{dec}} = [[1.0, 0.0]]$, $\mathbf{H}_{\text{enc}} = [[1.0, 0.0], [0.0, 1.0]]$.
+Dot products: $S_0 = 1.0 / \sqrt{2} \approx 0.7071$, $S_1 = 0.0$.
+Softmax probabilities: $A_0 \approx 0.6698, A_1 \approx 0.3302$.
+Context vector: $0.6698 [1, 0] + 0.3302 [0, 1] = [0.6698, 0.3302]$.
+
+\begin{thebibliography}{9}
+\bibitem{vaswani2017} A.~Vaswani et al., ``Attention is all you need,'' in \emph{NeurIPS}, 2017.
+\end{thebibliography}
+
 \end{document}

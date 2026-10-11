@@ -1,13 +1,45 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Logit Stabilization Auxiliary $z$-Loss}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Log-Sum-Exp Regularization, and Gradient Dynamics of Logit Z-Loss}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Cross-entropy loss is shift-invariant with respect to logits: adding an arbitrary constant scalar $c \in \mathbb{R}$ to all logits leaves softmax output probabilities unchanged ($\operatorname{softmax}(\mathbf{z} + c) = \operatorname{softmax}(\mathbf{z})$). In low-precision floating point (such as BF16 or FP16), unconstrained logit drift causes logits to grow arbitrarily large, producing roundoff errors, unstable gradients, and catastrophic training loss spikes. Auxiliary logit $z$-loss penalizes squared log-sum-exp values, anchoring logits near zero.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+For batch size $B$ and vocabulary size $V$, the auxiliary $z$-loss is defined as:
 \begin{equation}
-\mathcal{L}_z = \alpha \cdot \frac{1}{B}\sum_{i=1}^B \left(\log \sum_{j=1}^V e^{z_{i, j}}\right)^2
+\mathcal{L}_z = \alpha \frac{1}{B} \sum_{i=1}^B \left( \log \sum_{j=1}^V \exp(z_{i, j}) \right)^2
 \end{equation}
+where $\alpha \in \mathbb{R}_{> 0}$ is a small weighting hyperparameter (typically $\alpha = 10^{-4}$).
+
+\section{Analytic Gradient Derivation}
+Differentiating with respect to logit coordinate $z_{i, k}$:
+\begin{equation}
+\frac{\partial \mathcal{L}_z}{\partial z_{i, k}} = 2 \alpha \frac{1}{B} \left( \log \sum_{j=1}^V \exp(z_{i, j}) \right) \cdot \operatorname{softmax}(\mathbf{z}_i)_k
+\end{equation}
+This exerts a continuous inward centering pressure pulling large logits back toward zero.
+
+\begin{thebibliography}{9}
+\bibitem{chowdhery2022} A.~Chowdhery et al., ``PaLM: Scaling language modeling with pathways,'' \emph{JMLR}, vol.~24, no.~240, pp.~1--113, 2023.
+\end{thebibliography}
+
 \end{document}

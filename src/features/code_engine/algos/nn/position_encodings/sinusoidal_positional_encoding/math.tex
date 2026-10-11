@@ -1,13 +1,364 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
 \title{\textbf{Sinusoidal Positional Encoding}}
-\author{Architecture Policy Engine}
-\date{\today}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Sinusoidal Positional Encoding Operator):}
+Let $N \in \mathbb{N}_{\ge 1}$ denote maximum sequence length, $d_{\text{model}} \in 2\mathbb{N}_{\ge 1}$ denote an even model embedding dimension, and $B \in \mathbb{R}_{> 1}$ denote the geometric frequency base (typically $B = 10000.0$).
+The \textbf{Sinusoidal Positional Encoding} operator:
+{\boldmath
 \begin{equation}
-\text{PE}_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right), \quad \text{PE}_{(pos, 2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
+\operatorname{PE}: \mathbb{N}_{\ge 1} \times 2\mathbb{N}_{\ge 1} \times \mathbb{R}_{> 1} \longrightarrow \mathbb{R}^{N \times d_{\text{model}}}
 \end{equation}
+}
+is the deterministic matrix-valued mapping whose matrix elements for token position $p \in \{0, \dots, N-1\}$ and frequency channel index $i \in \{0, \dots, d_{\text{model}}/2 - 1\}$ are defined by:
+{\boldmath
+\begin{equation}
+\operatorname{PE}_{p, 2i} = \sin\left(\frac{p}{B^{2i / d_{\text{model}}}}\right), \qquad \operatorname{PE}_{p, 2i+1} = \cos\left(\frac{p}{B^{2i / d_{\text{model}}}}\right)
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+Unlike Recurrent Neural Networks (RNNs) that process sentences word-by-word in sequential order, Transformers process all words in a sentence simultaneously in parallel. While this parallel processing enables massive GPU acceleration, it introduces a critical mathematical blindspot: **permutation invariance**. To a raw Transformer attention layer, \emph{``dog bites man''} and \emph{``man bites dog''} look 100\% identical because attention treats sequences as unordered sets of vectors.
+
+Sinusoidal Positional Encoding solves this by stamping a unique, non-learned geometric fingerprint onto every word position:
+\begin{enumerate}
+    \item \textbf{A Multi-Speed Clockwork System}: The embedding dimensions act as a massive collection of synchronized clocks ticking at different speeds. The lowest dimensions oscillate with rapid, short wavelengths (ticking every 1 to 2 words, like a fast second hand), while the highest dimensions oscillate with vast wavelengths (spanning over 10,000 words, like an hour hand or calendar).
+    \item \textbf{Continuous Geometric Uniqueness}: Every single position in the document receives an unmistakably unique combination of sine and cosine values across its $d_{\text{model}}$ coordinates.
+    \item \textbf{Relative Distance as Linear Rotation}: Because of trigonometric angle-addition identities ($\cos(\alpha - \beta) = \cos \alpha \cos \beta + \sin \alpha \sin \beta$), a neural network can determine the relative distance $k$ between two words at positions $p$ and $p+k$ through a simple, fixed linear transformation, without needing to relearn position representations for every new distance.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Magic Cosmic Clock Tower with Hundreds of Pendulums}:
+Imagine you are inside a towering magical clock tower with $d_{\text{model}}/2$ pendulums swinging from the wooden ceiling.
+
+\begin{itemize}
+    \item \textbf{The Pendulums of Many Speeds (Frequencies $\omega_i$)}:
+    Every pendulum is a different length:
+    \begin{itemize}
+        \item Pendulum 0 is tiny like a hummingbird wing and swings back and forth super fast: \emph{tick-tick-tick-tick!} Every single word makes it complete a full swing.
+        \item Pendulum 1 is slightly longer and swings half as fast.
+        \item The giant Pendulum at the back of the tower is so huge that it takes 10,000 words just to swing from one side of the room to the other!
+    \end{itemize}
+    
+    \item \textbf{The Snapshot Code (Sine and Cosine Coordinates)}:
+    Every time a word steps onto the page, you take a photograph of all the pendulums at that exact second:
+    \begin{itemize}
+        \item The horizontal position of pendulum $i$ is its \textbf{Sine}.
+        \item The vertical height of pendulum $i$ is its \textbf{Cosine}.
+    \end{itemize}
+    
+    \item \textbf{The Unbreakable Fingerprint}:
+    When word 0 enters, all pendulums are at their starting points.
+    When word 1 enters, the tiny humming pendulums have swung all the way over, while the giant pendulum has barely moved a millimeter.
+    No two words in the entire library ever have the same pattern of pendulum angles!
+    
+    \item \textbf{Measuring Distance by Angle}:
+    If you want to know how far apart Word A and Word B are, you don't have to count words one by one—you just look at how much the pendulums rotated between them!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Geometric Angular Frequency Progression}}
+{\boldmath
+\begin{equation}
+\omega_i = \frac{1}{B^{2i / d_{\text{model}}}} = \exp\left( -\frac{2i}{d_{\text{model}}} \log B \right), \qquad i \in \left\{0, 1, \dots, \frac{d_{\text{model}}}{2} - 1\right\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The geometric progression mapping that spaces angular frequencies logarithmically across the interval $[B^{-1}, 1.0]$.
+    \item \textbf{What It Means}:
+    Wavelengths $\lambda_i = 2\pi / \omega_i$ form a geometric spectrum ranging from $2\pi \approx 6.28$ tokens up to $2\pi \times 10000 \approx 62,831$ tokens.
+    \item \textbf{Why It Is Important}:
+    Logarithmic frequency spacing guarantees that the model can resolve fine-grained local syntax (adjacent tokens) and broad document-level structure (thousands of tokens apart) simultaneously across different channels.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Even-Indexed Harmonic Coordinate}}
+{\boldmath
+\begin{equation}
+\operatorname{PE}_{p, 2i} = \sin(p \cdot \omega_i) = \sin\left(\frac{p}{B^{2i / d_{\text{model}}}}\right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The odd-symmetric harmonic basis component evaluated at discrete position $p$ for subspace channel $i$.
+    \item \textbf{What It Means}:
+    The sine component starts at $\sin(0) = 0$ and oscillates bounded strictly within $[-1.0, 1.0]$.
+    \item \textbf{Why It Is Important}:
+    Sine coordinates provide odd parity ($\sin(-x) = -\sin(x)$), enabling the model to learn directional orientation (distinguishing whether token $k$ appears before or after token $p$).
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Odd-Indexed Orthogonal Quadrature Coordinate}}
+{\boldmath
+\begin{equation}
+\operatorname{PE}_{p, 2i+1} = \cos(p \cdot \omega_i) = \cos\left(\frac{p}{B^{2i / d_{\text{model}}}}\right)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The even-symmetric harmonic quadrature basis component phase-shifted by $\pi/2$ radians relative to the even coordinate.
+    \item \textbf{What It Means}:
+    The cosine component starts at $\cos(0) = 1.0$ and pairs with the sine component to form a 2D circular phasor: $(\sin(p\omega), \cos(p\omega))$.
+    \item \textbf{Why It Is Important}:
+    Pairing sine with orthogonal cosine forms a complete complex exponential basis $e^{j p \omega_i}$, ensuring that the 2D norm of each frequency channel is strictly constant ($\sin^2 + \cos^2 \equiv 1$).
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Relative Shift Linear Rotation Matrix}}
+{\boldmath
+\begin{equation}
+\begin{bmatrix} \operatorname{PE}_{p+k, 2i} \\ \operatorname{PE}_{p+k, 2i+1} \end{bmatrix} = \begin{bmatrix} \cos(k \omega_i) & \sin(k \omega_i) \\ -\sin(k \omega_i) & \cos(k \omega_i) \end{bmatrix} \begin{bmatrix} \operatorname{PE}_{p, 2i} \\ \operatorname{PE}_{p, 2i+1} \end{bmatrix} = \mathbf{R}(k \omega_i) \begin{bmatrix} \operatorname{PE}_{p, 2i} \\ \operatorname{PE}_{p, 2i+1} \end{bmatrix}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The special orthogonal rotation operator $\mathbf{R}(k \omega_i) \in \mathrm{SO}(2)$ that shifts 2D positional coordinates by offset $k$ via matrix multiplication.
+    \item \textbf{What It Means}:
+    The encoding for position $p+k$ is a linear transformation of the encoding at position $p$, where the transformation matrix depends only on the relative distance $k$, not on the absolute position $p$.
+    \item \textbf{Why It Is Important}:
+    This proves mathematically that a Transformer can learn to attend to relative positions ($k$ tokens away) using standard linear projection weights, enabling seamless length extrapolation.
+\end{itemize}
+
+\subsection{\textbf{Equation 5: Inner Product Kernel Distance Decay}}
+{\boldmath
+\begin{equation}
+\langle \mathbf{pe}_p, \mathbf{pe}_{p+k} \rangle = \sum_{i=0}^{d_{\text{model}}/2 - 1} \left( \sin(p\omega_i)\sin((p+k)\omega_i) + \cos(p\omega_i)\cos((p+k)\omega_i) \right) = \sum_{i=0}^{d_{\text{model}}/2 - 1} \cos(k \omega_i)
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The canonical Euclidean dot product between the positional vectors of two tokens separated by relative displacement $k$.
+    \item \textbf{What It Means}:
+    The dot product depends strictly on relative offset $k$, achieving its maximum value $d_{\text{model}}/2$ at $k=0$ and decaying smoothly as relative distance $|k|$ grows.
+    \item \textbf{Why It Is Important}:
+    This inherent geometric decay naturally induces a soft locality bias in dot-product attention, allowing models to easily focus on nearby tokens.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $N \in \mathbb{N}_{\ge 1}$: Sequence length (positions $p \in \{0, \dots, N-1\}$).
+    \item $d_{\text{model}} \in 2\mathbb{N}_{\ge 1}$: Model embedding dimension (must be even).
+    \item $B \in \mathbb{R}_{> 1}$: Frequency base (default $10000.0$).
+    \item $\omega_i \in \mathbb{R}_{> 0}$: Angular frequency for channel index $i \in \{0, \dots, d_{\text{model}}/2 - 1\}$.
+    \item $\operatorname{PE} \in \mathbb{R}^{N \times d_{\text{model}}}$: Full positional encoding matrix.
+    \item $\mathbf{pe}_p \in \mathbb{R}^{d_{\text{model}}}$: Positional encoding vector for token position $p$.
+    \item $\mathbf{R}(\theta) \in \mathrm{SO}(2)$: 2D rotation matrix of angle $\theta$.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$N, d_{\text{model}}, B$ & \textbf{Defined} (Architectural parameters) & Natural / positive real numbers \\
+$\omega_i$ & \textbf{Calculated} (Fixed frequency schedule) & Strictly decreasing geometric sequence \\
+$\operatorname{PE}_{p, 2i}, \operatorname{PE}_{p, 2i+1}$ & \textbf{Calculated} (Deterministic trigonometric values) & Bounded reals in $[-1.0, 1.0]$ \\
+$\operatorname{PE}$ & \textbf{Calculated} (Static lookup matrix) & Real matrix in $\mathbb{R}^{N \times d_{\text{model}}}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(N, d_{\text{model}}, B) \xrightarrow{\text{Freq Schedule}} \{\omega_i\} \xrightarrow{\text{Outer Product } \mathbf{p} \otimes \boldsymbol{\omega}} \mathbf{\Theta} \xrightarrow{(\sin, \cos)} \operatorname{PE}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+p &\in \{0, \dots, N-1\} \quad \text{\textbf{(Dimensionless discrete position)}} \\
+\omega_i &\in \mathbb{R}_{> 0} \quad \text{\textbf{(Radians per token step)}} \\
+p \cdot \omega_i &\in \mathbb{R}_{\ge 0} \quad \text{\textbf{(Phase angle in radians)}} \\
+\operatorname{PE} &\in \mathbb{R}^{N \times d_{\text{model}}} \quad \text{\textbf{(Bounded coordinate tensor)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Position Zero ($p = 0$)}: $\operatorname{PE}_{0, 2i} = \sin(0) = 0$ and $\operatorname{PE}_{0, 2i+1} = \cos(0) = 1$ for all channels $i$.
+    \item \textbf{High Frequency Limit ($i = 0$)}: $\omega_0 = 1.0$. The fastest channel has period $\lambda_0 = 2\pi \approx 6.28$ tokens.
+    \item \textbf{Low Frequency Limit ($i = d_{\text{model}}/2 - 1$)}: $\omega_{\text{min}} \approx 1/B = 10^{-4}$. The slowest channel has period $\lambda \approx 62,831$ tokens.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Odd Dimension Exception}: If $d_{\text{model}} \pmod 2 \ne 0$, sine and cosine channels cannot pair equally. \emph{Precondition}: $d_{\text{model}} \ge 2$ and even.
+    \item \textbf{Zero or Negative Length}: Sequence length must satisfy $N \ge 1$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Constant Vector L2 Norm}: For every position $p \in \{0, \dots, N-1\}$, the Euclidean norm of the positional vector is strictly invariant:
+    {\boldmath
+    \begin{equation}
+    \|\mathbf{pe}_p\|_2^2 = \sum_{i=0}^{d_{\text{model}}/2 - 1} \left( \sin^2(p\omega_i) + \cos^2(p\omega_i) \right) = \frac{d_{\text{model}}}{2} \implies \|\mathbf{pe}_p\|_2 = \sqrt{\frac{d_{\text{model}}}{2}}
+    \end{equation}
+    }
+\end{itemize}
+
+\subsection{[ ] Transfer: Harmonic Analysis & Fourier Feature Mapping}
+Sinusoidal positional encoding is mathematically identical to Random Fourier Feature (RFF) coordinate mapping used in Neural Radiance Fields (NeRF) and kernel ridge regression, projecting 1D coordinates onto a multidimensional torus $\mathbb{T}^{d/2} \subset \mathbb{R}^d$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Exact Linear Relative Shift Invariance}]
+For any fixed integer displacement $k \in \mathbb{Z}$, there exists an orthogonal linear transformation $\mathbf{M}_k \in \mathrm{SO}(d_{\text{model}})$ such that for all positions $p \ge 0$:
+{\boldmath
+\begin{equation}
+\mathbf{pe}_{p+k} = \mathbf{M}_k \mathbf{pe}_p
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Consider the 2D subspace corresponding to frequency channel $i$ with coordinates $(x_p, y_p) = (\sin(p\omega_i), \cos(p\omega_i))$.
+Applying the standard trigonometric angle sum and difference identities:
+{\boldmath
+\begin{align}
+\sin((p+k)\omega_i) &= \sin(p\omega_i)\cos(k\omega_i) + \cos(p\omega_i)\sin(k\omega_i) \\
+\cos((p+k)\omega_i) &= \cos(p\omega_i)\cos(k\omega_i) - \sin(p\omega_i)\sin(k\omega_i)
+\end{align}
+}
+Expressing this linear combination in matrix form:
+{\boldmath
+\begin{equation}
+\begin{bmatrix} \sin((p+k)\omega_i) \\ \cos((p+k)\omega_i) \end{bmatrix} = \begin{bmatrix} \cos(k\omega_i) & \sin(k\omega_i) \\ -\sin(k\omega_i) & \cos(k\omega_i) \end{bmatrix} \begin{bmatrix} \sin(p\omega_i) \\ \cos(p\omega_i) \end{bmatrix} = \mathbf{R}_i(k) \begin{bmatrix} \sin(p\omega_i) \\ \cos(p\omega_i) \end{bmatrix}
+\end{equation}
+}
+Notice that $\det(\mathbf{R}_i(k)) = \cos^2(k\omega_i) + \sin^2(k\omega_i) = 1.0$, so $\mathbf{R}_i(k) \in \mathrm{SO}(2)$.
+Assembling the block-diagonal matrix $\mathbf{M}_k = \operatorname{diag}(\mathbf{R}_0(k), \mathbf{R}_1(k), \dots, \mathbf{R}_{d/2-1}(k))$, we have $\mathbf{pe}_{p+k} = \mathbf{M}_k \mathbf{pe}_p$, which is completely independent of absolute position $p$.
+\end{proof}
+
+\begin{theorem}[\textbf{Strict L2 Norm Conservation Invariant}]
+For any dimension $d_{\text{model}} \in 2\mathbb{N}$ and any position $p \in \mathbb{N}$, the Euclidean norm satisfies:
+{\boldmath
+\begin{equation}
+\|\mathbf{pe}_p\|_2 = \sqrt{\frac{d_{\text{model}}}{2}}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Evaluating the squared Euclidean norm directly:
+{\boldmath
+\begin{equation}
+\|\mathbf{pe}_p\|_2^2 = \sum_{j=0}^{d_{\text{model}}-1} (\operatorname{PE}_{p, j})^2 = \sum_{i=0}^{d_{\text{model}}/2 - 1} \left( \sin^2(p\omega_i) + \cos^2(p\omega_i) \right)
+\end{equation}
+}
+By the fundamental Pythagorean trigonometric identity, $\sin^2(\theta) + \cos^2(\theta) \equiv 1$ for all $\theta \in \mathbb{R}$.
+Therefore, the sum simplifies to:
+{\boldmath
+\begin{equation}
+\|\mathbf{pe}_p\|_2^2 = \sum_{i=0}^{d_{\text{model}}/2 - 1} 1 = \frac{d_{\text{model}}}{2} \implies \|\mathbf{pe}_p\|_2 = \sqrt{\frac{d_{\text{model}}}{2}}
+\end{equation}
+}
+Because this norm is identical for all positions $p$, positional encodings contribute equal geometric energy across all tokens without biasing early or late positions.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Addition vs Concatenation of Positional Vectors}}
+\textbf{Question}: Why does the standard Transformer add positional vectors to word embeddings ($\mathbf{x} + \mathbf{pe}$) rather than concatenating them ($[\mathbf{x} \,\|\, \mathbf{pe}]$)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does linear projection in subsequent layers preserve subspace orthogonality even under additive vector superposition?}
+    \item \textbf{Deep Answer}: Concatenating $\mathbf{x} \in \mathbb{R}^d$ and $\mathbf{pe} \in \mathbb{R}^d$ would double the embedding dimension to $2d$, increasing the number of parameters and FLOPs in all subsequent attention projection matrices by a factor of 4. Adding them preserves dimension $d$. In high-dimensional spaces ($d \ge 512$), random or structured vectors occupy near-orthogonal subspaces. The subsequent query and key weight matrices $\mathbf{W}^Q, \mathbf{W}^K$ learn to project word semantics and positional coordinates onto distinct, non-interfering attention subspaces.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Why Base 10000.0?}}
+\textbf{Question}: Why is the base frequency constant chosen as $B = 10000.0$ in the original architecture?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What governs the maximum non-repeating positional horizon under geometric frequency scaling?}
+    \item \textbf{Deep Answer}: The maximum period in the encoding is $\lambda_{\text{max}} = 2\pi B \approx 62,831$ tokens. Setting $B = 10000$ guarantees that the slowest-moving channels do not complete even a single full oscillation over typical context windows (e.g. 512 to 4,096 tokens). If $B$ were too small (e.g. 100), the slowest channel would wrap around every 628 tokens, causing distant positions to produce duplicate encoding vectors and confusing the model.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Sinusoidal vs Learned Absolute Positional Embeddings}}
+\textbf{Question}: Why do models like BERT use learned positional embeddings while models like Transformer-Vaswani use fixed sinusoidal encodings?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What is the inductive bias trade-off between parametric expressivity and sequence length extrapolation?}
+    \item \textbf{Deep Answer}: Learned positional embeddings ($\mathbf{W}_{\text{pos}} \in \mathbb{R}^{N_{\text{max}} \times d}$) treat each position as an unconstrained independent parameter, providing maximum flexibility to fit the training distribution. However, learned embeddings cannot extrapolate to positions beyond $N_{\text{max}}$ (position $N_{\text{max}}+1$ has no trained weights). Sinusoidal encodings have zero learnable parameters and can theoretically be evaluated at arbitrary sequence lengths $p \to \infty$ without retraining.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: Transition from Sinusoidal to Rotary Embeddings (RoPE)}}
+\textbf{Question}: Why have modern LLMs (e.g. LLaMA, Mistral) replaced additive sinusoidal encodings with Rotary Positional Embeddings (RoPE)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why is multiplicative complex rotation in attention logits superior to additive input superposition?}
+    \item \textbf{Deep Answer}: Additive encodings ($\mathbf{x} + \mathbf{pe}$) bleed positional noise directly into the semantic feature space, which must pass through LayerNorm and nonlinear MLP blocks, degrading relative distance precision. RoPE applies the exact same sinusoidal frequencies $\omega_i$, but applies them multiplicatively as 2D rotations directly to Query and Key vectors inside each attention head. In RoPE, the dot product $\mathbf{q}_m^\top \mathbf{k}_n$ becomes an exact function of relative distance $(m-n)$, eliminating positional noise from the value pathway completely.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoSinusoidalPositionalEncoding} is formalized in Algorithm~\ref{alg:sinusoidal_pe}.
+
+\begin{algorithm}[H]
+\caption{Sinusoidal Positional Encoding Generation}
+\label{alg:sinusoidal_pe}
+\begin{algorithmic}[1]
+\Require Sequence length $N \in \mathbb{N}_{\ge 1}$, embedding dimension $d_{\text{model}} \in 2\mathbb{N}_{\ge 1}$, base $B \in \mathbb{R}_{> 1}$
+\Ensure Positional encoding matrix $\operatorname{PE} \in \mathbb{R}^{N \times d_{\text{model}}}$
+\State $\textbf{Assert } N \ge 1 \textbf{ and } d_{\text{model}} \ge 2 \textbf{ and } d_{\text{model}} \pmod 2 = 0$
+\State $d_{\text{half}} \gets d_{\text{model}} / 2$
+\State $\operatorname{PE} \gets \text{zeros of shape } (N, d_{\text{model}})$
+\State $\boldsymbol{\omega} \gets \text{array of size } d_{\text{half}}$
+\For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+    \State $\omega_i \gets \exp\left( -\frac{2 \cdot i}{d_{\text{model}}} \cdot \log B \right)$
+\EndFor
+\For{$p \gets 0 \textbf{ to } N - 1$}
+    \For{$i \gets 0 \textbf{ to } d_{\text{half}} - 1$}
+        \State $\theta \gets p \cdot \omega_i$
+        \State $\operatorname{PE}[p, 2 \cdot i] \gets \sin(\theta)$ \Comment{Even channels receive sine}
+        \State $\operatorname{PE}[p, 2 \cdot i + 1] \gets \cos(\theta)$ \Comment{Odd channels receive cosine}
+    \EndFor
+\EndFor
+\State \Return $\{\text{encoding\_matrix}: \operatorname{PE}, \text{seq\_len}: N, \text{d\_model}: d_{\text{model}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Angular frequency precomputation: $\Theta(d_{\text{model}}/2)$ operations.
+        \item Harmonic matrix population: $N \times (d_{\text{model}}/2)$ sine evaluations and $N \times (d_{\text{model}}/2)$ cosine evaluations.
+        \item Total Time Complexity: $\Theta(N \cdot d_{\text{model}})$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Output matrix buffer $\operatorname{PE}$: $\Theta(N \cdot d_{\text{model}})$ floats.
+        \item Total Auxiliary Space: $\Theta(N \cdot d_{\text{model}})$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

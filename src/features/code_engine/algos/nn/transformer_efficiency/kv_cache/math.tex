@@ -1,13 +1,79 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{KV Cache Memory Formulation}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification, Computational Amortization, and Memory Footprint of the KV Cache}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+During autoregressive transformer inference, token generation proceeds one token per step. Recomputing key and value vectors across all previously processed tokens incurs quadratic $\mathcal{O}(T^2)$ time complexity. The Key-Value (KV) Cache stores previously computed key and value states in GPU memory, reducing per-token decoding latency to linear $\mathcal{O}(T)$ operations. This document formalizes the recurrence state update, derives exact memory allocation formulas, details complexity bounds, and calculates a verified numerical memory example.
+\end{abstract}
+
+\section{Notation and Mathematical Preliminaries}
+
+Let $t \in \mathbb{N}_{\ge 1}$ denote the current decoding time step, $B \in \mathbb{N}_{\ge 1}$ denote batch size, $n_{\text{layers}} \in \mathbb{N}_{\ge 1}$ denote network depth, $n_{\text{heads}} \in \mathbb{N}_{\ge 1}$ denote head count, and $d_k, d_v \in \mathbb{N}_{\ge 1}$ denote head dimensions.
+
+\begin{itemize}
+    \item $\mathbf{k}_t \in \mathbb{R}^{d_k}, \mathbf{v}_t \in \mathbb{R}^{d_v}$: New key and value vectors produced at step $t$.
+    \item $\mathbf{K}_{1:t-1} \in \mathbb{R}^{(t-1) \times d_k}, \mathbf{V}_{1:t-1} \in \mathbb{R}^{(t-1) \times d_v}$: Cached history tensors.
+    \item $\mathbf{K}_{1:t} = [\mathbf{K}_{1:t-1}; \mathbf{k}_t] \in \mathbb{R}^{t \times d_k}$: Updated key cache.
+    \item $M_{\text{bytes}}$: Total memory footprint in bytes.
+\end{itemize}
+
+\section{Problem Definition and Algorithmic Execution}
+
+\begin{algorithm}[H]
+\caption{KV Cache State Append and Memory Tracking}
+\label{alg:kv_cache}
+\begin{algorithmic}[1]
+\Require New key $\mathbf{k}_t \in \mathbb{R}^{d_k}$, new value $\mathbf{v}_t \in \mathbb{R}^{d_v}$, cached keys $\mathbf{K}$, cached values $\mathbf{V}$
+\Ensure Updated keys $\mathbf{K}'$, updated values $\mathbf{V}'$, sequence length $t$, memory bytes $M_{\text{bytes}}$
+\State $\mathbf{K}' \gets \operatorname{Copy}(\mathbf{K}), \quad \mathbf{V}' \gets \operatorname{Copy}(\mathbf{V})$
+\State Append $\mathbf{k}_t$ to $\mathbf{K}'$
+\State Append $\mathbf{v}_t$ to $\mathbf{V}'$
+\State $t \gets \text{rows}(\mathbf{K}')$
+\State $M_{\text{bytes}} \gets t \cdot (d_k + d_v) \cdot 2$ \Comment{Assuming 16-bit FP16/BF16}
+\State \Return $\{\text{updated\_keys}: \mathbf{K}', \text{updated\_values}: \mathbf{V}', \text{sequence\_length}: t, \text{memory\_bytes}: M_{\text{bytes}}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Theoretical Guarantees: Exact Memory Allocation Formula}
+
+\begin{theorem}[KV Cache Memory Footprint]
+For a model with $n_{\text{layers}}$ layers, $n_{\text{heads}}$ heads, head dimension $d_{\text{head}}$, precision $P$ bytes per element (e.g. $P=2$ for FP16), batch size $B$, and sequence length $T$:
 \begin{equation}
-\text{Memory}_{\text{KV}} = 2 \times n_{\text{layers}} \times n_{\text{heads}} \times d_{\text{head}} \times T \times B \times 2 \text{ bytes}
+\text{Memory}_{\text{KV}} = 2 \times n_{\text{layers}} \times n_{\text{heads}} \times d_{\text{head}} \times T \times B \times P \text{ bytes}
 \end{equation}
+\end{theorem}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Without KV Cache:} Generating $T$ tokens requires $\sum_{t=1}^T \mathcal{O}(t) = \mathcal{O}(T^2)$ FLOPs.
+    \item \textbf{With KV Cache:} Generating step $t$ requires $\mathcal{O}(t)$ attention FLOPs; total decoding requires $\mathcal{O}(T^2)$ attention plus $\mathcal{O}(T)$ linear projections (amortized $\mathcal{O}(1)$ projection per step).
+\end{itemize}
+
+\section{Worked Numerical Example}
+Let new key $\mathbf{k} = [1.0, 2.0]$, new value $\mathbf{v} = [3.0, 4.0]$, with empty prior cache:
+$d_k = 2, d_v = 2$.
+Updated cache length $t = 1$.
+Memory bytes: $1 \times (2 + 2) \times 2 = 8$ bytes.
+
+\begin{thebibliography}{9}
+\bibitem{shazeer2019} N.~Shazeer, ``Fast transformer decoding: One write-head is all you need,'' \emph{arXiv:1911.02150}, 2019.
+\end{thebibliography}
+
 \end{document}

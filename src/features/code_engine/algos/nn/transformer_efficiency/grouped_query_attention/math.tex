@@ -1,13 +1,332 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Grouped-Query Attention (GQA)}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Grouped-Query Attention}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (Grouped-Query Attention Operator):}
+Let $H_q \in \mathbb{N}_{\ge 1}$ denote the number of query attention heads and $H_{kv} \in \mathbb{N}_{\ge 1}$ denote the number of key/value heads such that $H_q$ is an integer multiple of $H_{kv}$, defining the group ratio $G = H_q / H_{kv} \in \mathbb{N}_{\ge 1}$. Let $d_k \in \mathbb{N}_{\ge 1}$ denote per-head feature dimensionality.
+Given Query $\mathbf{Q} \in \mathbb{R}^{N_q \times (H_q d_k)}$, Key $\mathbf{K} \in \mathbb{R}^{N_k \times (H_{kv} d_k)}$, Value $\mathbf{V} \in \mathbb{R}^{N_k \times (H_{kv} d_k)}$, and optional attention mask $\mathbf{M} \in (\mathbb{R} \cup \{-\infty\})^{N_q \times N_k}$, the \textbf{Grouped-Query Attention} (GQA) operator:
+{\boldmath
 \begin{equation}
-\text{Group}(\text{head}_i) = \text{Attention}(\mathbf{Q}_i, \mathbf{K}_{\lfloor i/g \rfloor}, \mathbf{V}_{\lfloor i/g \rfloor})
+\operatorname{GQA}: \mathbb{R}^{N_q \times H_q d_k} \times \mathbb{R}^{N_k \times H_{kv} d_k} \times \mathbb{R}^{N_k \times H_{kv} d_k} \times \mathcal{M} \longrightarrow \mathbb{R}^{N_q \times H_q d_k}
 \end{equation}
+}
+is defined by the concatenation of $H_q$ output heads:
+{\boldmath
+\begin{equation}
+\operatorname{GQA}(\mathbf{Q}, \mathbf{K}, \mathbf{V}, \mathbf{M}) = \operatorname{Concat}\left(\mathbf{H}_0, \mathbf{H}_1, \dots, \mathbf{H}_{H_q - 1}\right)
+\end{equation}
+}
+where each individual query head $h \in \{0, \dots, H_q - 1\}$ attends against the shared key-value head $g(h) = \lfloor h / G \rfloor \in \{0, \dots, H_{kv} - 1\}$:
+{\boldmath
+\begin{equation}
+\mathbf{H}_h = \operatorname{softmax}\left(\frac{\mathbf{Q}^{(h)} (\mathbf{K}^{(g(h))})^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}^{(g(h))} \in \mathbb{R}^{N_q \times d_k}
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+During the generation of long text (such as writing a report or conversational response), a Transformer must store past Key and Value vectors in high-speed GPU memory (the KV-Cache) so it does not have to recompute them for every new token.
+In standard Multi-Head Attention (MHA), every single query head maintains its own private key and value head. With 64 attention heads and long documents, the KV-Cache consumes dozens of gigabytes of GPU VRAM, creating a severe **memory bandwidth bottleneck** that slows down generation speeds to a crawl.
+
+Grouped-Query Attention (the architectural standard in LLaMA-2 70B, LLaMA-3, Mistral, and Gemma) breaks this bottleneck:
+\begin{enumerate}
+    \item \textbf{Head Grouping}: Query heads are organized into small, coherent clusters (for example, groups of 8 query heads).
+    \item \textbf{Shared Key-Value Anchors}: Instead of storing 8 separate copies of keys and values, all 8 query heads in a cluster share a single key-value head.
+    \item \textbf{8x Memory Reduction}: By reducing the number of KV heads from 64 down to 8, the size of the KV-Cache is slashed by a factor of 8 ($G = 8$), allowing servers to run batch sizes 8 times larger and double token throughput.
+    \item \textbf{Preserved Reasoning Quality}: Because query heads remain fully independent (each querying the shared key-value representations with their own unique perspective), model reasoning and accuracy remain virtually identical to full Multi-Head Attention.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Study Groups in the Great Library}:
+Imagine a bustling school library where 32 young detectives (Query Heads) are investigating clues.
+
+\begin{itemize}
+    \item \textbf{The Heavy Encyclopedias (Key and Value Tensors)}:
+    To solve clues, detectives must read heavy encyclopedia books containing all the facts from previous chapters.
+    
+    \item \textbf{The Old Way (MHA - One Book Per Student)}:
+    Every single student gets their own personal copy of the giant encyclopedia on their desk (32 heavy books). The study desks are overflowing, students are crushed, and the library runs out of space!
+    
+    \item \textbf{The Extreme Way (MQA - One Book for the Entire Room)}:
+    The librarian removes 31 encyclopedias, leaving only 1 single copy in the center of the room. All 32 students try to read from the exact same page at once, bumping elbows and losing focus.
+    
+    \item \textbf{The Smart GQA Way (Group Study Tables)}:
+    The librarian organizes the 32 students into 4 study tables with 8 students at each table ($G = 8$).
+    Each table gets 1 shared copy of the encyclopedia placed neatly in the middle!
+    \begin{itemize}
+        \item Table 1 shares Encyclopedia 0.
+        \item Table 2 shares Encyclopedia 1.
+        \item Table 3 shares Encyclopedia 2.
+        \item Table 4 shares Encyclopedia 3.
+    \end{itemize}
+    Now there are only 4 books on the tables instead of 32! The desks are clean, students read comfortably, and all 32 students write their own brilliant reports without slowing down!
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Query-to-KV Group Compression Ratio}}
+{\boldmath
+\begin{equation}
+G = \frac{H_q}{H_{kv}} \in \mathbb{N}_{\ge 1}, \qquad H_q \pmod{H_{kv}} = 0
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The integer ratio specifying the exact number of query heads allocated to each shared key-value head.
+    \item \textbf{What It Means}:
+    Every cluster contains exactly $G$ query heads that read from the same key-value projection submatrix.
+    \item \textbf{Why It Is Important}:
+    $G$ is the exact compression factor: increasing $G$ decreases KV cache memory consumption by exactly $1/G$.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Group Projection Index Mapping}}
+{\boldmath
+\begin{equation}
+g(h) = \left\lfloor \frac{h}{G} \right\rfloor \in \{0, 1, \dots, H_{kv} - 1\}, \qquad h \in \{0, 1, \dots, H_q - 1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The surjective floor division mapping that assigns each query head index $h$ to its parent key-value head index $g(h)$.
+    \item \textbf{What It Means}:
+    Query heads $0, \dots, G-1$ map to KV head $0$; heads $G, \dots, 2G-1$ map to KV head $1$, and so on.
+    \item \textbf{Why It Is Important}:
+    This simple floor arithmetic enables hardware accelerators to broadcast KV heads across query groups with zero tensor copying overhead.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: Grouped Scaled Dot-Product Attention Subspace}}
+{\boldmath
+\begin{equation}
+\mathbf{H}_h = \operatorname{softmax}\left(\frac{\mathbf{Q}^{(h)} (\mathbf{K}^{(g(h))})^\top}{\sqrt{d_k}} + \mathbf{M}\right)\mathbf{V}^{(g(h))}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The evaluation of scaled dot-product attention where the query argument is head-specific ($\mathbf{Q}^{(h)}$) while key and value arguments are group-shared ($\mathbf{K}^{(g(h))}, \mathbf{V}^{(g(h))}$).
+    \item \textbf{What It Means}:
+    Query head $h$ generates its own unique attention probability matrix $\mathbf{A}^{(h)} \in \Delta^{N_k - 1}$, but computes affinities against the group's shared key representations.
+    \item \textbf{Why It Is Important}:
+    Because query heads remain unshared, each head in the group can focus on completely different tokens, preserving high multi-head representation capacity.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: KV Cache Memory Consumption Scaling}}
+{\boldmath
+\begin{equation}
+\mathcal{M}_{\text{KV}}^{(\text{GQA})} = 2 \cdot N \cdot H_{kv} \cdot d_k = \frac{H_{kv}}{H_q} \cdot \left( 2 N H_q d_k \right) = \frac{1}{G} \mathcal{M}_{\text{KV}}^{(\text{MHA})}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The linear memory footprint in bytes required to store cached key and value tensors for a sequence of length $N$ under floating-point precision.
+    \item \textbf{What It Means}:
+    Switching from MHA to GQA with $G = 8$ reduces KV cache memory consumption by an exact factor of 8 ($87.5\%$ reduction).
+    \item \textbf{Why It Is Important}:
+    KV cache memory is the primary constraint limiting serving batch size on GPUs; slashing KV size by $8\times$ enables massive batching throughput gains.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $H_q \in \mathbb{N}_{\ge 1}$: Number of query heads.
+    \item $H_{kv} \in \mathbb{N}_{\ge 1}$: Number of key/value heads ($H_{kv} \le H_q$).
+    \item $G = H_q / H_{kv} \in \mathbb{N}_{\ge 1}$: Group ratio.
+    \item $d_k \in \mathbb{N}_{\ge 1}$: Head feature dimension.
+    \item $\mathbf{Q} \in \mathbb{R}^{N_q \times (H_q d_k)}$: Dense query input tensor.
+    \item $\mathbf{K}, \mathbf{V} \in \mathbb{R}^{N_k \times (H_{kv} d_k)}$: Compact key and value tensors.
+    \item $g(h) = \lfloor h / G \rfloor$: Key-value group parent index.
+    \item $\mathbf{H}_h \in \mathbb{R}^{N_q \times d_k}$: Output of query head $h$.
+    \item $\mathbf{O} \in \mathbb{R}^{N_q \times (H_q d_k)}$: Concatenated GQA output tensor.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$H_q, H_{kv}, d_k$ & \textbf{Defined} (Architectural hyperparameters) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$G = H_q / H_{kv}$ & \textbf{Calculated} (Group factor) & Integer ratio $\mathbb{N}_{\ge 1}$ \\
+$\mathbf{Q}$ & \textbf{Calculated / Learned} (Query activations) & Matrix in $\mathbb{R}^{N_q \times (H_q d_k)}$ \\
+$\mathbf{K}, \mathbf{V}$ & \textbf{Calculated / Learned} (Compact KV activations) & Matrices in $\mathbb{R}^{N_k \times (H_{kv} d_k)}$ \\
+$\mathbf{O}$ & \textbf{Calculated} (Layer output) & Matrix in $\mathbb{R}^{N_q \times (H_q d_k)}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(\mathbf{Q}, \mathbf{K}, \mathbf{V}) \xrightarrow{\text{Slice \& Broadcast KV}} \bigoplus_{h=0}^{H_q-1} \operatorname{Attn}\left(\mathbf{Q}^{(h)}, \mathbf{K}^{(\lfloor h/G \rfloor)}, \mathbf{V}^{(\lfloor h/G \rfloor)}\right) \xrightarrow{\text{Concat}} \mathbf{O}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+\mathbf{Q}^{(h)} &\in \mathbb{R}^{N_q \times d_k}, \quad \mathbf{K}^{(g)} \in \mathbb{R}^{N_k \times d_k}, \quad \mathbf{V}^{(g)} \in \mathbb{R}^{N_k \times d_k} \\
+\mathbf{H}_h &= \operatorname{Attn}(\mathbf{Q}^{(h)}, \mathbf{K}^{(g(h))}, \mathbf{V}^{(g(h))}) \in \mathbb{R}^{N_q \times d_k} \\
+\mathbf{O} &= [\mathbf{H}_0 \; \dots \; \mathbf{H}_{H_q - 1}] \in \mathbb{R}^{N_q \times (H_q d_k)} \quad \text{\textbf{(Exact query shape preservation)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Multi-Head Attention Limit ($H_{kv} = H_q \implies G = 1$)}: Each query head has its own KV head; GQA degenerates strictly to standard MHA.
+    \item \textbf{Multi-Query Attention Limit ($H_{kv} = 1 \implies G = H_q$)}: All query heads share a single KV head; GQA degenerates strictly to MQA.
+    \item \textbf{Optimal Balanced Regime ($G = 8$)}: Used in LLaMA-3; provides $8\times$ memory savings with zero measurable drop in benchmark accuracy.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Divisibility Violation}: $H_q \pmod{H_{kv}} \ne 0$ causes unequal group allocation. \emph{Precondition}: $H_q \pmod{H_{kv}} = 0$.
+    \item \textbf{Dimension Mismatch}: Sliced query and key head widths must both equal $d_k$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Output Dimensional Invariance}: The output tensor shape $(N_q, H_q d_k)$ depends only on query shape and is completely invariant to $H_{kv}$.
+\end{itemize}
+
+\subsection{[ ] Transfer: Asymmetric Low-Rank Tensor Factorization}
+GQA is isomorphic to asymmetric low-rank matrix approximation, projecting queries into a high-dimensional rank space $H_q d_k$ while projecting the key-value conditioning manifold into a low-rank subspace $H_{kv} d_k$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Strict $1/G$ KV Cache Memory Reduction}]
+Let sequence length be $N$. Replacing Multi-Head Attention with Grouped-Query Attention with group ratio $G = H_q / H_{kv}$ reduces the runtime KV-Cache memory consumption by an exact factor of $1/G$.
+\end{theorem}
+
+\begin{proof}
+In Multi-Head Attention, caching keys and values for $H_q$ heads requires:
+$\text{Memory}_{\text{MHA}} = 2 \cdot (N \cdot H_q \cdot d_k) \cdot \text{sizeof(float)}$.
+In Grouped-Query Attention, only $H_{kv}$ key and value heads are instantiated and cached:
+$\text{Memory}_{\text{GQA}} = 2 \cdot (N \cdot H_{kv} \cdot d_k) \cdot \text{sizeof(float)}$.
+Evaluating the ratio:
+{\boldmath
+\begin{equation}
+\frac{\text{Memory}_{\text{GQA}}}{\text{Memory}_{\text{MHA}}} = \frac{2 N H_{kv} d_k}{2 N H_q d_k} = \frac{H_{kv}}{H_q} = \frac{1}{G}
+\end{equation}
+}
+Hence, memory footprint contracts strictly by $1/G$.
+\end{proof}
+
+\begin{theorem}[\textbf{Degeneracy to MHA and MQA at Extreme Boundaries}]
+Grouped-Query Attention interpolates strictly between Multi-Head Attention at $G = 1$ and Multi-Query Attention at $G = H_q$.
+\end{theorem}
+
+\begin{proof}
+Case 1: Let $H_{kv} = H_q \implies G = 1$.
+Then for each query head $h$, $g(h) = \lfloor h / 1 \rfloor = h$.
+The attention evaluation becomes $\mathbf{H}_h = \operatorname{Attn}(\mathbf{Q}^{(h)}, \mathbf{K}^{(h)}, \mathbf{V}^{(h)})$, which is identical to standard Multi-Head Attention.
+Case 2: Let $H_{kv} = 1 \implies G = H_q$.
+Then for all $h \in \{0, \dots, H_q - 1\}$, $g(h) = \lfloor h / H_q \rfloor = 0$.
+All query heads attend against the single key-value head $(\mathbf{K}^{(0)}, \mathbf{V}^{(0)})$, which is identical to Multi-Query Attention.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Why MHA Suffers in Long-Context Inference}}
+\textbf{Question}: Why does Multi-Head Attention (MHA) cause serving memory bottlenecks during autoregressive decoding?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does the operational arithmetic intensity of auto-regressive decoding shift inference from compute-bound to memory-bandwidth-bound regimes?}
+    \item \textbf{Deep Answer}: In autoregressive generation, generating 1 token requires loading the entire KV-Cache from GPU High-Bandwidth Memory (HBM) into SRAM. Because the compute per token is small ($N=1$), memory bandwidth dominates inference latency. With MHA, loading 64 KV heads for a 32k context saturates memory buses, capping serving throughput. GQA reduces KV cache size by 8x, allowing the memory bus to load cache 8 times faster and drastically increasing tokens-per-second throughput.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Why GQA Preserves Quality Better than MQA}}
+\textbf{Question}: Why does GQA with 8 KV heads match full MHA quality while MQA with 1 KV head suffers accuracy degradation?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What is the minimum subspace diversity required for key-value associative retrieval across multi-task corpora?}
+    \item \textbf{Deep Answer}: In MQA ($H_{kv} = 1$), all 32 or 64 query heads must attend to the exact same key representations. If one task requires keys to represent syntactic boundaries and another requires semantic topic keys, a single key head cannot represent both simultaneously without catastrophic interference. GQA with $H_{kv} = 8$ provides 8 independent key-value subspaces, allowing the model to dedicate separate KV heads to syntax, factual lookup, code structure, and conversation history.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Training with GQA vs Converting from MHA}}
+\textbf{Question}: Can an existing pretrained MHA model be converted into a GQA model without training from scratch?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How can mean-pooling across head groups transfer knowledge from dense heads to grouped heads during checkpoint adaptation?}
+    \item \textbf{Deep Answer}: Yes. In the original GQA paper (Ainslie et al., 2023), pretrained MHA models (like T5-XXL) were converted to GQA by mean-pooling the $G$ key and value projection matrices in each group into a single shared projection: $\mathbf{W}^{K, (g)} = \frac{1}{G}\sum_{i=0}^{G-1} \mathbf{W}^{K, (g \cdot G + i)}$. With only 5\% of continued pretraining, the converted GQA model matched the original MHA model's benchmark performance while gaining 8x KV cache efficiency.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: FLOPs during Prefill vs Decoding}}
+\textbf{Question}: Does GQA reduce training FLOPs compared to MHA?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why does KV head reduction reduce projection matrix parameters while leaving attention inner product FLOPs unchanged?}
+    \item \textbf{Deep Answer}: GQA reduces the parameter count of the Key and Value projection matrices ($\mathbf{W}^K, \mathbf{W}^V$) by factor $1/G$, saving a small fraction of projection FLOPs. However, inside the attention core, all $H_q$ query heads still evaluate dot products against the sequence. Thus, attention FLOPs remain $\Theta(N_q N_k H_q d_k)$. The primary advantage of GQA is not training FLOP reduction, but massive memory reduction and memory bandwidth savings during autoregressive inference.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoGroupedQueryAttention} is formalized in Algorithm~\ref{alg:gqa}.
+
+\begin{algorithm}[H]
+\caption{Grouped-Query Attention Forward Execution}
+\label{alg:gqa}
+\begin{algorithmic}[1]
+\Require Query $\mathbf{Q} \in \mathbb{R}^{N_q \times (H_q d_k)}$, Key $\mathbf{K} \in \mathbb{R}^{N_k \times (H_{kv} d_k)}$, Value $\mathbf{V} \in \mathbb{R}^{N_k \times (H_{kv} d_k)}$
+\Require Head counts $H_q, H_{kv} \in \mathbb{N}_{\ge 1}$, optional mask $\mathbf{M} \in \mathbb{R}^{N_q \times N_k}$
+\Ensure Output tensor $\mathbf{O} \in \mathbb{R}^{N_q \times (H_q d_k)}$, head count $H_q$, group ratio $G$
+\State $N_q \gets \text{rows}(\mathbf{Q}), \quad N_k \gets \text{rows}(\mathbf{K})$
+\State $\textbf{Assert } H_q \ge 1 \textbf{ and } H_{kv} \ge 1 \textbf{ and } H_q \pmod{H_{kv}} = 0$
+\State $G \gets H_q / H_{kv}, \quad d_k \gets \text{cols}(\mathbf{Q}) / H_q$
+\State $\text{head\_outputs} \gets \text{empty list of size } H_q$
+\For{$h \gets 0 \textbf{ to } H_q - 1$}
+    \State $g \gets \lfloor h / G \rfloor$ \Comment{Map query head to shared KV head}
+    \State $s_q \gets h \cdot d_k, \quad e_q \gets (h + 1) \cdot d_k$
+    \State $s_{kv} \gets g \cdot d_k, \quad e_{kv} \gets (g + 1) \cdot d_k$
+    \State $\mathbf{Q}^{(h)} \gets \mathbf{Q}[:, s_q:e_q]$
+    \State $\mathbf{K}^{(g)} \gets \mathbf{K}[:, s_{kv}:e_{kv}]$
+    \State $\mathbf{V}^{(g)} \gets \mathbf{V}[:, s_{kv}:e_{kv}]$
+    \State $\mathbf{H}_h \gets \text{ScaledDotProductAttention}(\mathbf{Q}^{(h)}, \mathbf{K}^{(g)}, \mathbf{V}^{(g)}, \mathbf{M})[\text{'output'}]$
+    \State $\text{head\_outputs}[h] \gets \mathbf{H}_h$
+\EndFor
+\State $\mathbf{O} \gets \text{zeros of shape } (N_q, H_q \cdot d_k)$
+\For{$i \gets 0 \textbf{ to } N_q - 1$}
+    \State $\mathbf{O}[i] \gets \text{Concatenate}(\text{head\_outputs}[0][i], \dots, \text{head\_outputs}[H_q - 1][i])$
+\EndFor
+\State \Return $\{\text{output}: \mathbf{O}, \text{num\_q\_heads}: H_q, \text{num\_kv\_heads}: H_{kv}, \text{group\_ratio}: G\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Computing inner products across $H_q$ heads: $\Theta(N_q N_k H_q d_k)$ FLOPs.
+        \item Total Time Complexity: $\Theta(N_q N_k H_q d_k)$.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Key/Value cache buffers: $\Theta(N_k H_{kv} d_k)$ floats ($G$ times smaller than MHA).
+        \item Total Auxiliary Space: $\Theta(N_k H_{kv} d_k + N_q H_q d_k)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}

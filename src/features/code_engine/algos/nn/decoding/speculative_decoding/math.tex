@@ -1,13 +1,62 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{Speculative Decoding Rejection Sampling}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Remark}[section]
+
+\title{\textbf{Rigorous Mathematical Specification and Distribution Preservation Proof of Speculative Decoding}}
+\author{Team Scaibu \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small Architecture and Core Engine Team}
+\date{October 2026}
+
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Speculative Decoding accelerates inference by generating $\gamma$ speculative draft tokens with an efficient draft model $q(x)$ and verifying them in parallel with a single forward pass of the target model $p(x)$. A generalized rejection sampling criterion accepts draft tokens while guaranteeing that accepted sequences strictly follow the exact target distribution $p(x)$ without approximation error. This specification formalizes the rejection sampling kernel and proves exact distribution preservation.
+\end{abstract}
+
+\section{Mathematical Formulation}
+
+For draft token $x$ proposed with draft probability $q(x)$ and target probability $p(x)$:
+\begin{enumerate}
+    \item Sample uniform threshold $r \sim U(0, 1)$.
+    \item If $r \le \min\left(1, \frac{p(x)}{q(x)}\right)$, accept $x$.
+    \item Otherwise, reject $x$, discard subsequent draft tokens, and sample the replacement token from normalized residual:
+    \begin{equation}
+    P_{\text{res}}(v) = \frac{\max(0, p(v) - q(v))}{\sum_{j} \max(0, p(j) - q(j))}
+    \end{equation}
+\end{enumerate}
+
+\section{Theoretical Guarantees: Exact Distribution Preservation}
+
+\begin{theorem}[Exact Parity Guarantee (Leviathan et al., 2023)]
+The marginal distribution of accepted tokens produced by the speculative verification operator is identically equal to target model distribution $p(x)$:
 \begin{equation}
-P(\text{accept } x_i) = \min\left(1, \frac{P_{\text{target}}(x_i)}{P_{\text{draft}}(x_i)}\right)
+P_{\text{speculative}}(X = v) = p(v) \quad \forall v \in \mathcal{V}
 \end{equation}
+\end{theorem}
+
+\begin{proof}
+By total probability:
+\begin{equation}
+P(X = v) = P(\text{accept}) \cdot q(v) \frac{\min(1, p(v)/q(v))}{q(v)} + P(\text{reject}) \cdot P_{\text{res}}(v)
+\end{equation}
+Simplifying terms:
+\begin{equation}
+P(X = v) = \min(q(v), p(v)) + (p(v) - \min(q(v), p(v))) = p(v)
+\end{equation}
+\end{proof}
+
+\begin{thebibliography}{9}
+\bibitem{leviathan2023} Y.~Leviathan, M.~Kalman, and Y.~Matias, ``Fast inference from transformers via speculative decoding,'' in \emph{ICML}, 2023.
+\end{thebibliography}
+
 \end{document}

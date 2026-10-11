@@ -1,13 +1,325 @@
-\documentclass[11pt]{article}
-\usepackage{amsmath, amssymb}
-\usepackage{geometry}
-\geometry{margin=1in}
-\title{\textbf{ALiBi Linear Attention Biases}}
-\author{Architecture Policy Engine}
-\date{\today}
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{\textbf{Definition}}[section]
+\newtheorem{theorem}{\textbf{Theorem}}[section]
+\newtheorem{lemma}[theorem]{\textbf{Lemma}}
+\newtheorem{remark}{\textbf{Remark}}[section]
+
+\title{\textbf{Attention with Linear Biases (ALiBi)}}
+\author{\textbf{Team Scaibu} \\ \small Email: \texttt{jaydeep.9664920749@gmail.com} \\ \small \textbf{Architecture and Core Engine Team}}
+\date{\textbf{October 2026}}
+
 \begin{document}
 \maketitle
+
+\section{Definitions and Cognitive Mental Models}
+
+\subsection{Formal Mathematical Definition}
+\textbf{Definition (ALiBi Attention Linear Bias Operator):}
+Let $H \in \mathbb{N}_{\ge 1}$ denote the number of attention heads, $N_q \in \mathbb{N}_{\ge 1}$ denote query length, and $N_k \in \mathbb{N}_{\ge 1}$ denote key length.
+The \textbf{Attention with Linear Biases} (ALiBi) operator:
+{\boldmath
 \begin{equation}
-\text{Score}_{i,j}^h = \frac{\mathbf{q}_i^\top \mathbf{k}_j}{\sqrt{d_k}} - m_h |i - j|
+\operatorname{ALiBi}: \mathbb{N}_{\ge 1} \times \mathbb{N}_{\ge 1} \times \mathbb{N}_{\ge 1} \longrightarrow \mathbb{R}_{\le 0}^{H \times N_q \times N_k} \times \mathbb{R}_{> 0}^H
 \end{equation}
+}
+is the parameter-free tensor generator mapping dimensions to a pair $\{\mathbf{B}, \mathbf{m}\}$, where the slope vector $\mathbf{m} = (m_0, \dots, m_{H-1})$ is a geometric sequence:
+{\boldmath
+\begin{equation}
+m_h = 2^{-\frac{8(h + 1)}{H}} \quad \text{for } H = 2^k, \quad h \in \{0, \dots, H-1\}
+\end{equation}
+}
+and each head's bias matrix $\mathbf{B}_h \in \mathbb{R}_{\le 0}^{N_q \times N_k}$ applies a strictly non-positive linear penalty proportional to coordinate distance $|i - j|$:
+{\boldmath
+\begin{equation}
+B_{h, i, j} = -m_h \cdot |i - j|
+\end{equation}
+}
+which augments the scaled dot-product attention logits prior to softmax normalization:
+{\boldmath
+\begin{equation}
+\mathbf{S}_h = \frac{\mathbf{Q}_h \mathbf{K}_h^\top}{\sqrt{d_k}} + \mathbf{B}_h + \mathbf{M}
+\end{equation}
+}
+
+\subsection{Expanded Non-Technical Definition (Intuition for Anyone)}
+\textbf{Intuitive Conceptual Definition:}
+For years, AI researchers believed that every neural network needed complex positional vectors added to tokens or intricate rotary coordinate transformations. However, both techniques struggle when tested on documents longer than their training length (a model trained on 2,048 tokens collapses when given 4,096 tokens).
+
+ALiBi (Attention with Linear Biases) revolutionizes positional awareness through **zero token encodings**:
+\begin{enumerate}
+    \item \textbf{No Positional Embeddings}: Words enter the Transformer with completely raw, pure semantic embeddings. No position vectors are added, and no features are rotated.
+    \item \textbf{A Distance Tax on Attention}: Instead of teaching the model what position 100 looks like, ALiBi simply taxes attention scores linearly: every step a key is farther away from a query, its attention score pays a small negative penalty: $-m_h \times \text{distance}$.
+    \item \textbf{Geometric Spectrum of Receptive Fields}: Each attention head has its own slope $m_h$:
+    \begin{itemize}
+        \item Head 1 has a very steep tax rate ($m \approx 0.5$): tokens 4 steps away are heavily penalized, forcing this head to focus purely on immediate adjacent grammar.
+        \item Head 8 has an ultra-gentle tax rate ($m \approx 0.0039$): tokens 1,000 steps away barely feel any penalty, allowing this head to track global, document-wide context.
+    \end{itemize}
+    \item \textbf{Flawless Length Extrapolation}: Because a linear slope never changes its shape regardless of how far it extends, a model trained with ALiBi on 2,048 tokens can immediately run on 8,192 or 16,384 tokens with zero fine-tuning and zero performance degradation.
+\end{enumerate}
+
+\subsection{Expanded Mental Model for Visualization (Understandable by a Child)}
+\textbf{The Flashlights with Different Fog Levels}:
+Imagine $H$ children standing in a long dark hallway, each holding a different flashlight to look for clue cards taped to the floor.
+
+\begin{itemize}
+    \item \textbf{Child 1 (The Foggy Flashlight, Steep Slope $m_0$)}:
+    Child 1 stands in thick, heavy mist. Their flashlight is bright right at their shoes (distance 0), but the light fades very quickly: 2 steps away is dim, and 5 steps away is pitch black! This child is the master of noticing tiny pebbles right next to their feet.
+    
+    \item \textbf{Child 8 (The Clear Sky Searchlight, Gentle Slope $m_{H-1}$)}:
+    Child 8 stands in crystal clear air with a high-powered beam. Their light travels hundreds of steps down the hallway, barely losing any brightness at all! This child is the master of spotting castles in the far distance.
+    
+    \item \textbf{The Infinite Hallway (Extrapolation)}:
+    If someone suddenly makes the hallway twice as long, the children don't get confused! The foggy flashlight still fades quickly, and the beam flashlight still shines into the distance. The rules of light never break, no matter how long the hallway becomes.
+\end{itemize}
+
+\section{Core Mathematical Equations: Formal Definitions, Meaning, and Importance}
+
+\subsection{\textbf{Equation 1: Head Slope Geometric Progression}}
+{\boldmath
+\begin{equation}
+m_h = 2^{-\frac{8(h + 1)}{H}} = \left( 2^{-8/H} \right)^{h+1}, \qquad h \in \{0, 1, \dots, H-1\}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The geometric ratio progression mapping head index $h$ to positive decay slope $m_h \in (0, 1)$, bounded between $m_{\text{min}} = 2^{-8} = 1/256$ and $m_{\text{max}} = 2^{-8/H}$.
+    \item \textbf{What It Means}:
+    Slopes decay exponentially across the heads, ensuring a smooth multi-scale spectrum of receptive field widths.
+    \item \textbf{Why It Is Important}:
+    Fixing the slopes as a non-learnable geometric progression prevents optimization instability and guarantees diverse contextual focus across heads.
+\end{itemize}
+
+\subsection{\textbf{Equation 2: Linear Distance Penalty Formulation}}
+{\boldmath
+\begin{equation}
+B_{h, i, j} = -m_h \cdot |i - j| \le 0, \qquad B_{h, i, i} = 0
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The linear homothety that scales the absolute Euclidean distance $|i - j|$ by strictly negative scalar factor $-m_h \in \mathbb{R}_{< 0}$.
+    \item \textbf{What It Means}:
+    Tokens at the exact same position ($i = j$) pay zero penalty; every additional step of separation subtracts an additional $m_h$ from the unnormalized logit score.
+    \item \textbf{Why It Is Important}:
+    Linear decay translates directly into exponential probability decay inside the softmax function, naturally imposing a Laplace locality prior.
+\end{itemize}
+
+\subsection{\textbf{Equation 3: ALiBi-Augmented Softmax Distribution}}
+{\boldmath
+\begin{equation}
+A_{h, i, j} = \frac{\exp\left( \frac{\mathbf{q}_i^\top \mathbf{k}_j}{\sqrt{d_k}} - m_h |i - j| \right)}{\sum_{l=1}^{N_k} \exp\left( \frac{\mathbf{q}_i^\top \mathbf{k}_l}{\sqrt{d_k}} - m_h |i - l| \right)}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The row-stochastic attention probability mapping combining content-dependent bilinear affinity with content-independent linear spatial bias.
+    \item \textbf{What It Means}:
+    A distant token can still receive high attention if its semantic alignment $\mathbf{q}^\top \mathbf{k}$ is exceptionally strong, but distant weak matches are gracefully suppressed by the linear penalty.
+    \item \textbf{Why It Is Important}:
+    This provides an ideal balance between content-based addressing and spatial locality, completely eliminating catastrophic attention dispersion over long contexts.
+\end{itemize}
+
+\subsection{\textbf{Equation 4: Exponential Distance Kernel Factoring}}
+{\boldmath
+\begin{equation}
+\exp\left( \frac{\mathbf{q}_i^\top \mathbf{k}_j}{\sqrt{d_k}} - m_h |i - j| \right) = \exp\left( \frac{\mathbf{q}_i^\top \mathbf{k}_j}{\sqrt{d_k}} \right) \cdot e^{-m_h |i - j|}
+\end{equation}
+}
+\begin{itemize}
+    \item \textbf{Formal Mathematical Definition}:
+    The multiplicative factoring of the unnormalized attention numerator into a semantic kernel $\mathcal{K}_{\text{semantic}}$ and an exponential spatial decay kernel $\mathcal{K}_{\text{spatial}}(i, j) = e^{-m_h |i - j|}$.
+    \item \textbf{What It Means}:
+    Adding a linear bias in logit space is mathematically identical to multiplying the attention weight by an exponential decaying factor $e^{-m |i - j|}$.
+    \item \textbf{Why It Is Important}:
+    Exponential decay guarantees that attention weights decay strictly monotonically with distance unless actively counteracted by strong semantic evidence.
+\end{itemize}
+
+\section{Rigorous Mathematical Analysis Checklist}
+
+\subsection{[ ] Notation: Symbol and Operator Specification}
+\begin{itemize}
+    \item $H \in \mathbb{N}_{\ge 1}$: Number of attention heads.
+    \item $N_q, N_k \in \mathbb{N}_{\ge 1}$: Query and key sequence lengths.
+    \item $m_h \in \mathbb{R}_{> 0}$: Penalty slope for head $h$.
+    \item $\mathbf{B} \in \mathbb{R}^{H \times N_q \times N_k}$: Full 3D linear bias tensor.
+    \item $B_{h, i, j} \in \mathbb{R}_{\le 0}$: Bias penalty for pair $(i, j)$ under head $h$.
+    \item $|i - j| \in \mathbb{N}$: Coordinate distance along sequence axis.
+\end{itemize}
+
+\subsection{[ ] Definitions: Epistemic Nature of Variables}
+\begin{table}[h]
+\centering
+\caption{\textbf{Epistemic Classification of Mathematical Quantities}}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable} & \textbf{Epistemic Classification} & \textbf{Mathematical Nature} \\
+\midrule
+$H, N_q, N_k$ & \textbf{Defined} (Architectural dimensions) & Natural numbers $\mathbb{N}_{\ge 1}$ \\
+$m_h$ & \textbf{Calculated} (Deterministic geometric sequence) & Strictly positive reals in $(0, 1)$ \\
+$\mathbf{B}$ & \textbf{Calculated} (Deterministic linear tensor) & Non-positive tensor in $\mathbb{R}_{\le 0}^{H \times N_q \times N_k}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{[ ] Structure: Composite Algebraic Operator Graph}
+{\boldmath
+\begin{equation}
+(H, N_q, N_k) \xrightarrow{\text{Geometric Schedule}} \{m_h\} \xrightarrow{-m_h |i - j|} \mathbf{B} \xrightarrow{+} \mathbf{S} = \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d}} + \mathbf{B}
+\end{equation}
+}
+
+\subsection{[ ] Units and Dimensions: Dimensional Consistency}
+{\boldmath
+\begin{align}
+m_h &\in \mathbb{R}_{> 0} \quad \text{\textbf{(Logit penalty per token distance)}} \\
+|i - j| &\in \mathbb{N} \quad \text{\textbf{(Discrete token steps)}} \\
+\mathbf{B} &\in \mathbb{R}^{H \times N_q \times N_k} \quad \text{\textbf{(Dimensionless logit bias)}}
+\end{align}
+}
+
+\subsection{[ ] Behavior: Limiting Regimes and Parameter Scaling}
+\begin{itemize}
+    \item \textbf{Zero Distance ($i = j$)}: $B_{h, i, i} = -m_h \cdot 0 = 0.0$. Self-attention pays zero penalty.
+    \item \textbf{Infinite Distance ($|i - j| \to \infty$)}: $B_{h, i, j} \to -\infty \implies \exp(S_{i, j}) \to 0$. Attention strictly vanishes.
+    \item \textbf{Slope Extremes}: Head with $m_{\text{max}}$ acts as a tight local n-gram window; head with $m_{\text{min}}$ behaves as a global attention mechanism.
+\end{itemize}
+
+\subsection{[ ] Conditions and Failure Cases}
+\begin{itemize}
+    \item \textbf{Non-Positive Dimensions}: Requires $H \ge 1, N_q \ge 1, N_k \ge 1$.
+\end{itemize}
+
+\subsection{[ ] Verification and Invariant Properties}
+\begin{itemize}
+    \item \textbf{Symmetric Toeplitz Structure}: Each head matrix $\mathbf{B}_h$ is a symmetric Toeplitz matrix: $B_{h, i, j} = B_{h, j, i}$ and $B_{h, i+1, j+1} = B_{h, i, j}$.
+\end{itemize}
+
+\subsection{[ ] Transfer: Laplace Receptive Field Kernels}
+ALiBi is mathematically isomorphic to convolution with a family of multiscale continuous Laplace spatial kernels $\mathcal{K}(x) = \exp(-|x| / \sigma_h)$ with scale parameters $\sigma_h = 1 / m_h$.
+
+\section{Theorems, Proofs, and Theoretical Guarantees}
+
+\begin{theorem}[\textbf{Strict Toeplitz Translation Invariance}]
+For all attention heads $h$, query positions $i$, key positions $j$, and integer shifts $k \in \mathbb{Z}$:
+{\boldmath
+\begin{equation}
+B_{h, i + k, j + k} = B_{h, i, j}
+\end{equation}
+}
+\end{theorem}
+
+\begin{proof}
+Evaluating the shifted coordinate definition:
+$B_{h, i + k, j + k} = -m_h \cdot |(i + k) - (j + k)| = -m_h \cdot |i + k - j - k| = -m_h \cdot |i - j| = B_{h, i, j}$.
+Because shifting query and key by the same offset cancels out identically inside the absolute difference, the bias depends strictly on relative offset.
+\end{proof}
+
+\begin{theorem}[\textbf{Monotonic Extrapolation Stability}]
+Let $N_{\text{train}}$ be the training context length. For any inference distance $|i - j| > N_{\text{train}}$, the bias penalty satisfies $B_{h, i, j} < -m_h N_{\text{train}} < 0$, guaranteeing that attention weights for out-of-distribution distant tokens are strictly bounded by $\mathcal{O}(e^{-m_h N_{\text{train}}})$ without risk of explosive attention drift.
+\end{theorem}
+
+\begin{proof}
+Since $m_h > 0$, the function $f(d) = -m_h d$ is strictly monotonically decreasing on $[0, \infty)$.
+For any distance $d > N_{\text{train}}$, $f(d) < f(N_{\text{train}}) = -m_h N_{\text{train}}$.
+Exponentiating inside the softmax numerator: $\exp(f(d)) < \exp(-m_h N_{\text{train}})$.
+Because distant tokens are exponentially dampened, unseen distant positions cannot hijack probability mass from local tokens, preventing perplexity explosion during length extrapolation.
+\end{proof}
+
+\section{Critical Questions, Meta-Questions, and Deep Understanding}
+
+\subsection{\textbf{Critical Question 1: Why Linear Distance Instead of Quadratic}}
+\textbf{Question}: Why does ALiBi use linear distance ($-m |i - j|$) instead of quadratic distance ($-m (i - j)^2$, like a Gaussian)?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{How does the polynomial order of the logit distance penalty govern extrapolation decay rates?}
+    \item \textbf{Deep Answer}: A quadratic penalty $-m (i - j)^2$ drops off too aggressively. At distance 100, a quadratic penalty evaluates to $-m \times 10,000$, which completely crushes the exponential to zero and entirely blinds the model to tokens past a small radius. A linear penalty $-m |i - j|$ yields gentle exponential decay ($e^{-m d}$), allowing distant tokens with strong semantic relevance to overcome the penalty when necessary.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 2: Zero Parameter Advantage}}
+\textbf{Question}: How many trainable parameters does ALiBi introduce into a Transformer model?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What is the memory and parameter complexity of deterministic inductive bias injection?}
+    \item \textbf{Deep Answer}: Exactly zero. The slopes $m_h$ are computed deterministically from the head count $H$ using a fixed geometric sequence ($2^{-8(h+1)/H}$), and the bias matrices are calculated directly from coordinate arithmetic. ALiBi adds zero weights to the model checkpoint and incurs zero parameter gradients during backpropagation.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 3: Train-Short, Test-Long Extrapolation}}
+\textbf{Question}: Why can an ALiBi model trained on 1,024 tokens immediately process 4,096 or 8,192 tokens at test time without fine-tuning?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{Why does monotonic decay eliminate out-of-distribution positional hallucinations?}
+    \item \textbf{Deep Answer}: Models using learned positional embeddings fail because tokens at position 2,000 have no trained weights. Models using RoPE can suffer from phase wrap-around on unfamiliar frequencies. ALiBi's bias function has no learned weights and no trigonometric periods; it is a simple straight line extending to infinity. At distance 4,000, ALiBi simply assigns a slightly more negative number, which the model already knows how to process.
+\end{itemize}
+
+\subsection{\textbf{Critical Question 4: ALiBi vs RoPE Trade-Offs}}
+\textbf{Question}: Why do some models prefer RoPE over ALiBi despite ALiBi's superior out-of-the-box length extrapolation?
+\begin{itemize}
+    \item \textbf{Meta-Question}: \emph{What inductive bias limitation occurs when forcing attention to decay strictly with distance?}
+    \item \textbf{Deep Answer}: ALiBi enforces an inescapable prior: distant tokens always receive lower attention unless they have massive semantic affinity. In tasks that require perfectly uniform retrieval across long documents (like needle-in-a-haystack search, where a fact on page 1 is just as important as a fact on page 500), ALiBi's linear decay can slightly penalize long-range retrieval. RoPE rotates keys and queries without penalizing distant dot products, making it more flexible when context windows are expanded via continued pretraining.
+\end{itemize}
+
+\section{Algorithmic Specification}
+
+The computational pipeline implemented in \texttt{NnAlgoAlibiAttentionLinearBiases} is formalized in Algorithm~\ref{alg:alibi}.
+
+\begin{algorithm}[H]
+\caption{ALiBi Bias Tensor Evaluation}
+\label{alg:alibi}
+\begin{algorithmic}[1]
+\Require Head count $H \in \mathbb{N}_{\ge 1}$, query length $N_q \in \mathbb{N}_{\ge 1}$, key length $N_k \in \mathbb{N}_{\ge 1}$
+\Ensure Bias tensor $\mathbf{B} \in \mathbb{R}^{H \times N_q \times N_k}$, slope vector $\mathbf{m} \in \mathbb{R}^H$
+\State $\textbf{Assert } H \ge 1 \textbf{ and } N_q \ge 1 \textbf{ and } N_k \ge 1$
+\Function{GetSlopes}{$n$}
+    \Function{SlopesPowerOfTwo}{$count$}
+        \State $start \gets 2.0^{-\left(2.0^{-(\log_2(count) - 3)}\right)}$
+        \State \Return $[start \cdot (start)^i \text{ for } i \in \{0, \dots, count - 1\}]$
+    \EndFunction
+    \If{$\log_2(n)$ is an integer}
+        \State \Return \Call{SlopesPowerOfTwo}{$n$}
+    \EndIf
+    \State $base \gets 2^{\lfloor \log_2(n) \rfloor}$
+    \State $s_{\text{base}} \gets \Call{SlopesPowerOfTwo}{base}$
+    \State $s_{\text{extra}} \gets \Call{SlopesPowerOfTwo}{2 \cdot base}[0::2][: n - base]$
+    \State \Return $s_{\text{base}} + s_{\text{extra}}$
+\EndFunction
+\State $\mathbf{m} \gets \Call{GetSlopes}{H}$
+\State $\mathbf{B} \gets \text{empty tensor of shape } (H, N_q, N_k)$
+\For{$h \gets 0 \textbf{ to } H - 1$}
+    \State $slope \gets m_h$
+    \For{$i \gets 0 \textbf{ to } N_q - 1$}
+        \For{$j \gets 0 \textbf{ to } N_k - 1$}
+            \State $B[h, i, j] \gets -slope \cdot \text{float}(|i - j|)$
+        \EndFor
+    \EndFor
+\EndFor
+\State \Return $\{\text{bias\_matrices}: \mathbf{B}, \text{slopes}: \mathbf{m}\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Complexity Analysis}
+\begin{itemize}
+    \item \textbf{Time Complexity}:
+    \begin{itemize}
+        \item Slope generation: $\mathcal{O}(H)$ operations.
+        \item Bias tensor evaluation: $H \times N_q \times N_k$ subtractions and multiplications.
+        \item Total Time Complexity: $\Theta(H \cdot N_q \cdot N_k)$ operations.
+    \end{itemize}
+    \item \textbf{Space Complexity}:
+    \begin{itemize}
+        \item Bias tensor buffer $\mathbf{B}$: $\Theta(H \cdot N_q \cdot N_k)$ floats.
+        \item Total Auxiliary Space: $\Theta(H \cdot N_q \cdot N_k)$.
+    \end{itemize}
+\end{itemize}
+
+\section{Repository Reference}
+All mathematical formulations, algorithmic implementations, contracts, and test suites are maintained at:
+\begin{center}
+\url{https://github.com/Chief-Strategist-J/llm-obs-infra}
+\end{center}
+
 \end{document}
