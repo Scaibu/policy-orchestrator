@@ -2018,6 +2018,14 @@ function copyCurrentTex() {
   }
 }
 
+function openDedicatedDiagramPage() {
+  if (!currentModalProof) return;
+  const domain = currentModalProof.domain || "";
+  const algo = currentModalProof.algo || "";
+  const url = `diagrams/${domain}__${algo}.html`;
+  window.open(url, "_blank");
+}
+
 function openCurrentPdf() {
   if (currentModalProof && currentModalProof.pdf) {
     window.open(currentModalProof.pdf, "_blank");
