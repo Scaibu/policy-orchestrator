@@ -1454,55 +1454,272 @@ annotation {
   text-align: left;
 }
 
-.tex-diagram-header {
+.html-diagram-wrap {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--rule);
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.tex-diagram-title {
+.html-diagram-header {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 14px;
+}
+
+.html-diagram-tag {
   font-family: var(--font-dspl);
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--accent);
-  letter-spacing: .05em;
+  letter-spacing: .1em;
   text-transform: uppercase;
+  margin-bottom: 4px;
 }
 
-.tex-diagram-meta {
+.html-diagram-title {
+  font-family: var(--font-dspl);
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: .02em;
+}
+
+.html-diagram-subtitle {
   font-family: var(--font-dspl);
   font-size: 11px;
   color: var(--teal);
-  margin-top: 3px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
 }
 
-.tex-diagram-controls {
+.html-flow-container {
   display: flex;
-  gap: 6px;
-  align-items: center;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.tex-diagram-canvas {
+.html-flow-track {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: center;
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: 4px;
-  padding: 24px;
-  overflow-x: auto;
-  min-height: 360px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
+  padding: 16px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
-.tex-diagram-canvas svg {
-  max-width: 100%;
-  height: auto;
+@media (max-width: 840px) {
+  .html-flow-track {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .html-flow-arrow {
+    transform: rotate(90deg);
+  }
+}
+
+.html-flow-node {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 10px 12px;
+  transition: all .15s;
+}
+
+.html-flow-node:hover {
+  border-color: var(--accent);
+  background: rgba(123, 243, 123, 0.03);
+}
+
+.html-flow-node.input-node {
+  border-left: 3px solid var(--blue);
+}
+
+.html-flow-node.core-node {
+  border-left: 3px solid var(--accent);
+}
+
+.html-flow-node.loop-node {
+  border-left: 3px solid var(--violet);
+}
+
+.html-flow-node.output-node {
+  border-left: 3px solid var(--teal);
+}
+
+.flow-node-step {
+  font-family: var(--font-dspl);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--ink-dimmer);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.input-node .flow-node-step { color: var(--blue); }
+.core-node .flow-node-step { color: var(--accent); }
+.loop-node .flow-node-step { color: var(--violet); }
+.output-node .flow-node-step { color: var(--teal); }
+
+.flow-node-title {
+  font-family: var(--font-dspl);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.flow-node-desc {
+  font-family: var(--font-dspl);
+  font-size: 10px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+
+.html-flow-arrow {
+  color: var(--ink-dimmer);
+  font-size: 11px;
+  text-align: center;
+  user-select: none;
+}
+
+.html-diagram-section {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 16px 20px;
+}
+
+.html-section-heading {
+  font-family: var(--font-dspl);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--rule);
+  padding-bottom: 6px;
+}
+
+.html-pills-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.html-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 2px;
+  font-family: var(--font-dspl);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.html-pill .pill-dot {
+  font-size: 9px;
+}
+
+.input-pill {
+  color: var(--blue);
+  background: rgba(144, 202, 249, 0.06);
+  border: 1px solid rgba(144, 202, 249, 0.25);
+}
+
+.input-pill .pill-dot {
+  color: var(--blue);
+}
+
+.output-pill {
+  color: var(--teal);
+  background: rgba(148, 226, 213, 0.06);
+  border: 1px solid rgba(148, 226, 213, 0.25);
+}
+
+.output-pill .pill-dot {
+  color: var(--teal);
+}
+
+.html-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.html-step-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--rule-dim);
+  border-radius: 3px;
+  font-family: var(--font-dspl);
+  transition: all .15s;
+}
+
+.html-step-row:hover {
+  border-color: rgba(123, 243, 123, 0.35);
+  background: rgba(123, 243, 123, 0.03);
+}
+
+.html-step-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(123, 243, 123, 0.08);
+  border: 1px solid rgba(123, 243, 123, 0.2);
+  padding: 2px 6px;
+  border-radius: 2px;
+  min-width: 54px;
+  text-align: center;
+  user-select: none;
+}
+
+.html-step-body {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--ink);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.invariant-section {
+  border-left: 3px solid var(--amber);
+  background: rgba(233, 196, 106, 0.02);
+}
+
+.invariant-heading {
+  color: var(--amber);
+}
+
+.html-invariant-content {
+  font-family: var(--font-dspl);
+  font-size: 12px;
+  color: var(--amber);
+  line-height: 1.6;
+}
+
+.complexity-section {
+  border-left: 3px solid var(--violet);
+  background: rgba(201, 180, 255, 0.02);
+}
+
+.complexity-heading {
+  color: var(--violet);
+}
+
+.html-complexity-content {
+  font-family: var(--font-dspl);
+  font-size: 12px;
+  color: var(--violet);
+  line-height: 1.6;
 }
 
 .tex-table-wrap {

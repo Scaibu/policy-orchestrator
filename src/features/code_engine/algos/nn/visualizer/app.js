@@ -1175,44 +1175,32 @@ function closeTexModal() {
   document.body.style.overflow = "";
 }
 
-let currentModalDiagramZoom = 1.0;
-
-function zoomModalDiagram(factor) {
-  currentModalDiagramZoom *= factor;
-  if (currentModalDiagramZoom < 0.4) currentModalDiagramZoom = 0.4;
-  if (currentModalDiagramZoom > 3.0) currentModalDiagramZoom = 3.0;
-  const svg = document.querySelector("#tex-diagram-canvas svg");
-  if (svg) {
-    svg.style.transform = `scale(${currentModalDiagramZoom})`;
-    svg.style.transformOrigin = "top center";
-    svg.style.transition = "transform .15s";
-  }
-}
-
-function resetModalDiagramZoom() {
-  currentModalDiagramZoom = 1.0;
-  const svg = document.querySelector("#tex-diagram-canvas svg");
-  if (svg) {
-    svg.style.transform = "scale(1)";
-  }
-}
-
-function sanitizeMermaidText(text) {
+function sanitizeDiagramMath(text) {
   return String(text || "")
     .replace(/\\gets/g, " ← ")
     .replace(/\\to/g, " → ")
     .replace(/\\le/g, " ≤ ")
     .replace(/\\ge/g, " ≥ ")
     .replace(/\\ne/g, " ≠ ")
+    .replace(/\\approx/g, " ≈ ")
     .replace(/\\sum/g, "Σ")
+    .replace(/\\prod/g, "Π")
+    .replace(/\\int/g, "∫")
+    .replace(/\\in/g, " ∈ ")
+    .replace(/\\subset/g, " ⊂ ")
     .replace(/\\alpha/g, "α")
     .replace(/\\beta/g, "β")
     .replace(/\\gamma/g, "γ")
     .replace(/\\delta/g, "δ")
     .replace(/\\epsilon/g, "ε")
     .replace(/\\theta/g, "θ")
-    .replace(/\\pi/g, "π")
+    .replace(/\\lambda/g, "λ")
+    .replace(/\\mu/g, "μ")
+    .replace(/\\sigma/g, "σ")
     .replace(/\\tau/g, "τ")
+    .replace(/\\phi/g, "φ")
+    .replace(/\\omega/g, "ω")
+    .replace(/\\pi/g, "π")
     .replace(/\\mathcal\{([A-Za-z])\}/g, "$1")
     .replace(/\\mathbf\{([A-Za-z0-9]+)\}/g, "$1")
     .replace(/\\hat\{([A-Za-z0-9]+)\}/g, "$1^")
@@ -1220,27 +1208,27 @@ function sanitizeMermaidText(text) {
     .replace(/\\text\{([^\}]+)\}/g, "$1")
     .replace(/\\textbf\{([^\}]+)\}/g, "$1")
     .replace(/\\[a-zA-Z]+/g, "")
-    .replace(/["#\(\)\[\]\{\};]/g, "")
     .replace(/[{}$_\\~]/g, "")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 55);
+    .trim();
 }
 
-function generateProofMermaidCode(proof) {
-  const tex = proof.rawTex || "";
+function generateHtmlDiagram(p) {
+  const tex = p.rawTex || "";
   let inputs = [];
   let outputs = [];
   let steps = [];
+  let invariant = "";
+  let bigTheta = "";
 
   const reqMatch = tex.match(/\\Require\s+([^\n\r]+)/);
   if (reqMatch) {
-    inputs = reqMatch[1].split(/,|;/).map(sanitizeMermaidText).filter(s => s.length > 1).slice(0, 4);
+    inputs = reqMatch[1].split(/,|;/).map(sanitizeDiagramMath).filter(s => s.length > 1).slice(0, 6);
   }
 
   const ensMatch = tex.match(/\\Ensure\s+([^\n\r]+)/);
   if (ensMatch) {
-    outputs = ensMatch[1].split(/,|;/).map(sanitizeMermaidText).filter(s => s.length > 1).slice(0, 4);
+    outputs = ensMatch[1].split(/,|;/).map(sanitizeDiagramMath).filter(s => s.length > 1).slice(0, 6);
   }
 
   const algoMatch = tex.match(/\\begin\{algorithmic\}[\s\S]*?\\end\{algorithmic\}/);
@@ -1248,8 +1236,8 @@ function generateProofMermaidCode(proof) {
     const lines = algoMatch[0].split("\n");
     for (const line of lines) {
       if (line.includes("\\State") || line.includes("\\For") || line.includes("\\If")) {
-        const clean = sanitizeMermaidText(line.replace(/\\(State|For|If|Ensure|Require)/g, ""));
-        if (clean.length > 2 && !clean.toLowerCase().startsWith("return") && steps.length < 6) {
+        const clean = sanitizeDiagramMath(line.replace(/\\(State|For|If|Ensure|Require)/g, ""));
+        if (clean.length > 2 && !clean.toLowerCase().startsWith("return") && steps.length < 8) {
           steps.push(clean);
         }
       }
@@ -1259,10 +1247,10 @@ function generateProofMermaidCode(proof) {
   if (steps.length === 0 && tex.includes("Dependency Graph")) {
     const depMatch = tex.match(/Dependency Graph\}?:\s*([^\n\r\\]+)/);
     if (depMatch) {
-      const parts = depMatch[1].split(/\\to|->/).map(sanitizeMermaidText).filter(s => s.length > 1);
+      const parts = depMatch[1].split(/\\to|->/).map(sanitizeDiagramMath).filter(s => s.length > 1);
       if (parts.length > 1) {
         if (inputs.length === 0) inputs = [parts[0]];
-        steps = parts.slice(1, -1).slice(0, 5);
+        steps = parts.slice(1, -1);
         if (outputs.length === 0) outputs = [parts[parts.length - 1]];
       }
     }
@@ -1270,95 +1258,118 @@ function generateProofMermaidCode(proof) {
 
   if (steps.length === 0) {
     const subs = (tex.match(/\\subsection\{([^}]+)\}/g) || [])
-      .map(s => sanitizeMermaidText(s.replace(/\\subsection\{|\}/g, "")))
+      .map(s => sanitizeDiagramMath(s.replace(/\\subsection\{|\}/g, "")))
       .filter(s => !s.toLowerCase().includes("question") && !s.toLowerCase().includes("mental"));
     if (subs.length > 0) {
-      steps = subs.slice(0, 4);
+      steps = subs.slice(0, 5);
     }
   }
 
-  if (inputs.length === 0) inputs = ["Input Feature Tensor X", "Model Parameters Theta"];
-  if (steps.length === 0) steps = ["Initialize Forward State", "Compute Loss & Invariants", "Backpropagate Gradients"];
-  if (outputs.length === 0) outputs = ["Optimized Parameters Theta*", "Convergence Certificate"];
-
-  let m = "flowchart TD\n";
-  m += "    classDef input fill:#1e3a5f,stroke:#89b4fa,stroke-width:2px,color:#cdd6f4;\n";
-  m += "    classDef step fill:#151713,stroke:#7bf37b,stroke-width:1.5px,color:#d9d6cb;\n";
-  m += "    classDef output fill:#204040,stroke:#94e2d5,stroke-width:2px,color:#cdd6f4;\n\n";
-
-  m += "    subgraph IN [\"Inputs & Preconditions\"]\n";
-  inputs.forEach((inp, idx) => {
-    m += `        in_${idx}[\"${inp}\"]:::input\n`;
-  });
-  m += "    end\n\n";
-
-  m += "    subgraph PIPE [\"Algorithmic Execution Pipeline\"]\n";
-  steps.forEach((st, idx) => {
-    m += `        st_${idx}[\"${idx + 1}. ${st}\"]:::step\n`;
-  });
-  m += "    end\n\n";
-
-  m += "    subgraph OUT [\"Outputs & Guarantees\"]\n";
-  outputs.forEach((out, idx) => {
-    m += `        out_${idx}[\"${out}\"]:::output\n`;
-  });
-  m += "    end\n\n";
-
-  m += "    IN --> st_0\n";
-  for (let i = 0; i < steps.length - 1; i++) {
-    m += `    st_${i} --> st_${i + 1}\n`;
+  const invMatch = tex.match(/Invariants\}?:\s*([^\n\r\\]+)/);
+  if (invMatch) {
+    invariant = sanitizeDiagramMath(invMatch[1]);
+  } else if (p.excerpt) {
+    invariant = p.excerpt.slice(0, 160);
   }
-  m += `    st_${steps.length - 1} --> OUT\n`;
 
-  return m;
-}
+  const compMatch = tex.match(/Complexity Analysis\}?([\s\S]*?)\\section\{/);
+  if (compMatch) {
+    const firstItem = compMatch[1].match(/\\item\s+([^\n\r]+)/);
+    if (firstItem) bigTheta = sanitizeDiagramMath(firstItem[1]);
+  }
 
-async function renderProofDiagram(container, proof) {
-  if (!proof) return;
-  currentModalDiagramZoom = 1.0;
-  const mermaidCode = generateProofMermaidCode(proof);
+  if (inputs.length === 0) inputs = ["Input Feature Tensor X", "Model Parameters θ", "Hyperparameters η"];
+  if (steps.length === 0) steps = ["Initialize Tensor Memory Buffers", "Evaluate Core Mathematical Kernel", "Update Internal Parameter State", "Compute Loss & Invariant Bounds"];
+  if (outputs.length === 0) outputs = ["Optimized State θ*", "Convergence Invariant Metric"];
 
-  container.innerHTML = `
-    <div class="tex-diagram-header">
-      <div>
-        <div class="tex-diagram-title">${escapeHtml(proof.algoName)} · Architecture Flow</div>
-        <div class="tex-diagram-meta">${escapeHtml(proof.domainLabel)} · Algorithm Execution DAG</div>
+  return `
+    <div class="html-diagram-wrap">
+      <div class="html-diagram-header">
+        <div class="html-diagram-tag">INTERNAL ARCHITECTURE &amp; EXECUTION MECHANISM</div>
+        <div class="html-diagram-title">${escapeHtml(p.algoName)}</div>
+        <div class="html-diagram-subtitle">${escapeHtml(p.domainLabel)} · ${p.lines} lines of formal specifications</div>
       </div>
-      <div class="tex-diagram-controls">
-        <button class="proof-btn" onclick="zoomModalDiagram(1.2)">＋ Zoom In</button>
-        <button class="proof-btn" onclick="zoomModalDiagram(0.8)">− Zoom Out</button>
-        <button class="proof-btn" onclick="resetModalDiagramZoom()">Reset</button>
+
+      <div class="html-flow-container">
+        <div class="html-flow-track">
+          <div class="html-flow-node input-node">
+            <div class="flow-node-step">01 · INGESTION</div>
+            <div class="flow-node-title">Input Tensors</div>
+            <div class="flow-node-desc">${inputs.length} Parameter Arrays</div>
+          </div>
+          <div class="html-flow-arrow">►</div>
+          <div class="html-flow-node core-node">
+            <div class="flow-node-step">02 · COMPUTATION</div>
+            <div class="flow-node-title">Internal Operator</div>
+            <div class="flow-node-desc">${steps.length} Pipeline Passes</div>
+          </div>
+          <div class="html-flow-arrow">►</div>
+          <div class="html-flow-node loop-node">
+            <div class="flow-node-step">03 · VERIFICATION</div>
+            <div class="flow-node-title">Invariant Bounds</div>
+            <div class="flow-node-desc">Convergence Check</div>
+          </div>
+          <div class="html-flow-arrow">►</div>
+          <div class="html-flow-node output-node">
+            <div class="flow-node-step">04 · SYNTHESIS</div>
+            <div class="flow-node-title">Output Targets</div>
+            <div class="flow-node-desc">${outputs.length} Validated Returns</div>
+          </div>
+        </div>
+
+        <div class="html-diagram-section">
+          <div class="html-section-heading">STAGE 01 — INPUT DATA &amp; TENSOR INGESTION</div>
+          <div class="html-pills-wrap">
+            ${inputs.map(inp => `<div class="html-pill input-pill"><span class="pill-dot">●</span><span>${escapeHtml(inp)}</span></div>`).join("")}
+          </div>
+        </div>
+
+        <div class="html-diagram-section">
+          <div class="html-section-heading">STAGE 02 — INTERNAL EXECUTION LIFECYCLE (${steps.length} PASSES)</div>
+          <div class="html-steps-list">
+            ${steps.map((st, i) => `
+              <div class="html-step-row">
+                <div class="html-step-badge">PASS ${String(i + 1).padStart(2, "0")}</div>
+                <div class="html-step-body">${escapeHtml(st)}</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+
+        <div class="html-diagram-section">
+          <div class="html-section-heading">STAGE 03 — COMPUTED OUTPUTS &amp; RESULT TARGETS</div>
+          <div class="html-pills-wrap">
+            ${outputs.map(out => `<div class="html-pill output-pill"><span class="pill-dot">■</span><span>${escapeHtml(out)}</span></div>`).join("")}
+          </div>
+        </div>
+
+        ${invariant ? `
+          <div class="html-diagram-section invariant-section">
+            <div class="html-section-heading invariant-heading">STAGE 04 — MATHEMATICAL INVARIANT CERTIFICATE</div>
+            <div class="html-invariant-content">${escapeHtml(invariant)}</div>
+          </div>
+        ` : ""}
+
+        ${bigTheta ? `
+          <div class="html-diagram-section complexity-section">
+            <div class="html-section-heading complexity-heading">ASYMPTOTIC COMPLEXITY PROFILE</div>
+            <div class="html-complexity-content">${escapeHtml(bigTheta)}</div>
+          </div>
+        ` : ""}
       </div>
-    </div>
-    <div class="tex-diagram-canvas" id="tex-diagram-canvas">
-      <div class="mermaid" id="modal-mermaid-graph">${mermaidCode}</div>
     </div>
   `;
-
-  if (window.mermaid) {
-    try {
-      const graphNode = document.getElementById("modal-mermaid-graph");
-      if (graphNode) {
-        await window.mermaid.run({ nodes: [graphNode] });
-      }
-    } catch (e) {
-      console.warn("Mermaid modal render error:", e);
-    }
-  }
 }
 
 function setTexViewMode(mode) {
   currentTexViewMode = mode;
   const btnRender = document.getElementById("btn-mode-render");
   const btnDiagram = document.getElementById("btn-mode-diagram");
-  const btnSource = document.getElementById("btn-mode-source");
   const renderedView = document.getElementById("tex-rendered-view");
   const diagramView = document.getElementById("tex-diagram-view");
-  const sourceView = document.getElementById("tex-source-view");
 
   if (btnRender) btnRender.classList.toggle("active", mode === "rendered");
   if (btnDiagram) btnDiagram.classList.toggle("active", mode === "diagram");
-  if (btnSource) btnSource.classList.toggle("active", mode === "source");
 
   if (renderedView) {
     renderedView.style.display = mode === "rendered" ? "block" : "none";
@@ -1366,11 +1377,9 @@ function setTexViewMode(mode) {
   }
   if (diagramView) {
     diagramView.style.display = mode === "diagram" ? "block" : "none";
-    if (mode === "diagram") renderProofDiagram(diagramView, currentModalProof);
-  }
-  if (sourceView) {
-    sourceView.style.display = mode === "source" ? "block" : "none";
-    if (mode === "source") sourceView.textContent = currentModalProof ? currentModalProof.rawTex : "";
+    if (mode === "diagram" && currentModalProof) {
+      diagramView.innerHTML = generateHtmlDiagram(currentModalProof);
+    }
   }
 }
 
