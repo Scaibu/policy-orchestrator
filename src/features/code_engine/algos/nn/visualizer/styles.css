@@ -2659,3 +2659,39 @@ code {
     padding: 0 6px !important;
   }
 }
+
+/* High-Fidelity Computational Graph & Architectural Diagram Card */
+.algo-svg-card {
+  background: #070a12;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.algo-svg-card-title {
+  font-family: var(--font-dspl);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: #38bdf8;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.algo-svg-card-title::before {
+  content: "◈";
+  color: #10b981;
+}
+
+.algo-arch-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  background: #0b0f19;
+}

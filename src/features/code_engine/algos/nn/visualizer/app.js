@@ -1213,6 +1213,279 @@ function sanitizeDiagramMath(text) {
     .trim();
 }
 
+
+function renderArchitecturalSvg(p, inputs, outputs, steps) {
+  const algoLower = (p.algo || "").toLowerCase();
+  const domainLower = (p.domain || "").toLowerCase();
+
+  // Case 1: Perceptron, Linear Neuron, Dense, Activation
+  if (
+    algoLower.includes("perceptron") ||
+    algoLower.includes("linear_layer") ||
+    algoLower.includes("relu") ||
+    algoLower.includes("dense") ||
+    domainLower.includes("building_blocks")
+  ) {
+    const actLabel = algoLower.includes("relu") ? "ReLU(·)" : (algoLower.includes("gelu") ? "GELU(·)" : "g(·)");
+    const formula = algoLower.includes("relu") ? "ŷ = max(0, wᵀx + b)" : "ŷ = g(wᵀx + b)";
+    return `
+    <div class="algo-svg-card">
+      <div class="algo-svg-card-title">COMPUTATIONAL GRAPH ARCHITECTURE</div>
+      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+          </marker>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+          </marker>
+          <linearGradient id="nodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1e293b" />
+            <stop offset="100%" stop-color="#0f172a" />
+          </linearGradient>
+          <linearGradient id="sumGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#064e3b" />
+            <stop offset="100%" stop-color="#047857" />
+          </linearGradient>
+          <linearGradient id="actGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1e3a8a" />
+            <stop offset="100%" stop-color="#2563eb" />
+          </linearGradient>
+        </defs>
+
+        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+
+        <!-- Headers -->
+        <text x="110" y="32" fill="#94a3b8" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">INPUT COHORT (X)</text>
+        <text x="250" y="32" fill="#a7f3d0" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">SYNAPTIC WEIGHTS (w)</text>
+        <text x="420" y="32" fill="#f59e0b" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">BIAS (b)</text>
+        <text x="420" y="278" fill="#34d399" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">ACCUMULATOR (∑)</text>
+        <text x="600" y="278" fill="#60a5fa" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">NON-LINEARITY</text>
+        <text x="760" y="135" fill="#7bf37b" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">OUTPUT (ŷ)</text>
+
+        <!-- Inputs X1, X2, Xn -->
+        <circle cx="110" cy="80" r="24" fill="url(#nodeGrad)" stroke="#38bdf8" stroke-width="2"/>
+        <text x="110" y="85" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">X₁</text>
+
+        <circle cx="110" cy="160" r="24" fill="url(#nodeGrad)" stroke="#38bdf8" stroke-width="2"/>
+        <text x="110" y="165" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">X₂</text>
+
+        <text x="110" y="210" fill="#64748b" font-size="20" font-family="sans-serif" text-anchor="middle">⋮</text>
+
+        <circle cx="110" cy="245" r="24" fill="url(#nodeGrad)" stroke="#38bdf8" stroke-width="2"/>
+        <text x="110" y="250" fill="#ffffff" font-size="14" font-family="sans-serif" text-anchor="middle" font-weight="bold">Xₙ</text>
+
+        <!-- Connecting Lines to Summation -->
+        <line x1="134" y1="80" x2="388" y2="152" stroke="#475569" stroke-width="2" marker-end="url(#arrow-green)"/>
+        <rect x="230" y="94" width="38" height="20" rx="4" fill="#0f172a" stroke="#334155" />
+        <text x="249" y="108" fill="#cbd5e1" font-size="11" font-family="monospace" text-anchor="middle">w₁</text>
+
+        <line x1="134" y1="160" x2="388" y2="160" stroke="#475569" stroke-width="2" marker-end="url(#arrow-green)"/>
+        <rect x="230" y="150" width="38" height="20" rx="4" fill="#0f172a" stroke="#334155" />
+        <text x="249" y="164" fill="#cbd5e1" font-size="11" font-family="monospace" text-anchor="middle">w₂</text>
+
+        <line x1="134" y1="245" x2="388" y2="168" stroke="#475569" stroke-width="2" marker-end="url(#arrow-green)"/>
+        <rect x="230" y="202" width="38" height="20" rx="4" fill="#0f172a" stroke="#334155" />
+        <text x="249" y="216" fill="#cbd5e1" font-size="11" font-family="monospace" text-anchor="middle">wₙ</text>
+
+        <!-- Bias Input -->
+        <line x1="420" y1="48" x2="420" y2="124" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-green)"/>
+        <rect x="402" y="68" width="36" height="20" rx="4" fill="#0f172a" stroke="#f59e0b" />
+        <text x="420" y="82" fill="#f59e0b" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">+b</text>
+
+        <!-- Summation Node ∑ -->
+        <circle cx="420" cy="160" r="32" fill="url(#sumGrad)" stroke="#10b981" stroke-width="2.5"/>
+        <text x="420" y="170" fill="#ffffff" font-size="26" font-family="serif" text-anchor="middle" font-weight="bold">∑</text>
+
+        <!-- Arrow to Activation -->
+        <line x1="452" y1="160" x2="564" y2="160" stroke="#10b981" stroke-width="2.5" marker-end="url(#arrow-green)"/>
+        <rect x="472" y="142" width="70" height="18" rx="3" fill="#064e3b" stroke="#059669" />
+        <text x="507" y="155" fill="#a7f3d0" font-size="10" font-family="monospace" text-anchor="middle">z = wᵀx + b</text>
+
+        <!-- Activation Node g(.) -->
+        <circle cx="600" cy="160" r="32" fill="url(#actGrad)" stroke="#3b82f6" stroke-width="2.5"/>
+        <text x="600" y="167" fill="#ffffff" font-size="16" font-family="serif" text-anchor="middle" font-weight="bold">${actLabel}</text>
+
+        <!-- Arrow to Output -->
+        <line x1="632" y1="160" x2="726" y2="160" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+
+        <!-- Output Node -->
+        <circle cx="760" cy="160" r="28" fill="url(#nodeGrad)" stroke="#10b981" stroke-width="2"/>
+        <text x="760" y="167" fill="#7bf37b" font-size="18" font-family="serif" text-anchor="middle" font-weight="bold">ŷ</text>
+
+        <!-- Bottom Mathematical Formula Badge -->
+        <rect x="250" y="288" width="350" height="30" rx="6" fill="#111827" stroke="#374151" />
+        <text x="425" y="308" fill="#38bdf8" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">${formula}</text>
+      </svg>
+    </div>
+    `;
+  }
+
+  // Case 2: Attention / Transformer Efficiency / Decoding
+  if (
+    algoLower.includes("attention") ||
+    algoLower.includes("transformer") ||
+    domainLower.includes("attention") ||
+    domainLower.includes("decoding")
+  ) {
+    return `
+    <div class="algo-svg-card">
+      <div class="algo-svg-card-title">ATTENTION TRANSFORMER OPERATOR ARCHITECTURE</div>
+      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="attn-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#818cf8" />
+          </marker>
+        </defs>
+        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+
+        <!-- Q, K, V Projections -->
+        <rect x="60" y="60" width="110" height="50" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+        <text x="115" y="90" fill="#e0e7ff" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Query (Q)</text>
+
+        <rect x="60" y="140" width="110" height="50" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+        <text x="115" y="170" fill="#e0e7ff" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Key (K)</text>
+
+        <rect x="60" y="220" width="110" height="50" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+        <text x="115" y="250" fill="#e0e7ff" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Value (V)</text>
+
+        <!-- MatMul Q*K^T -->
+        <line x1="170" y1="85" x2="270" y2="120" stroke="#6366f1" stroke-width="2" marker-end="url(#attn-arrow)"/>
+        <line x1="170" y1="165" x2="270" y2="135" stroke="#6366f1" stroke-width="2" marker-end="url(#attn-arrow)"/>
+
+        <circle cx="300" cy="130" r="30" fill="#312e81" stroke="#818cf8" stroke-width="2"/>
+        <text x="300" y="136" fill="#ffffff" font-size="16" font-family="sans-serif" text-anchor="middle" font-weight="bold">Q·Kᵀ</text>
+
+        <!-- Scale & Mask / Softmax -->
+        <line x1="330" y1="130" x2="430" y2="130" stroke="#818cf8" stroke-width="2" marker-end="url(#attn-arrow)"/>
+        <rect x="430" y="105" width="120" height="50" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="2"/>
+        <text x="490" y="135" fill="#a7f3d0" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Softmax(/√d)</text>
+
+        <!-- Multiply with V -->
+        <line x1="550" y1="130" x2="630" y2="165" stroke="#10b981" stroke-width="2" marker-end="url(#attn-arrow)"/>
+        <line x1="170" y1="245" x2="630" y2="185" stroke="#6366f1" stroke-width="2" marker-end="url(#attn-arrow)"/>
+
+        <circle cx="660" cy="175" r="30" fill="#312e81" stroke="#818cf8" stroke-width="2"/>
+        <text x="660" y="181" fill="#ffffff" font-size="16" font-family="sans-serif" text-anchor="middle" font-weight="bold">A·V</text>
+
+        <!-- Output Linear Projection -->
+        <line x1="690" y1="175" x2="740" y2="175" stroke="#818cf8" stroke-width="2" marker-end="url(#attn-arrow)"/>
+        <rect x="740" y="150" width="90" height="50" rx="6" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+        <text x="785" y="180" fill="#38bdf8" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Output</text>
+
+        <rect x="230" y="285" width="390" height="30" rx="6" fill="#111827" stroke="#374151" />
+        <text x="425" y="305" fill="#a5b4fc" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Attention(Q,K,V) = Softmax(QKᵀ / √dₖ) V</text>
+      </svg>
+    </div>
+    `;
+  }
+
+  // Case 3: Optimization / Gradient Update / Autodiff
+  if (
+    algoLower.includes("optimizer") ||
+    algoLower.includes("adam") ||
+    algoLower.includes("sgd") ||
+    domainLower.includes("optimizers") ||
+    domainLower.includes("autodiff")
+  ) {
+    return `
+    <div class="algo-svg-card">
+      <div class="algo-svg-card-title">GRADIENT DYNAMICS &amp; PARAMETER UPDATE PIPELINE</div>
+      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="opt-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+          </marker>
+        </defs>
+        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+
+        <rect x="50" y="130" width="110" height="60" rx="6" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+        <text x="105" y="158" fill="#ffffff" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Loss ∇L(θ)</text>
+        <text x="105" y="176" fill="#94a3b8" font-size="10" font-family="monospace" text-anchor="middle">Gradients (gₜ)</text>
+
+        <line x1="160" y1="160" x2="230" y2="160" stroke="#f59e0b" stroke-width="2" marker-end="url(#opt-arrow)"/>
+
+        <rect x="230" y="90" width="150" height="60" rx="6" fill="#172554" stroke="#3b82f6" stroke-width="2"/>
+        <text x="305" y="118" fill="#93c5fd" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">1st Moment (mₜ)</text>
+        <text x="305" y="136" fill="#bfdbfe" font-size="10" font-family="monospace" text-anchor="middle">β₁ mₜ₋₁ + (1-β₁)gₜ</text>
+
+        <rect x="230" y="180" width="150" height="60" rx="6" fill="#311042" stroke="#d946ef" stroke-width="2"/>
+        <text x="305" y="208" fill="#f0abfc" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">2nd Moment (vₜ)</text>
+        <text x="305" y="226" fill="#f5d0fe" font-size="10" font-family="monospace" text-anchor="middle">β₂ vₜ₋₁ + (1-β₂)gₜ²</text>
+
+        <line x1="380" y1="120" x2="460" y2="145" stroke="#f59e0b" stroke-width="2" marker-end="url(#opt-arrow)"/>
+        <line x1="380" y1="210" x2="460" y2="175" stroke="#f59e0b" stroke-width="2" marker-end="url(#opt-arrow)"/>
+
+        <rect x="460" y="130" width="140" height="60" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="2"/>
+        <text x="530" y="158" fill="#a7f3d0" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Adaptive Step</text>
+        <text x="530" y="176" fill="#6ee7b7" font-size="10" font-family="monospace" text-anchor="middle">η · m̂ₜ / (√v̂ₜ + ε)</text>
+
+        <line x1="600" y1="160" x2="680" y2="160" stroke="#f59e0b" stroke-width="2" marker-end="url(#opt-arrow)"/>
+
+        <rect x="680" y="130" width="120" height="60" rx="6" fill="#1e1b4b" stroke="#6366f1" stroke-width="2"/>
+        <text x="740" y="158" fill="#e0e7ff" font-size="12" font-family="monospace" text-anchor="middle" font-weight="bold">Updated θₜ₊₁</text>
+        <text x="740" y="176" fill="#a5b4fc" font-size="10" font-family="monospace" text-anchor="middle">θₜ - Δθₜ</text>
+
+        <rect x="250" y="285" width="350" height="30" rx="6" fill="#111827" stroke="#374151" />
+        <text x="425" y="305" fill="#f59e0b" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Parameter Update: θₜ₊₁ = θₜ - η · m̂ₜ / (√v̂ₜ + ε)</text>
+      </svg>
+    </div>
+    `;
+  }
+
+  // Case 4: General Canonical Pipeline Architecture
+  return `
+    <div class="algo-svg-card">
+      <div class="algo-svg-card-title">CANONICAL PIPELINE EXECUTION ARCHITECTURE</div>
+      <svg viewBox="0 0 850 330" width="100%" height="auto" class="algo-arch-svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="gen-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+          </marker>
+        </defs>
+        <rect width="850" height="330" rx="10" fill="#0b0f19" stroke="#1e293b" stroke-width="1.5"/>
+
+        <!-- Ingestion -->
+        <rect x="40" y="115" width="130" height="90" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+        <text x="105" y="145" fill="#38bdf8" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 01</text>
+        <text x="105" y="165" fill="#ffffff" font-size="12" font-family="sans-serif" text-anchor="middle" font-weight="bold">Input Ingestion</text>
+        <text x="105" y="185" fill="#94a3b8" font-size="10" font-family="monospace" text-anchor="middle">Tensors &amp; State</text>
+
+        <line x1="170" y1="160" x2="230" y2="160" stroke="#38bdf8" stroke-width="2" marker-end="url(#gen-arrow)"/>
+
+        <!-- Transformation / Forward -->
+        <rect x="230" y="115" width="170" height="90" rx="6" fill="#064e3b" stroke="#10b981" stroke-width="2"/>
+        <text x="315" y="145" fill="#34d399" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 02</text>
+        <text x="315" y="165" fill="#ffffff" font-size="12" font-family="sans-serif" text-anchor="middle" font-weight="bold">Mathematical Operator</text>
+        <text x="315" y="185" fill="#a7f3d0" font-size="10" font-family="monospace" text-anchor="middle">Forward Transform</text>
+
+        <line x1="400" y1="160" x2="460" y2="160" stroke="#38bdf8" stroke-width="2" marker-end="url(#gen-arrow)"/>
+
+        <!-- Invariant Bounds / Feedback -->
+        <rect x="460" y="115" width="170" height="90" rx="6" fill="#312e81" stroke="#818cf8" stroke-width="2"/>
+        <text x="545" y="145" fill="#a5b4fc" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 03</text>
+        <text x="545" y="165" fill="#ffffff" font-size="12" font-family="sans-serif" text-anchor="middle" font-weight="bold">Invariant Bounds</text>
+        <text x="545" y="185" fill="#c7d2fe" font-size="10" font-family="monospace" text-anchor="middle">Stability Bounds</text>
+
+        <line x1="630" y1="160" x2="690" y2="160" stroke="#38bdf8" stroke-width="2" marker-end="url(#gen-arrow)"/>
+
+        <!-- Verified Output -->
+        <rect x="690" y="115" width="120" height="90" rx="6" fill="#1e1b4b" stroke="#c084fc" stroke-width="2"/>
+        <text x="750" y="145" fill="#e879f9" font-size="11" font-family="monospace" text-anchor="middle" font-weight="bold">STAGE 04</text>
+        <text x="750" y="165" fill="#ffffff" font-size="12" font-family="sans-serif" text-anchor="middle" font-weight="bold">Synthesis</text>
+        <text x="750" y="185" fill="#f5d0fe" font-size="10" font-family="monospace" text-anchor="middle">Verified Returns</text>
+
+        <!-- Feedback Loop line -->
+        <path d="M 545 205 L 545 250 L 315 250 L 315 205" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="4 4" marker-end="url(#gen-arrow)"/>
+        <text x="430" y="268" fill="#f59e0b" font-size="11" font-family="monospace" text-anchor="middle">Convergence &amp; Dynamic Loss Feedback</text>
+
+        <rect x="250" y="285" width="350" height="30" rx="6" fill="#111827" stroke="#374151" />
+        <text x="425" y="305" fill="#38bdf8" font-size="13" font-family="monospace" text-anchor="middle" font-weight="bold">Pipeline: Ingestion ➔ Transform ➔ Invariant ➔ Return</text>
+      </svg>
+    </div>
+  `;
+}
+
 function generateHtmlDiagram(p) {
   const tex = p.rawTex || "";
   let inputs = [];
@@ -1282,6 +1555,8 @@ function generateHtmlDiagram(p) {
   if (steps.length === 0) steps = ["Initialize Tensor Memory Buffers", "Evaluate Core Mathematical Kernel", "Update Internal Parameter State", "Compute Loss & Invariant Bounds"];
   if (outputs.length === 0) outputs = ["Optimized State θ*", "Convergence Invariant Metric"];
 
+  const archSvg = renderArchitecturalSvg(p, inputs, outputs, steps);
+
   return `
     <div class="html-diagram-wrap">
       <div class="html-diagram-header">
@@ -1289,6 +1564,9 @@ function generateHtmlDiagram(p) {
         <div class="html-diagram-title">${escapeHtml(p.algoName)}</div>
         <div class="html-diagram-subtitle">${escapeHtml(p.domainLabel)} · ${p.lines} lines of formal specifications</div>
       </div>
+
+      <!-- High-Fidelity Computational Architecture Diagram -->
+      ${archSvg}
 
       <div class="html-flow-container">
         <div class="html-flow-track">
