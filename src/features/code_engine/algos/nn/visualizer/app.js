@@ -1156,6 +1156,16 @@ function openTexModal(id, initialMode = "rendered") {
   currentModalProof = proof;
   selectedProofId = id;
 
+  // Google Analytics Event Tracking
+  if (typeof gtag === "function") {
+    gtag("event", "view_algorithm", {
+      algo_id: proof.id,
+      algo_name: proof.algoName,
+      domain: proof.domain,
+      domain_label: proof.domainLabel
+    });
+  }
+
   const modal = document.getElementById("tex-modal");
   if (!modal) return;
 
