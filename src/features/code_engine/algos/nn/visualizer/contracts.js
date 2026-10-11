@@ -1,5 +1,5 @@
 // AUTO-GENERATED MACHINE-READABLE CONTRACTS FOR ALL 300 ALGORITHMS
-const CONTRACTS_DATA = {
+var CONTRACTS_DATA = {
   "advanced_reinforcement_learning__imitation_learning_dagger": {
     "id": "advanced_reinforcement_learning__imitation_learning_dagger",
     "algo_id": "advanced_reinforcement_learning__imitation_learning_dagger",
@@ -13419,3 +13419,7 @@ const CONTRACTS_DATA = {
     "invariant": "Input activations strictly satisfy finite real bounds with deterministic gradient VJP."
   }
 };
+
+if (typeof window !== "undefined") {
+  window.CONTRACTS_DATA = CONTRACTS_DATA;
+}

@@ -785,7 +785,7 @@ const ER_ENTITIES = [
 
 // Current Active State
 let currentAlgorithm = ALGORITHMS[0];
-let currentInspectorTab = "input";
+currentInspectorTab = "yaml";
 
 // DOM Initializer
 document.addEventListener("DOMContentLoaded", () => {
@@ -891,19 +891,19 @@ function renderInspectorCode() {
   if (!data) return;
 
   if (currentInspectorTab === "yaml") {
-    const rawYaml = data.yaml || `contract:\n  name: ${data.name}\n  purity: pure\n  determinism: deterministic`;
+    const rawYaml = (data.yaml || `contract:\n  name: ${data.name}\n  purity: pure\n  determinism: deterministic`).trim();
     codeBox.innerHTML = syntaxHighlightYaml(rawYaml);
     return;
   }
 
   if (currentInspectorTab === "input") {
-    const jsonStr = JSON.stringify(data.input || {}, null, 2);
+    const jsonStr = JSON.stringify(data.input || {}, null, 2).trim();
     codeBox.innerHTML = syntaxHighlightJson(jsonStr);
     return;
   }
 
   if (currentInspectorTab === "response") {
-    const jsonStr = JSON.stringify(data.response || {}, null, 2);
+    const jsonStr = JSON.stringify(data.response || {}, null, 2).trim();
     codeBox.innerHTML = syntaxHighlightJson(jsonStr);
     return;
   }
@@ -918,8 +918,7 @@ function syntaxHighlightYaml(yamlStr) {
   return yamlStr
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/^([\s-]*[a-zA-Z0-9_]+:)/gm, '<span class="key">$1</span>')
-    .replace(/(:\s*)([^
-]+)/g, function(match, p1, p2) {
+    .replace(/(:\s*)([^\r\n]+)/g, function(match, p1, p2) {
       if (p2.startsWith('"') || p2.startsWith("'")) {
         return p1 + '<span class="str">' + p2 + '</span>';
       } else if (p2 === 'true' || p2 === 'false') {
