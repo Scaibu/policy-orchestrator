@@ -2,6 +2,12 @@ import time
 from typing import Dict, Any
 from fastapi import Request
 from src.shared.types.envelope_types import TraceContext
+from src.shared.constants.http_constants import (
+    HEADER_X_TRACE_ID,
+    HEADER_TRACEPARENT,
+    HEADER_X_REQUEST_ID,
+    HEADER_X_CORRELATION_ID,
+)
 from src.features.folder_scaffold.service.folder_scaffold_service_port import FolderScaffoldServicePort
 from src.features.folder_scaffold.schema.folder_scaffold_schema import FolderScaffoldSchema
 from src.features.folder_scaffold.types.folder_scaffold_types import (
@@ -19,9 +25,9 @@ class FolderScaffoldRestHandler:
 
     def handle_create_file(self, req: Request, payload: CreateFileCommand) -> Dict[str, Any]:
         start = time.perf_counter()
-        trace_id = req.headers.get("x-trace-id") or req.headers.get("traceparent") or "synthetic-trace-id"
-        request_id = req.headers.get("x-request-id", "req-default")
-        correlation_id = req.headers.get("x-correlation-id", "corr-default")
+        trace_id = req.headers.get(HEADER_X_TRACE_ID) or req.headers.get(HEADER_TRACEPARENT) or "synthetic-trace-id"
+        request_id = req.headers.get(HEADER_X_REQUEST_ID, "req-default")
+        correlation_id = req.headers.get(HEADER_X_CORRELATION_ID, "corr-default")
         ctx = TraceContext(
             trace_id=trace_id,
             request_id=request_id,
@@ -51,9 +57,9 @@ class FolderScaffoldRestHandler:
 
     def handle_link_files(self, req: Request, payload: LinkFilesCommand) -> Dict[str, Any]:
         start = time.perf_counter()
-        trace_id = req.headers.get("x-trace-id") or req.headers.get("traceparent") or "synthetic-trace-id"
-        request_id = req.headers.get("x-request-id", "req-default")
-        correlation_id = req.headers.get("x-correlation-id", "corr-default")
+        trace_id = req.headers.get(HEADER_X_TRACE_ID) or req.headers.get(HEADER_TRACEPARENT) or "synthetic-trace-id"
+        request_id = req.headers.get(HEADER_X_REQUEST_ID, "req-default")
+        correlation_id = req.headers.get(HEADER_X_CORRELATION_ID, "corr-default")
         ctx = TraceContext(
             trace_id=trace_id,
             request_id=request_id,
@@ -83,9 +89,9 @@ class FolderScaffoldRestHandler:
 
     def handle_scaffold_feature(self, req: Request, payload: ScaffoldFeatureCommand) -> Dict[str, Any]:
         start = time.perf_counter()
-        trace_id = req.headers.get("x-trace-id") or req.headers.get("traceparent") or "synthetic-trace-id"
-        request_id = req.headers.get("x-request-id", "req-default")
-        correlation_id = req.headers.get("x-correlation-id", "corr-default")
+        trace_id = req.headers.get(HEADER_X_TRACE_ID) or req.headers.get(HEADER_TRACEPARENT) or "synthetic-trace-id"
+        request_id = req.headers.get(HEADER_X_REQUEST_ID, "req-default")
+        correlation_id = req.headers.get(HEADER_X_CORRELATION_ID, "corr-default")
         ctx = TraceContext(
             trace_id=trace_id,
             request_id=request_id,
@@ -115,9 +121,9 @@ class FolderScaffoldRestHandler:
 
     def handle_scaffold_package(self, req: Request, payload: ScaffoldPackageCommand) -> Dict[str, Any]:
         start = time.perf_counter()
-        trace_id = req.headers.get("x-trace-id") or req.headers.get("traceparent") or "synthetic-trace-id"
-        request_id = req.headers.get("x-request-id", "req-default")
-        correlation_id = req.headers.get("x-correlation-id", "corr-default")
+        trace_id = req.headers.get(HEADER_X_TRACE_ID) or req.headers.get(HEADER_TRACEPARENT) or "synthetic-trace-id"
+        request_id = req.headers.get(HEADER_X_REQUEST_ID, "req-default")
+        correlation_id = req.headers.get(HEADER_X_CORRELATION_ID, "corr-default")
         ctx = TraceContext(
             trace_id=trace_id,
             request_id=request_id,
@@ -144,3 +150,4 @@ class FolderScaffoldRestHandler:
                 correlation_id=correlation_id,
                 execution_time_ms=int((time.perf_counter() - start) * 1000),
             )
+
