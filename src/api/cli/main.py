@@ -3304,7 +3304,7 @@ def handle_scaffold_feature_command(args: argparse.Namespace) -> int:
         package_root=getattr(args, "package_root", None),
         with_router=not getattr(args, "no_router", False),
         with_handler=not getattr(args, "no_handler", False),
-        with_route_rules=not getattr(args, "no_route_rules", False),
+        with_route_rules=getattr(args, "with_route_rules", False),
         port_type=getattr(args, "port_type", "local"),
         owner=owner,
         status=status,

@@ -1,20 +1,10 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE FEATURE PUBLIC FACADE
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   Public facade entry point for the File Structure feature.
-   Exports domain services, schemas, and public DTOs.
-   Never leaks internal SQL queries or concrete database adapters.
-================================================================================
-"""
-
 from src.features.file_structure.service.file_structure_service import (
     FileStructureDomainService,
     FileStructureService,
     KnowledgeGraphDomainService,
 )
+from src.features.file_structure.service.file_structure_folder_scaffolder_service import FileStructureFolderScaffolderService
+from src.features.file_structure.service.file_structure_package_scaffolder_service import FileStructurePackageScaffolderService
 from src.features.file_structure.service.file_structure_scaffolder_service import FileStructureScaffolderService
 from src.features.file_structure.service.file_structure_graph_sync_service import FileStructureGraphSyncService
 from src.features.file_structure.service.file_structure_impact_analyzer_service import FileStructureImpactAnalyzerService
@@ -33,6 +23,8 @@ __all__ = [
     "FileStructureDomainService",
     "FileStructureService",
     "KnowledgeGraphDomainService",
+    "FileStructureFolderScaffolderService",
+    "FileStructurePackageScaffolderService",
     "FileStructureScaffolderService",
     "FileStructureGraphSyncService",
     "FileStructureImpactAnalyzerService",

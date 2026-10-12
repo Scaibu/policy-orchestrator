@@ -69,7 +69,7 @@ class FileStructureGraphSyncService:
         feature_name: str,
         with_router: bool = True,
         with_handler: bool = True,
-        with_route_rules: bool = True,
+        with_route_rules: bool = False,
         port_type: str = "local",
         package_root: Optional[str] = None,
         owner: Optional[str] = None,
@@ -232,7 +232,7 @@ class FileStructureGraphSyncService:
         self.register_node(shared_lib_id, "SharedLibrary", f"{p_root}src/shared/utils/formatters.py", {**common_props, "layer": "SharedInfrastructure"})
         self.register_node(config_schema_id, "EnvConfigSchema", f"{p_root}config/env.schema", {**common_props, "layer": "SharedInfrastructure"})
         self.register_node(tracer_id, "OpenTelemetryTracer", f"{p_root}src/infra/observability/tracing/tracer.py", {**common_props, "layer": "SharedInfrastructure"})
-        self.register_node(test_suite_id, "TestSuite", f"{p_root}tests/features/{f}_test.py", {**common_props, "layer": "SharedInfrastructure"})
+        self.register_node(test_suite_id, "TestSuite", f"{p_root}src/features/{f}/tests/{f}_rules_test.py", {**common_props, "layer": "DomainCore"})
 
         # Establish Intra-Feature and Hexagonal Cross-Boundary Edges
         self.register_edge(context_id, service_id, "GOVERNS_BOUNDARY")

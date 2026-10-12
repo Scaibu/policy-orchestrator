@@ -1,35 +1,9 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE DOMAIN SERVICE ORCHESTRATOR
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   Thin domain orchestrator coordinating File Structure operations across
-   single-responsibility collaborator services:
-   - Scaffolding: FileStructureScaffolderService
-   - Graph Synchronization: FileStructureGraphSyncService
-   - Impact Analysis & Blast Radius: FileStructureImpactAnalyzerService
-   - Architecture Map Resolution: FileStructureMapResolverService
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Single Responsibility Principle (SRP): Coordinates use cases without embedding
-     concrete filesystem IO or graph traversal mathematics.
-   - Zero-Inline-Comment Doctrine: Execution sequences captured in this blueprint.
-   - State Machine Coordination: Drives guarded lifecycle state transitions.
-
-3. METHOD CONTRACTS:
-   - scaffold_feature(): Coordinates tree creation and graph DAG synchronization.
-   - scaffold_package(): Coordinates package tree creation and root graph sync.
-   - get_feature_map(): Resolves full feature route/handler/port architecture map.
-   - analyze_node_impact(): Evaluates upstream/downstream reachability and risks.
-   - scan_and_sync_workspace(): Streams repository files into Knowledge Graph.
-================================================================================
-"""
-
 from typing import Dict, Any, Optional
 from src.domain.ports.graph_port import GraphStorePort
 from src.domain.ports.impact_analysis_port import ImpactAnalysisReportModel
 from src.features.file_structure.machines.file_structure_machine import FileStructureLifecycleMachine
+from src.features.file_structure.service.file_structure_folder_scaffolder_service import FileStructureFolderScaffolderService
+from src.features.file_structure.service.file_structure_package_scaffolder_service import FileStructurePackageScaffolderService
 from src.features.file_structure.service.file_structure_scaffolder_service import FileStructureScaffolderService
 from src.features.file_structure.service.file_structure_graph_sync_service import FileStructureGraphSyncService
 from src.features.file_structure.service.file_structure_impact_analyzer_service import FileStructureImpactAnalyzerService
@@ -41,7 +15,12 @@ class FileStructureDomainService:
         graph_store: GraphStorePort,
     ) -> None:
         self.graph_store = graph_store
-        self.scaffolder = FileStructureScaffolderService()
+        self.folder_scaffolder = FileStructureFolderScaffolderService()
+        self.package_scaffolder = FileStructurePackageScaffolderService()
+        self.scaffolder = FileStructureScaffolderService(
+            folder_scaffolder=self.folder_scaffolder,
+            package_scaffolder=self.package_scaffolder,
+        )
         self.graph_sync = FileStructureGraphSyncService(graph_store=graph_store)
         self.impact_analyzer = FileStructureImpactAnalyzerService(graph_store=graph_store)
         self.map_resolver = FileStructureMapResolverService(graph_store=graph_store)
@@ -54,7 +33,7 @@ class FileStructureDomainService:
         package_root: Optional[str] = None,
         with_router: bool = True,
         with_handler: bool = True,
-        with_route_rules: bool = True,
+        with_route_rules: bool = False,
         port_type: str = "local",
         owner: Optional[str] = None,
         status: str = "active",
@@ -64,7 +43,7 @@ class FileStructureDomainService:
     ) -> Dict[str, Any]:
         self.state_machine.transition_to("SCAFFOLDING")
         try:
-            tree_result = self.scaffolder.scaffold_feature_tree(
+            tree_result = self.folder_scaffolder.scaffold_feature_tree(
                 feature_name=feature_name,
                 base_dir=base_dir,
                 package_root=package_root,
@@ -96,7 +75,7 @@ class FileStructureDomainService:
     def scaffold_package(self, package_name: str, base_dir: str = ".") -> Dict[str, Any]:
         self.state_machine.transition_to("SCAFFOLDING")
         try:
-            pkg_result = self.scaffolder.scaffold_package_tree(
+            pkg_result = self.package_scaffolder.scaffold_package_tree(
                 package_name=package_name,
                 base_dir=base_dir,
             )
@@ -170,7 +149,7 @@ class FileStructureDomainService:
         if not target_file_or_node:
             raise ValueError("target_file_or_node is a required parameter: specify the upstream/downstream file or node to connect")
 
-        created_path = self.scaffolder.create_file(file_path=file_path, role=role, content=content)
+        created_path = self.folder_scaffolder.create_file(file_path=file_path, role=role, content=content)
         sync_result = self.graph_sync.register_and_link_file(
             file_path=created_path,
             role=role,
@@ -239,4 +218,3 @@ class FileStructureDomainService:
 
 KnowledgeGraphDomainService = FileStructureDomainService
 FileStructureService = FileStructureDomainService
-
