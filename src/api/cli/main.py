@@ -3939,8 +3939,6 @@ def build_parser() -> argparse.ArgumentParser:
     # Scaffolding & Knowledge Graph Subcommands (Modularized in scaffold_cli.py)
     from src.api.cli.scaffold_cli import (
         register_scaffold_subparsers,
-        handle_scaffold_feature,
-        handle_scaffold_package,
         handle_create_file,
         handle_link_file,
     )
@@ -3958,8 +3956,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     from src.api.cli.scaffold_cli import (
-        handle_scaffold_feature,
-        handle_scaffold_package,
         handle_create_file,
         handle_link_file,
     )
@@ -4018,10 +4014,6 @@ def main() -> None:
         "agent": handle_agent_command,
         "refactor": handle_refactor_command,
         "policy-check": handle_policy_check_command,
-        "scaffold-feature": handle_scaffold_feature,
-        "feature-scaffold": handle_scaffold_feature,
-        "scaffold-package": handle_scaffold_package,
-        "package-scaffold": handle_scaffold_package,
         "impact": handle_impact_command,
         "impact-analysis": handle_impact_command,
         "feature-map": handle_feature_map_command,

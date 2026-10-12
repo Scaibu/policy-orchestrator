@@ -13,8 +13,6 @@ from src.features.folder_scaffold.schema.folder_scaffold_schema import FolderSca
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
-    ScaffoldFeatureCommand,
-    ScaffoldPackageCommand,
 )
 from src.api.rest.envelope import build_success_envelope, build_error_envelope
 
@@ -79,70 +77,6 @@ class FolderScaffoldRestHandler:
         else:
             return build_error_envelope(
                 code="LINK_FILES_FAILED",
-                message=str(result.error()),
-                status_code=400,
-                trace_id=trace_id,
-                request_id=request_id,
-                correlation_id=correlation_id,
-                execution_time_ms=int((time.perf_counter() - start) * 1000),
-            )
-
-    def handle_scaffold_feature(self, req: Request, payload: ScaffoldFeatureCommand) -> Dict[str, Any]:
-        start = time.perf_counter()
-        trace_id = req.headers.get(HEADER_X_TRACE_ID) or req.headers.get(HEADER_TRACEPARENT) or "synthetic-trace-id"
-        request_id = req.headers.get(HEADER_X_REQUEST_ID, "req-default")
-        correlation_id = req.headers.get(HEADER_X_CORRELATION_ID, "corr-default")
-        ctx = TraceContext(
-            trace_id=trace_id,
-            request_id=request_id,
-            correlation_id=correlation_id,
-        )
-        result = self.service.scaffoldFeature(ctx, payload)
-        if result.is_ok:
-            data = FolderScaffoldSchema.to_api_scaffold_result(result.unwrap())
-            return build_success_envelope(
-                data=data,
-                status_code=201,
-                trace_id=trace_id,
-                request_id=request_id,
-                correlation_id=correlation_id,
-                execution_time_ms=int((time.perf_counter() - start) * 1000),
-            )
-        else:
-            return build_error_envelope(
-                code="SCAFFOLD_FEATURE_FAILED",
-                message=str(result.error()),
-                status_code=400,
-                trace_id=trace_id,
-                request_id=request_id,
-                correlation_id=correlation_id,
-                execution_time_ms=int((time.perf_counter() - start) * 1000),
-            )
-
-    def handle_scaffold_package(self, req: Request, payload: ScaffoldPackageCommand) -> Dict[str, Any]:
-        start = time.perf_counter()
-        trace_id = req.headers.get(HEADER_X_TRACE_ID) or req.headers.get(HEADER_TRACEPARENT) or "synthetic-trace-id"
-        request_id = req.headers.get(HEADER_X_REQUEST_ID, "req-default")
-        correlation_id = req.headers.get(HEADER_X_CORRELATION_ID, "corr-default")
-        ctx = TraceContext(
-            trace_id=trace_id,
-            request_id=request_id,
-            correlation_id=correlation_id,
-        )
-        result = self.service.scaffoldPackage(ctx, payload)
-        if result.is_ok:
-            data = FolderScaffoldSchema.to_api_scaffold_result(result.unwrap())
-            return build_success_envelope(
-                data=data,
-                status_code=201,
-                trace_id=trace_id,
-                request_id=request_id,
-                correlation_id=correlation_id,
-                execution_time_ms=int((time.perf_counter() - start) * 1000),
-            )
-        else:
-            return build_error_envelope(
-                code="SCAFFOLD_PACKAGE_FAILED",
                 message=str(result.error()),
                 status_code=400,
                 trace_id=trace_id,

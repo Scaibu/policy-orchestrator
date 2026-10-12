@@ -51,8 +51,6 @@ from src.shared.constants.scaffold_constants import (
     LAYER_CLIENT_UI,
     LAYER_GENERAL,
     PATH_FEATURES,
-    CANONICAL_FEATURE_SUBDIRECTORIES,
-    CANONICAL_PACKAGE_SUBDIRECTORIES,
 )
 
 
@@ -109,13 +107,5 @@ def infer_feature_name(file_path: str) -> str:
         if idx + 1 < len(parts):
             return parts[idx + 1]
     return ""
-
-
-def resolve_subdirectories(target_type: str, config_subdirectories: Optional[List[str]] = None) -> List[str]:
-    if config_subdirectories and len(config_subdirectories) > 0:
-        return [str(d).strip() for d in config_subdirectories if str(d).strip()]
-    if target_type.upper() == "PACKAGE":
-        return list(CANONICAL_PACKAGE_SUBDIRECTORIES)
-    return list(CANONICAL_FEATURE_SUBDIRECTORIES)
 
 

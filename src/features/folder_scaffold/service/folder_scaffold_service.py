@@ -9,11 +9,8 @@ from src.features.folder_scaffold.types.folder_scaffold_deps import FolderScaffo
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
-    ScaffoldFeatureCommand,
-    ScaffoldPackageCommand,
     CreateFileResult,
     LinkFilesResult,
-    ScaffoldExecutionResult,
     ScaffoldedFileNode,
     ScaffoldedRelationshipRecord,
 )
@@ -21,7 +18,6 @@ from src.features.folder_scaffold.rules.folder_scaffold_rules import (
     can_link,
     infer_layer,
     infer_feature_name,
-    resolve_subdirectories,
 )
 from src.features.folder_scaffold.machines.folder_scaffold_machine import (
     STATE_PENDING,
@@ -34,10 +30,7 @@ from src.features.folder_scaffold.machines.folder_scaffold_machine import (
 from src.shared.constants.scaffold_constants import (
     DIRECTION_OUTGOING,
     GRAPH_LABEL_FILE_NODE,
-    GRAPH_LABEL_FEATURE,
-    GRAPH_LABEL_PACKAGE_ROOT,
     STATUS_SUCCESS,
-    STATUS_COMPLETED,
 )
 
 try:
@@ -194,93 +187,6 @@ class FolderScaffoldDomainService(AbstractTracedComponent, FolderScaffoldService
             res = LinkFilesResult(
                 relationship=rel_record,
                 status=STATUS_SUCCESS,
-            )
-            if span and Status is not None and StatusCode is not None:
-                span.set_status(Status(StatusCode.OK))
-            return Result.ok(res)
-        except Exception as exc:
-            mapped = self.mapFailure(exc)
-            if span and Status is not None and StatusCode is not None:
-                span.record_exception(mapped)
-                span.set_status(Status(StatusCode.ERROR, str(mapped)))
-            return Result.err(mapped)
-        finally:
-            if span:
-                span.end()
-
-    def scaffoldFeature(
-        self, ctx: TraceContext, cmd: ScaffoldFeatureCommand
-    ) -> Result[ScaffoldExecutionResult, Exception]:
-        span = None
-        if self._tracer:
-            span = self._tracer.start_span("folder_scaffold.scaffold_feature")
-        try:
-            base = Path(cmd.base_dir) / cmd.feature_name
-            cfg_subdirs = self._scaffold_config.get("feature_subdirectories")
-            subdirs = resolve_subdirectories("FEATURE", cfg_subdirs)
-            created_dirs = 0
-            for s in subdirs:
-                d = base / s
-                d.mkdir(parents=True, exist_ok=True)
-                created_dirs += 1
-
-            feat_node = GraphNode(
-                id=cmd.feature_name,
-                label=GRAPH_LABEL_FEATURE,
-                properties={"name": cmd.feature_name, "path": str(base)},
-            )
-            self._graph_store.upsert_node(feat_node)
-
-            res = ScaffoldExecutionResult(
-                target_name=cmd.feature_name,
-                target_path=str(base),
-                total_directories=created_dirs,
-                total_files=0,
-                status=STATUS_COMPLETED,
-            )
-            if span and Status is not None and StatusCode is not None:
-                span.set_status(Status(StatusCode.OK))
-            return Result.ok(res)
-        except Exception as exc:
-            mapped = self.mapFailure(exc)
-            if span and Status is not None and StatusCode is not None:
-                span.record_exception(mapped)
-                span.set_status(Status(StatusCode.ERROR, str(mapped)))
-            return Result.err(mapped)
-        finally:
-            if span:
-                span.end()
-
-    def scaffoldPackage(
-        self, ctx: TraceContext, cmd: ScaffoldPackageCommand
-    ) -> Result[ScaffoldExecutionResult, Exception]:
-        span = None
-        if self._tracer:
-            span = self._tracer.start_span("folder_scaffold.scaffold_package")
-        try:
-            root = Path(cmd.base_dir) / cmd.package_name
-            cfg_subdirs = self._scaffold_config.get("package_subdirectories")
-            subdirs = resolve_subdirectories("PACKAGE", cfg_subdirs)
-            created_dirs = 0
-            for s in subdirs:
-                d = root / s
-                d.mkdir(parents=True, exist_ok=True)
-                created_dirs += 1
-
-
-            pkg_node = GraphNode(
-                id=cmd.package_name,
-                label=GRAPH_LABEL_PACKAGE_ROOT,
-                properties={"name": cmd.package_name, "path": str(root)},
-            )
-            self._graph_store.upsert_node(pkg_node)
-
-            res = ScaffoldExecutionResult(
-                target_name=cmd.package_name,
-                target_path=str(root),
-                total_directories=created_dirs,
-                total_files=0,
-                status=STATUS_COMPLETED,
             )
             if span and Status is not None and StatusCode is not None:
                 span.set_status(Status(StatusCode.OK))

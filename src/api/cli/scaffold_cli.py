@@ -3,8 +3,6 @@ import json
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
-    ScaffoldFeatureCommand,
-    ScaffoldPackageCommand,
 )
 from src.shared.types.envelope_types import TraceContext
 from src.infra.config.config_loader import AppConfigLoader
@@ -39,80 +37,6 @@ def get_folder_scaffold_service(args: argparse.Namespace) -> FolderScaffoldDomai
         scaffold_config=scaffold_cfg,
     )
     return FolderScaffoldDomainService(deps=deps)
-
-
-def handle_scaffold_feature(args: argparse.Namespace) -> int:
-    feature_name = getattr(args, "feature_name", None) or getattr(args, "name_flag", None) or getattr(args, "name", None)
-    if not feature_name:
-        print("Error: Feature name is required.")
-        return 1
-
-    service = get_folder_scaffold_service(args)
-    base_dir = getattr(args, "base_dir", "src/features")
-    package_root = getattr(args, "package_root", None)
-    cmd = ScaffoldFeatureCommand(
-        feature_name=feature_name,
-        base_dir=base_dir,
-        package_root=package_root,
-    )
-    ctx = TraceContext(
-        trace_id="cli-scaffold-feature",
-        request_id="cli-req-scaffold-feature",
-        correlation_id="cli-corr-scaffold-feature",
-    )
-    result = service.scaffoldFeature(ctx, cmd)
-    if result.is_err:
-        print(f"Error scaffolding feature: {result.error()}")
-        return 1
-    res = result.unwrap()
-    if getattr(args, "json", False):
-        print(json.dumps(res.model_dump(), indent=2))
-    else:
-        print("================================================================================")
-        print("FEATURE DIRECTORIES SCAFFOLDED")
-        print("================================================================================")
-        print(f"Feature:              {res.target_name}")
-        print(f"Target Directory:     {res.target_path}")
-        print(f"Directories Created:  {res.total_directories}")
-        print("Neo4j Knowledge Graph Synced (Label: Feature)")
-        print("================================================================================")
-    return 0
-
-
-def handle_scaffold_package(args: argparse.Namespace) -> int:
-    package_name = getattr(args, "package_name", None) or getattr(args, "name_flag", None) or getattr(args, "name", None)
-    if not package_name:
-        print("Error: Package name is required.")
-        return 1
-
-    service = get_folder_scaffold_service(args)
-    base_dir = getattr(args, "base_dir", ".")
-    cmd = ScaffoldPackageCommand(
-        package_name=package_name,
-        base_dir=base_dir,
-    )
-    ctx = TraceContext(
-        trace_id="cli-scaffold-package",
-        request_id="cli-req-scaffold-package",
-        correlation_id="cli-corr-scaffold-package",
-    )
-    result = service.scaffoldPackage(ctx, cmd)
-    if result.is_err:
-        print(f"Error scaffolding package: {result.error()}")
-        return 1
-    res = result.unwrap()
-    if getattr(args, "json", False):
-        print(json.dumps(res.model_dump(), indent=2))
-    else:
-        print("================================================================================")
-        print("PACKAGE DIRECTORIES SCAFFOLDED")
-        print("================================================================================")
-        print(f"Package:              {res.target_name}")
-        print(f"Target Root:          {res.target_path}")
-        print(f"Directories Created:  {res.total_directories}")
-        print("Neo4j Knowledge Graph Synced (Label: PackageRoot)")
-        print("================================================================================")
-    return 0
 
 
 def handle_create_file(args: argparse.Namespace) -> int:
@@ -205,34 +129,7 @@ def handle_link_file(args: argparse.Namespace) -> int:
 
 
 def register_scaffold_subparsers(subparsers) -> None:
-    # 1. scaffold-feature
-    scaffold_feat_p = subparsers.add_parser(
-        "scaffold-feature",
-        aliases=["feature-scaffold"],
-        help="Scaffold isolated 10-role feature structure with router & handler",
-    )
-    scaffold_feat_p.add_argument("feature_name", nargs="?", default=None, help="Name of the feature")
-    scaffold_feat_p.add_argument("--name", dest="name_flag", default=None, help="Feature name flag")
-    scaffold_feat_p.add_argument("--base-dir", default="src/features", help="Base directory (default: src/features)")
-    scaffold_feat_p.add_argument("--package-root", default=None, help="Optional parent package root directory")
-    scaffold_feat_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    scaffold_feat_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    scaffold_feat_p.add_argument("--json", action="store_true", help="Output result as JSON")
-
-    # 2. scaffold-package
-    scaffold_pkg_p = subparsers.add_parser(
-        "scaffold-package",
-        aliases=["package-scaffold"],
-        help="Scaffold unified 1-to-10 package structure",
-    )
-    scaffold_pkg_p.add_argument("package_name", nargs="?", default=None, help="Name of the package")
-    scaffold_pkg_p.add_argument("--name", dest="name_flag", default=None, help="Package name flag")
-    scaffold_pkg_p.add_argument("--base-dir", default=".", help="Base directory (default: .)")
-    scaffold_pkg_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    scaffold_pkg_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    scaffold_pkg_p.add_argument("--json", action="store_true", help="Output result as JSON")
-
-    # 3. create-file
+    # 1. create-file
     create_file_p = subparsers.add_parser(
         "create-file",
         aliases=["add-file"],

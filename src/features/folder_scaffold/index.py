@@ -6,11 +6,8 @@ from src.features.folder_scaffold.repository.folder_scaffold_repository_port imp
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
-    ScaffoldFeatureCommand,
-    ScaffoldPackageCommand,
     CreateFileResult,
     LinkFilesResult,
-    ScaffoldExecutionResult,
 )
 
 __all__ = [
@@ -21,9 +18,6 @@ __all__ = [
     "FolderScaffoldRepositoryPort",
     "CreateFileCommand",
     "LinkFilesCommand",
-    "ScaffoldFeatureCommand",
-    "ScaffoldPackageCommand",
     "CreateFileResult",
     "LinkFilesResult",
-    "ScaffoldExecutionResult",
 ]

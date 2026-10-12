@@ -22,19 +22,6 @@ class LinkFilesCommand(BaseModel):
     properties: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Relationship metadata")
 
 
-class ScaffoldFeatureCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    feature_name: str = Field(..., description="Name of the feature")
-    base_dir: str = Field(default="src/features", description="Base directory")
-    package_root: Optional[str] = Field(default=None, description="Optional parent package root")
-
-
-class ScaffoldPackageCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    package_name: str = Field(..., description="Name of the package")
-    base_dir: str = Field(default=".", description="Base directory")
-
-
 class ScaffoldedFileNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: str
@@ -66,13 +53,4 @@ class CreateFileResult(BaseModel):
 class LinkFilesResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relationship: ScaffoldedRelationshipRecord
-    status: str
-
-
-class ScaffoldExecutionResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    target_name: str
-    target_path: str
-    total_directories: int
-    total_files: int
     status: str

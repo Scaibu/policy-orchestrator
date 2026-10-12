@@ -7,8 +7,6 @@ from src.features.folder_scaffold.types.folder_scaffold_deps import FolderScaffo
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
-    ScaffoldFeatureCommand,
-    ScaffoldPackageCommand,
 )
 from src.api.rest.v1.handlers.folder_scaffold_handler import FolderScaffoldRestHandler
 from src.api.rest.envelope import APIResponseEnvelope
@@ -64,29 +62,3 @@ def link_files(
     handler: FolderScaffoldRestHandler = Depends(get_handler),
 ):
     return handler.handle_link_files(req=req, payload=payload)
-
-
-@router.post(
-    AppConfigLoader.get_endpoint("folder_scaffold", "scaffold_feature") or "/scaffold-feature",
-    response_model=APIResponseEnvelope,
-    status_code=status.HTTP_201_CREATED,
-)
-def scaffold_feature(
-    payload: ScaffoldFeatureCommand,
-    req: Request,
-    handler: FolderScaffoldRestHandler = Depends(get_handler),
-):
-    return handler.handle_scaffold_feature(req=req, payload=payload)
-
-
-@router.post(
-    AppConfigLoader.get_endpoint("folder_scaffold", "scaffold_package") or "/scaffold-package",
-    response_model=APIResponseEnvelope,
-    status_code=status.HTTP_201_CREATED,
-)
-def scaffold_package(
-    payload: ScaffoldPackageCommand,
-    req: Request,
-    handler: FolderScaffoldRestHandler = Depends(get_handler),
-):
-    return handler.handle_scaffold_package(req=req, payload=payload)
