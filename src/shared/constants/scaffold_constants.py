@@ -78,3 +78,28 @@ DIRECTION_INCOMING = "incoming"
 GRAPH_LABEL_FILE_NODE = "FileNode"
 GRAPH_LABEL_FEATURE = "Feature"
 GRAPH_LABEL_PACKAGE_ROOT = "PackageRoot"
+
+CANONICAL_FEATURE_SUBDIRECTORIES = (
+    "schema",
+    "types",
+    "service",
+    "rules",
+    "machines",
+    "workflows",
+    "repository",
+    "queries",
+    "tests",
+)
+
+CANONICAL_PACKAGE_SUBDIRECTORIES = (
+    "contracts",
+    "config",
+    "database",
+    "messaging",
+    "deploy",
+    "src/shared",
+    "src/infra",
+    "src/features",
+    "src/api",
+    "scripts",
+)

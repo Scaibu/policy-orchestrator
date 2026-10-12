@@ -51,6 +51,8 @@ from src.shared.constants.scaffold_constants import (
     LAYER_CLIENT_UI,
     LAYER_GENERAL,
     PATH_FEATURES,
+    CANONICAL_FEATURE_SUBDIRECTORIES,
+    CANONICAL_PACKAGE_SUBDIRECTORIES,
 )
 
 
@@ -113,27 +115,7 @@ def resolve_subdirectories(target_type: str, config_subdirectories: Optional[Lis
     if config_subdirectories and len(config_subdirectories) > 0:
         return [str(d).strip() for d in config_subdirectories if str(d).strip()]
     if target_type.upper() == "PACKAGE":
-        return [
-            "contracts",
-            "config",
-            "database",
-            "messaging",
-            "deploy",
-            "src/shared",
-            "src/infra",
-            "src/features",
-            "src/api",
-            "scripts",
-        ]
-    return [
-        "schema",
-        "types",
-        "service",
-        "rules",
-        "machines",
-        "workflows",
-        "repository",
-        "queries",
-        "tests",
-    ]
+        return list(CANONICAL_PACKAGE_SUBDIRECTORIES)
+    return list(CANONICAL_FEATURE_SUBDIRECTORIES)
+
 

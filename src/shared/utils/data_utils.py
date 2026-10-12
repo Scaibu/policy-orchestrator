@@ -19,6 +19,19 @@ def paginate_list(items: List[Any], page: int = 1, page_size: int = 20) -> Tuple
     }
     return sliced, pagination_meta
 
+def to_camel_case(snake_str: str) -> str:
+    components = snake_str.split("_")
+    return components[0] + "".join(x.title() for x in components[1:])
+
+
+def dict_to_camel_case(data: Any) -> Any:
+    if isinstance(data, dict):
+        return {to_camel_case(k): dict_to_camel_case(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [dict_to_camel_case(i) for i in data]
+    return data
+
+
 def sanitize_json_dict(data: Dict[str, Any]) -> Dict[str, Any]:
     sanitized: Dict[str, Any] = {}
     for k, v in data.items():
@@ -29,3 +42,5 @@ def sanitize_json_dict(data: Dict[str, Any]) -> Dict[str, Any]:
         elif v is not None:
             sanitized[k] = v
     return sanitized
+
+

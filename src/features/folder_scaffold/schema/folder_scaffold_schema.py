@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from src.shared.utils.data_utils import dict_to_camel_case
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
@@ -26,26 +27,7 @@ class FolderScaffoldSchema:
 
     @staticmethod
     def to_api_create_file(result: CreateFileResult) -> Dict[str, Any]:
-        return {
-            "node": {
-                "id": result.node.id,
-                "filePath": result.node.file_path,
-                "role": result.node.role,
-                "layer": result.node.layer,
-                "featureName": result.node.feature_name,
-                "packageName": result.node.package_name,
-                "sizeBytes": result.node.size_bytes,
-            },
-            "relationship": {
-                "id": result.relationship.id,
-                "sourceId": result.relationship.source_id,
-                "targetId": result.relationship.target_id,
-                "relType": result.relationship.rel_type,
-                "properties": result.relationship.properties,
-            },
-            "createdOnDisk": result.created_on_disk,
-            "status": result.status,
-        }
+        return dict_to_camel_case(result.model_dump())
 
     @staticmethod
     def from_api_link_files(payload: Dict[str, Any]) -> LinkFilesCommand:
@@ -58,16 +40,7 @@ class FolderScaffoldSchema:
 
     @staticmethod
     def to_api_link_files(result: LinkFilesResult) -> Dict[str, Any]:
-        return {
-            "relationship": {
-                "id": result.relationship.id,
-                "sourceId": result.relationship.source_id,
-                "targetId": result.relationship.target_id,
-                "relType": result.relationship.rel_type,
-                "properties": result.relationship.properties,
-            },
-            "status": result.status,
-        }
+        return dict_to_camel_case(result.model_dump())
 
     @staticmethod
     def from_api_scaffold_feature(payload: Dict[str, Any]) -> ScaffoldFeatureCommand:
@@ -86,10 +59,5 @@ class FolderScaffoldSchema:
 
     @staticmethod
     def to_api_scaffold_result(result: ScaffoldExecutionResult) -> Dict[str, Any]:
-        return {
-            "targetName": result.target_name,
-            "targetPath": result.target_path,
-            "totalDirectories": result.total_directories,
-            "totalFiles": result.total_files,
-            "status": result.status,
-        }
+        return dict_to_camel_case(result.model_dump())
+
