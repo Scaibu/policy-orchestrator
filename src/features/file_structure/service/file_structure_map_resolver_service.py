@@ -1,22 +1,3 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE MAP RESOLVER SERVICE
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   Single Responsibility: Resolves and formats the complete architectural map
-   for any given feature from the Knowledge Graph (dedicated router, handler,
-   contract, service, rules, machine, workflow, repository port, and adapter).
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Single Responsibility Principle (SRP): Only owns architecture map resolution.
-   - Zero-Inline-Comment Doctrine: Resolution rules are captured in this header.
-
-3. METHOD CONTRACTS:
-   - resolve_feature_map(feature_name): Returns comprehensive feature dictionary.
-================================================================================
-"""
-
 from collections import deque
 from pathlib import Path
 from typing import Dict, Any, Optional, List

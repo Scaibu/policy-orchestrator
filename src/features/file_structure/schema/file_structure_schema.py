@@ -1,97 +1,31 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE ENTITY SCHEMA & ACL MAPPER
-================================================================================
+from src.features.file_structure.schema.file_structure_request_schema import (
+    BaseApiSchema,
+    ScaffoldFeatureRequestSchema,
+    ScaffoldPackageRequestSchema,
+    ValidateStructureRequestSchema,
+    AnalyzeImpactRequestSchema,
+    ScanRepositoryRequestSchema,
+    LinkFilesRequestSchema,
+    CreateFileRequestSchema,
+)
+from src.features.file_structure.schema.file_structure_entity_schema import (
+    FileStructureEntitySchema,
+    KnowledgeGraphEntitySchema,
+)
+from src.features.file_structure.schema.file_structure_graph_mapper import (
+    FeatureGraphMapper,
+)
 
-1. OVERVIEW & OBJECTIVE:
-   This module defines the runtime validation schema, data contracts, and
-   declarative Anti-Corruption Layer (ACL) mappers (`from_api`, `to_api`) for the
-   File Structure and Knowledge Graph features.
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Zero-Inline-Comment Doctrine: All validation constraints, field mappings,
-     and transformation operations are documented in this blueprint header.
-   - Declarative Anti-Corruption Layer (ACL): Converts wire snake_case/camelCase
-     into internal domain representations and vice-versa.
-================================================================================
-"""
-
-from typing import Dict, Any, Optional
-from pydantic import BaseModel, Field, ConfigDict
-
-def to_camel(string: str) -> str:
-    components = string.split("_")
-    return components[0] + "".join(x.title() for x in components[1:])
-
-class BaseApiSchema(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-    )
-
-class ScaffoldFeatureRequestSchema(BaseApiSchema):
-    feature_name: str = Field(..., min_length=1, max_length=128, description="Feature name to scaffold in snake_case or kebab-case")
-    base_dir: str = Field(default="src/features", description="Base features directory")
-    package_root: Optional[str] = Field(default=None, description="Optional root path of the parent package (e.g. '.' or 'packages/order-service')")
-    with_router: bool = Field(default=True, description="Whether to generate dedicated REST router in src/api/rest/v1/routers/")
-    with_handler: bool = Field(default=True, description="Whether to generate dedicated REST handler in src/api/rest/v1/handlers/")
-    port_type: str = Field(default="local", pattern="^(local|shared)$", description="Whether to scaffold a local repository port or link shared domain port")
-
-class ScaffoldPackageRequestSchema(BaseApiSchema):
-    package_name: str = Field(..., min_length=1, max_length=128, description="Package name to scaffold")
-    base_dir: str = Field(default=".", description="Base directory to place package")
-
-class ValidateStructureRequestSchema(BaseApiSchema):
-    target_path: str = Field(..., min_length=1, description="Target feature or package path to validate against architectural rules")
-    structure_type: str = Field(default="feature", pattern="^(feature|package)$", description="Type of structure to validate")
-
-class AnalyzeImpactRequestSchema(BaseApiSchema):
-    target_id: str = Field(..., min_length=1, max_length=256, description="Target node ID or file path")
-    max_depth: int = Field(default=6, ge=1, le=15, description="Maximum graph search depth")
-    direction: str = Field(default="UPSTREAM", pattern="^(UPSTREAM|DOWNSTREAM)$", description="Search direction")
-
-class ScanRepositoryRequestSchema(BaseApiSchema):
-    root_dir: str = Field(..., min_length=1, description="Root directory to scan and index")
-
-class LinkFilesRequestSchema(BaseApiSchema):
-    source: str = Field(..., min_length=1, description="Source file path or node ID")
-    rel_type: str = Field(..., min_length=1, description="Relationship type (e.g. IMPORTS_SHARED, INVOKES_DOMAIN, CALLS_SERVICE, etc.)")
-    target: str = Field(..., min_length=1, description="Target file path or node ID")
-    properties: Optional[Dict[str, Any]] = Field(default=None, description="Optional relationship properties")
-
-class CreateFileRequestSchema(BaseApiSchema):
-    file_path: str = Field(..., min_length=1, description="File path to create")
-    role: str = Field(..., min_length=1, description="Architectural role / label (e.g. DomainService, RuleSet, etc.)")
-    rel_type: str = Field(..., min_length=1, description="Relationship type to target")
-    target_file_or_node: str = Field(..., min_length=1, description="Target file path or node ID")
-    direction: str = Field(default="outgoing", pattern="^(outgoing|incoming)$", description="Relationship direction")
-    content: Optional[str] = Field(default=None, description="Optional file content template")
-    package_root: Optional[str] = Field(default=None, description="Optional package root")
-    feature_name: Optional[str] = Field(default=None, description="Optional feature name")
-    properties: Optional[Dict[str, Any]] = Field(default=None, description="Optional node properties")
-
-class FileStructureEntitySchema:
-    @staticmethod
-    def from_api(payload: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "featureName": payload.get("feature_name") or payload.get("featureName", ""),
-            "baseDir": payload.get("base_dir") or payload.get("baseDir", "src/features"),
-            "withRouter": bool(payload.get("with_router", True)),
-            "withHandler": bool(payload.get("with_handler", True)),
-            "portType": payload.get("port_type", "local"),
-        }
-
-    @staticmethod
-    def to_api(domain_result: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "status": domain_result.get("status", "success"),
-            "feature": domain_result.get("feature", ""),
-            "targetDir": domain_result.get("target_dir", ""),
-            "filesCreated": domain_result.get("files_created", []),
-            "totalFiles": domain_result.get("total_files", 0),
-            "routerPath": domain_result.get("router_path", ""),
-            "handlerPath": domain_result.get("handler_path", ""),
-            "graphSynced": domain_result.get("graph_synced", True),
-        }
-
-KnowledgeGraphEntitySchema = FileStructureEntitySchema
+__all__ = [
+    "BaseApiSchema",
+    "ScaffoldFeatureRequestSchema",
+    "ScaffoldPackageRequestSchema",
+    "ValidateStructureRequestSchema",
+    "AnalyzeImpactRequestSchema",
+    "ScanRepositoryRequestSchema",
+    "LinkFilesRequestSchema",
+    "CreateFileRequestSchema",
+    "FileStructureEntitySchema",
+    "KnowledgeGraphEntitySchema",
+    "FeatureGraphMapper",
+]

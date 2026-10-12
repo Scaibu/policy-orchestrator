@@ -1,18 +1,3 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE NAMED QUERY LOADER
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   Single Responsibility: Discovers, parses, and caches role-wise named queries
-   from the `queries/` directory (Cypher and SQL).
-   Enforces the Zero-Inline-Query doctrine: no hardcoded inline query strings in
-   domain or application service layers.
-
-2. NAMING CONVENTIONS:
-   - Queries follow the mandatory formula: FLOW_{VERB}_{ENTITY}_{CRITERIA}
-================================================================================
-"""
 
 from pathlib import Path
 from typing import Dict, Optional

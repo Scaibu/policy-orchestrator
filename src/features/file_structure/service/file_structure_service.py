@@ -2,6 +2,8 @@ from typing import Dict, Any, Optional
 from src.domain.ports.graph_port import GraphStorePort
 from src.domain.ports.impact_analysis_port import ImpactAnalysisReportModel
 from src.features.file_structure.machines.file_structure_machine import FileStructureLifecycleMachine
+from src.features.file_structure.repository.file_structure_repository_port import FileStructureRepositoryPort
+from src.features.file_structure.repository.file_structure_repository import FileStructureRepositoryAdapter
 from src.features.file_structure.service.file_structure_folder_scaffolder_service import FileStructureFolderScaffolderService
 from src.features.file_structure.service.file_structure_package_scaffolder_service import FileStructurePackageScaffolderService
 from src.features.file_structure.service.file_structure_scaffolder_service import FileStructureScaffolderService
@@ -12,18 +14,26 @@ from src.features.file_structure.service.file_structure_map_resolver_service imp
 class FileStructureDomainService:
     def __init__(
         self,
-        graph_store: GraphStorePort,
+        graph_store: Optional[GraphStorePort] = None,
+        repository: Optional[FileStructureRepositoryPort] = None,
     ) -> None:
         self.graph_store = graph_store
-        self.folder_scaffolder = FileStructureFolderScaffolderService()
-        self.package_scaffolder = FileStructurePackageScaffolderService()
+        self.repository = repository or FileStructureRepositoryAdapter(graph_store=self.graph_store)
+        self.graph_sync = FileStructureGraphSyncService(graph_store=self.graph_store)
+        self.folder_scaffolder = FileStructureFolderScaffolderService(
+            repository=self.repository,
+            graph_sync=self.graph_sync,
+        )
+        self.package_scaffolder = FileStructurePackageScaffolderService(
+            repository=self.repository,
+            graph_sync=self.graph_sync,
+        )
         self.scaffolder = FileStructureScaffolderService(
             folder_scaffolder=self.folder_scaffolder,
             package_scaffolder=self.package_scaffolder,
         )
-        self.graph_sync = FileStructureGraphSyncService(graph_store=graph_store)
-        self.impact_analyzer = FileStructureImpactAnalyzerService(graph_store=graph_store)
-        self.map_resolver = FileStructureMapResolverService(graph_store=graph_store)
+        self.impact_analyzer = FileStructureImpactAnalyzerService(graph_store=self.graph_store)
+        self.map_resolver = FileStructureMapResolverService(graph_store=self.graph_store)
         self.state_machine = FileStructureLifecycleMachine()
 
     def scaffold_feature(
@@ -52,19 +62,6 @@ class FileStructureDomainService:
                 with_route_rules=with_route_rules,
                 port_type=port_type,
             )
-            self.graph_sync.sync_feature_dag(
-                feature_name=feature_name,
-                with_router=with_router,
-                with_handler=with_handler,
-                with_route_rules=with_route_rules,
-                port_type=port_type,
-                package_root=package_root,
-                owner=owner,
-                status=status,
-                flags=flags,
-                migrations=migrations,
-                contract_version=contract_version,
-            )
             self.state_machine.transition_to("INDEXED")
             tree_result["graph_synced"] = True
             return tree_result
@@ -78,10 +75,6 @@ class FileStructureDomainService:
             pkg_result = self.package_scaffolder.scaffold_package_tree(
                 package_name=package_name,
                 base_dir=base_dir,
-            )
-            self.graph_sync.sync_package_dag(
-                package_name=package_name,
-                target_root=pkg_result["target_root"],
             )
             self.state_machine.transition_to("INDEXED")
             pkg_result["graph_synced"] = True

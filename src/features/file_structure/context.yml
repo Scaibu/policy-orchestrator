@@ -114,3 +114,40 @@ architecture_topology_diagram: |
   [ Domain Service ] ──[:CONFIGURED_BY]──► [ Configuration Schema: config/env.schema ]
   [ Domain Service ] ──[:TRACED_BY]──────► [ OpenTelemetry Tracer: src/infra/observability/tracing/tracer.py ]
   [ Domain Service ] ◄─[:TESTS_COMPONENT]── [ Test Suite: tests/features/{f}_test.py ]
+
+entities:
+  scaffold_templates:
+    owner: "@platform-architecture-team"
+    source_of_truth: db
+    fields:
+      - name: id             type: text          null: no   constraint: PK, UNIQUE, immutable
+      - name: template_type  type: text          null: no   constraint: CHECK (template_type IN ('FEATURE', 'PACKAGE'))
+      - name: version        type: text          null: no   constraint: length 1..32
+      - name: directories    type: jsonb         null: no   constraint: CHECK (jsonb_typeof(directories) = 'array')
+      - name: files          type: jsonb         null: no   constraint: CHECK (jsonb_typeof(files) = 'array')
+      - name: metadata       type: jsonb         null: no   default: '{}'
+      - name: is_active      type: boolean       null: no   default: true
+      - name: created_at     type: timestamptz   null: no   default: now()
+      - name: updated_at     type: timestamptz   null: no   default: now()
+
+  scaffolded_features:
+    owner: "@platform-architecture-team"
+    source_of_truth: db
+    fields:
+      - name: feature_name   type: text          null: no   constraint: PK, UNIQUE, length 1..128
+      - name: target_dir     type: text          null: no   constraint: length 1..512
+      - name: port_type      type: text          null: no   default: 'local'
+      - name: files          type: jsonb         null: no   constraint: CHECK (jsonb_typeof(files) = 'array')
+      - name: metadata       type: jsonb         null: no   default: '{}'
+      - name: created_at     type: timestamptz   null: no   default: now()
+
+  scaffolded_packages:
+    owner: "@platform-architecture-team"
+    source_of_truth: db
+    fields:
+      - name: package_name   type: text          null: no   constraint: PK, UNIQUE, length 1..128
+      - name: target_root    type: text          null: no   constraint: length 1..512
+      - name: directories    type: jsonb         null: no   constraint: CHECK (jsonb_typeof(directories) = 'array')
+      - name: files          type: jsonb         null: no   constraint: CHECK (jsonb_typeof(files) = 'array')
+      - name: metadata       type: jsonb         null: no   default: '{}'
+      - name: created_at     type: timestamptz   null: no   default: now()

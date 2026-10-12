@@ -1,22 +1,6 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE DOMAIN TYPES & CONSTANTS
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   This module defines domain models, taxonomy types, risk level constants, and
-   weight vectors for the File Structure, Scaffolding, and Knowledge Graph subsystems.
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Single Responsibility Principle (SRP): Contains only data structures,
-     enums, and constants. Zero business logic, zero IO, and zero framework imports.
-   - Zero Magic Numbers: All calculation weights, risk thresholds, and default
-     depths are centralized as named immutable constants.
-   - Zero-Inline-Comment Doctrine: Header contains complete domain taxonomy.
-================================================================================
-"""
-
-from typing import Final, Set
+from typing import Final, Set, Dict, Any, Optional
+from dataclasses import dataclass
+from pathlib import Path
 
 DEFAULT_MAX_TRAVERSAL_DEPTH: Final[int] = 6
 
@@ -39,3 +23,84 @@ CRITICAL_STORAGE_LABELS: Final[Set[str]] = {"DatabaseMigration", "NamedQuery"}
 HIGH_RISK_INGRESS_LABELS: Final[Set[str]] = {"Contract", "IngressHandler", "IngressRouter"}
 ISOLATED_LOGIC_LABELS: Final[Set[str]] = {"RuleSet", "StateMachine", "WorkflowEngine"}
 LOCAL_FEATURE_LABELS: Final[Set[str]] = {"SchemaACL", "RepositoryPort", "DomainModel", "RepositoryAdapter"}
+
+@dataclass(frozen=True)
+class FeatureGraphNodeIdsModel:
+    context_id: str
+    index_id: str
+    types_id: str
+    acl_id: str
+    query_id: str
+    port_id: str
+    adapter_id: str
+    rules_id: str
+    machine_id: str
+    workflow_id: str
+    service_id: str
+    contract_openapi_id: str
+    contract_graphql_id: str
+    contract_grpc_id: str
+    contract_asyncapi_id: str
+    router_id: str
+    handler_id: str
+    route_rules_id: str
+    resolver_id: str
+    grpc_handler_id: str
+    consumer_id: str
+    migration_id: str
+    schema_lock_id: str
+    db_pool_id: str
+    producer_id: str
+    topic_id: str
+    topics_lock_id: str
+    dlq_id: str
+    shared_lib_id: str
+    config_schema_id: str
+    tracer_id: str
+    test_suite_id: str
+
+@dataclass(frozen=True)
+class FeatureGraphContextModel:
+    feature_name: str
+    package_name: str
+    package_root: str
+    package_prefix: str
+    status: str
+    owner: str
+    contract: str
+    contract_version: str
+    flags: str
+    migrations: str
+    node_ids: FeatureGraphNodeIdsModel
+
+    def to_properties_dict(self) -> Dict[str, Any]:
+        return {
+            "feature_name": self.feature_name,
+            "package_name": self.package_name,
+            "status": self.status,
+            "owner": self.owner,
+            "contract": self.contract,
+            "contract_version": self.contract_version,
+            "flags": self.flags,
+            "migrations": self.migrations,
+        }
+
+@dataclass(frozen=True)
+class FeatureGraphNodeSpec:
+    id: str
+    label: str
+    file_path: str
+    layer: str
+
+@dataclass(frozen=True)
+class ScaffoldTargetPathsModel:
+    target_dir: Path
+    router_dir: Path
+    handler_dir: Path
+
+@dataclass(frozen=True)
+class DeliveryArtifactSpec:
+    artifact_type: str
+    target_dir: Path
+    file_name: str
+    enabled: bool

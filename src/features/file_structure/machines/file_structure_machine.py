@@ -1,19 +1,3 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE STATE MACHINE AS DATA
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   This module declares the state lifecycle graph and transition invariants for
-   File Structure Scaffolding, Validation, and Knowledge Graph indexing.
-   States progress through deterministic guarded transitions:
-   `IDLE -> SCAFFOLDING -> VALIDATING -> INDEXED -> STALE -> ERROR`.
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Zero-Inline-Comment Doctrine: State DAG nodes, valid event triggers, and
-     guard conditions are exhaustively captured in this blueprint.
-================================================================================
-"""
 
 from typing import Dict, Set, Optional
 

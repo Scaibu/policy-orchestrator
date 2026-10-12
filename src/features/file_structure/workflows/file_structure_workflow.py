@@ -1,17 +1,3 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE WORKFLOW AS DATA
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   This module declares the multi-step DAG workflow for file structure scaffolding,
-   directory creation, router/handler generation, and graph dependency syncing as declarative DATA.
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Zero-Inline-Comment Doctrine: All workflow steps, failure compensations, and
-     OpenTelemetry root span attachments are documented in this top blueprint.
-================================================================================
-"""
 
 from typing import List
 from dataclasses import dataclass

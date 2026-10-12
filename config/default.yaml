@@ -25,3 +25,19 @@ scanner:
 policy_sync:
   authoritative_contract_path: "policies/rules/edgeCases/algos/agent-operating-contract.md"
   submodule_path: "policies"
+
+database:
+  url: "postgresql://alloy_admin:alloysecret@localhost:5432/policy_orchestration"
+  pool_size: 10
+  timeout_seconds: 5
+
+knowledge_graph:
+  backend: "neo4j"
+  uri: "http://localhost:7474"
+  user: "neo4j"
+  password: "policysecret"
+  database: "neo4j"
+  timeout_seconds: 30
+
+scaffold:
+  default_template_version: "v1"

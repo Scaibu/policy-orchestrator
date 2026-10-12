@@ -119,6 +119,22 @@ RETURN m.id AS source_id,
        properties(r) AS edge_props
 ORDER BY source_label ASC, source_id ASC;
 
+// name: FLOW_LIST_UPSTREAM_DEPENDENCIES_BY_TARGET_ID_CYPHER
+MATCH (n)-[r]->(target)
+WHERE target.id = $target_id
+RETURN n.id AS id,
+       labels(n)[0] AS label,
+       n.file_path AS file_path,
+       type(r) AS relationship;
+
+// name: FLOW_LIST_DOWNSTREAM_DEPENDENTS_BY_SOURCE_ID_CYPHER
+MATCH (source)-[r]->(n)
+WHERE source.id = $source_id
+RETURN n.id AS id,
+       labels(n)[0] AS label,
+       n.file_path AS file_path,
+       type(r) AS relationship;
+
 // name: FLOW_RESOLVE_FEATURE_TOPOLOGY_CYPHER
 MATCH (n {feature_name: $feature_name})-[r]->(m {feature_name: $feature_name})
 RETURN n.id AS source_id,

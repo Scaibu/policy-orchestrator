@@ -1,0 +1,26 @@
+api_version: "v1"
+base_prefix: "/api/v1"
+endpoints:
+  file_structure:
+    base: "/file-structure"
+    scaffold_feature: "/file-structure/scaffold/feature"
+    scaffold_package: "/file-structure/scaffold/package"
+    impact_analysis: "/file-structure/impact-analysis"
+    scan_repository: "/file-structure/scan-repository"
+    link_files: "/file-structure/link-files"
+    create_file: "/file-structure/create-file"
+    feature_map: "/file-structure/feature/{feature_name}"
+  code_search:
+    base: "/code-search"
+    search: "/code-search/search"
+    analyze: "/code-search/analyze"
+  health:
+    live: "/health/live"
+    ready: "/health/ready"
+upstream_services:
+  alloydb:
+    health_endpoint: "/health"
+    timeout_seconds: 5
+  neo4j:
+    commit_endpoint: "/db/neo4j/tx/commit"
+    timeout_seconds: 30

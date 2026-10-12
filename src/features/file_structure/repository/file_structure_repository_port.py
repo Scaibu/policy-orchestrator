@@ -1,18 +1,3 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE REPOSITORY PORT (HEXAGONAL)
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   Defines the abstract data access contract for persisting and querying file
-   structure metadata, nodes, directed dependencies, and architectural mappings.
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Zero-Inline-Comment Doctrine: All method contracts and exceptions are
-     documented in this header. Class declarations remain 100% comment-free.
-================================================================================
-"""
-
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 
@@ -52,6 +37,52 @@ class FileStructureRepositoryPort(ABC):
 
     @abstractmethod
     def clear_all(self) -> None:
+        pass
+
+    @abstractmethod
+    def get_scaffold_template(
+        self,
+        template_type: str,
+        version: str = "v1",
+    ) -> Optional[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def save_scaffold_template(
+        self,
+        template_id: str,
+        template_type: str,
+        version: str,
+        directories: List[str],
+        files: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def save_scaffolded_feature(
+        self,
+        feature_name: str,
+        target_dir: str,
+        port_type: str,
+        files: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def save_scaffolded_package(
+        self,
+        package_name: str,
+        target_root: str,
+        directories: List[str],
+        files: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def seed_default_templates(self) -> None:
         pass
 
 KnowledgeGraphRepositoryPort = FileStructureRepositoryPort

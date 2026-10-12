@@ -1,0 +1,15 @@
+HEADER_TRACEPARENT = "traceparent"
+HEADER_X_TRACE_ID = "x-trace-id"
+HEADER_X_REQUEST_ID = "x-request-id"
+HEADER_X_CORRELATION_ID = "x-correlation-id"
+HEADER_X_CAUSATION_ID = "x-causation-id"
+HEADER_X_TENANT_ID = "x-tenant-id"
+HEADER_X_CLIENT_ID = "x-client-id"
+HEADER_IF_MATCH = "if-match"
+HEADER_AUTHORIZATION = "authorization"
+HEADER_CONTENT_TYPE = "content-type"
+
+DEFAULT_PAGE_SIZE = 20
+MAX_PAGE_SIZE = 100
+DEFAULT_TIMEOUT_SECONDS = 30
+DEFAULT_RATE_LIMIT_QUOTA = 1000

@@ -1,28 +1,5 @@
-"""
-================================================================================
-ALGORITHM & ARCHITECTURE BLUEPRINT: FILE STRUCTURE IMPACT ANALYZER SERVICE
-================================================================================
-
-1. OVERVIEW & OBJECTIVE:
-   Single Responsibility: Evaluates upstream reverse reachability and downstream
-   impact closures over the Architectural Knowledge Graph. Computes mathematical
-   blast radius score beta(v) and resolves risk levels and mitigation recipes.
-
-2. ARCHITECTURAL LAYOUT & DESIGN PILLARS:
-   - Single Responsibility Principle (SRP): Only owns graph traversal and risk evaluation.
-   - Zero-Inline-Comment Doctrine: Algorithmic formulas are documented in this header.
-   - Mathematical Graph Invariants:
-       Reverse Reachability: R_upstream(v) = { u in V | Path(u, v) exists in G }
-       Blast Radius Metric: beta(v) = sum( weight(u) / depth(u, v) )
-
-3. METHOD CONTRACTS:
-   - analyze_upstream_impact(target_id, max_depth): Evaluates upstream callers and risks.
-   - analyze_downstream_impact(target_id, max_depth): Evaluates downstream dependents.
-================================================================================
-"""
-
-from collections import deque
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, Optional, Tuple
+import networkx as nx
 from src.domain.ports.graph_port import GraphStorePort
 from src.domain.ports.impact_analysis_port import (
     ImpactedNodeModel,
@@ -46,6 +23,17 @@ from src.features.file_structure.types.file_structure_types import (
     ISOLATED_LOGIC_LABELS,
 )
 
+NODE_WEIGHT_REGISTRY: Dict[str, float] = {
+    "Contract": WEIGHT_CONTRACT_NODE,
+    "IngressHandler": WEIGHT_HANDLER_NODE,
+    "IngressRouter": WEIGHT_HANDLER_NODE,
+    "DatabaseMigration": WEIGHT_DB_MIGRATION_NODE,
+    "NamedQuery": WEIGHT_DB_MIGRATION_NODE,
+    "DomainService": WEIGHT_SERVICE_NODE,
+    "RepositoryPort": WEIGHT_PORT_NODE,
+    "SharedDomainPort": WEIGHT_PORT_NODE,
+}
+
 class FileStructureImpactAnalyzerService:
     def __init__(self, graph_store: GraphStorePort) -> None:
         self.graph_store = graph_store
@@ -55,67 +43,10 @@ class FileStructureImpactAnalyzerService:
         target_id: str,
         max_depth: int = DEFAULT_MAX_TRAVERSAL_DEPTH,
     ) -> ImpactAnalysisReportModel:
-        if not target_id:
-            raise ValueError("target_id must not be empty")
-        resolved_id = self._resolve_target_node_id(target_id)
-        visited: Set[str] = set()
-        queue: deque = deque([(resolved_id, 0, "TARGET")])
-        impacted_nodes: List[ImpactedNodeModel] = []
-        affected_layers: Set[str] = set()
-        total_blast_score: float = 0.0
-
-        target_label = self._get_node_label(resolved_id)
-        affected_layers.add(target_label)
-
-        while queue:
-            current_id, depth, rel_type = queue.popleft()
-
-            if current_id in visited:
-                continue
-            visited.add(current_id)
-
-            if depth > 0:
-                node_label = self._get_node_label(current_id)
-                node_path = self._get_node_path(current_id)
-                affected_layers.add(node_label)
-
-                weight = self._get_node_weight(node_label)
-                node_risk = weight / float(depth)
-                total_blast_score += node_risk
-
-                impacted_nodes.append(
-                    ImpactedNodeModel(
-                        id=current_id,
-                        label=node_label,
-                        path=node_path,
-                        depth=depth,
-                        relationship=rel_type,
-                        risk_factor=round(node_risk, 3),
-                    )
-                )
-
-            if depth < max_depth:
-                incoming = self.graph_store.get_incoming_relationships(current_id)
-                for edge in incoming:
-                    if edge.source_id not in visited:
-                        queue.append((edge.source_id, depth + 1, edge.rel_type))
-
-        risk_level = self._resolve_risk_level(target_label, total_blast_score)
-        breaking_risks = self._compute_potential_breaking_risks(target_label, impacted_nodes)
-        verification_cmds = self._generate_verification_commands(target_label, impacted_nodes)
-        mitigation_recipe = self._generate_mitigation_recipe(target_label, impacted_nodes)
-
-        return ImpactAnalysisReportModel(
+        return self._execute_impact_analysis(
             target_id=target_id,
-            target_label=target_label,
             direction="UPSTREAM",
-            blast_radius_score=round(total_blast_score, 3),
-            risk_level=risk_level,
-            impacted_nodes=impacted_nodes,
-            affected_layers=sorted(list(affected_layers)),
-            potential_breaking_risks=breaking_risks,
-            required_verification_commands=verification_cmds,
-            recommended_mitigation_recipe=mitigation_recipe,
+            max_depth=max_depth,
         )
 
     def analyze_downstream_impact(
@@ -123,50 +54,34 @@ class FileStructureImpactAnalyzerService:
         target_id: str,
         max_depth: int = DEFAULT_MAX_TRAVERSAL_DEPTH,
     ) -> ImpactAnalysisReportModel:
+        return self._execute_impact_analysis(
+            target_id=target_id,
+            direction="DOWNSTREAM",
+            max_depth=max_depth,
+        )
+
+    def _execute_impact_analysis(
+        self,
+        target_id: str,
+        direction: str,
+        max_depth: int,
+    ) -> ImpactAnalysisReportModel:
         if not target_id:
             raise ValueError("target_id must not be empty")
+
         resolved_id = self._resolve_target_node_id(target_id)
-        visited: Set[str] = set()
-        queue: deque = deque([(resolved_id, 0, "TARGET")])
-        impacted_nodes: List[ImpactedNodeModel] = []
-        affected_layers: Set[str] = set()
-        total_blast_score: float = 0.0
+        graph = self._build_directed_graph()
+        traversal_graph = graph.reverse(copy=False) if direction == "UPSTREAM" else graph
 
-        target_label = self._get_node_label(resolved_id)
-        affected_layers.add(target_label)
+        target_label = self._get_node_label(resolved_id, graph)
+        affected_layers: Set[str] = {target_label}
 
-        while queue:
-            current_id, depth, rel_type = queue.popleft()
-
-            if current_id in visited:
-                continue
-            visited.add(current_id)
-
-            if depth > 0:
-                node_label = self._get_node_label(current_id)
-                node_path = self._get_node_path(current_id)
-                affected_layers.add(node_label)
-
-                weight = self._get_node_weight(node_label)
-                node_risk = weight / float(depth)
-                total_blast_score += node_risk
-
-                impacted_nodes.append(
-                    ImpactedNodeModel(
-                        id=current_id,
-                        label=node_label,
-                        path=node_path,
-                        depth=depth,
-                        relationship=rel_type,
-                        risk_factor=round(node_risk, 3),
-                    )
-                )
-
-            if depth < max_depth:
-                outgoing = self.graph_store.get_outgoing_relationships(current_id)
-                for edge in outgoing:
-                    if edge.target_id not in visited:
-                        queue.append((edge.target_id, depth + 1, edge.rel_type))
+        impacted_nodes, total_blast_score = self._compute_traversal_impact(
+            traversal_graph=traversal_graph,
+            resolved_id=resolved_id,
+            max_depth=max_depth,
+            affected_layers=affected_layers,
+        )
 
         risk_level = self._resolve_risk_level(target_label, total_blast_score)
         breaking_risks = self._compute_potential_breaking_risks(target_label, impacted_nodes)
@@ -176,7 +91,7 @@ class FileStructureImpactAnalyzerService:
         return ImpactAnalysisReportModel(
             target_id=target_id,
             target_label=target_label,
-            direction="DOWNSTREAM",
+            direction=direction,
             blast_radius_score=round(total_blast_score, 3),
             risk_level=risk_level,
             impacted_nodes=impacted_nodes,
@@ -186,37 +101,121 @@ class FileStructureImpactAnalyzerService:
             recommended_mitigation_recipe=mitigation_recipe,
         )
 
+    def _build_directed_graph(self) -> nx.DiGraph:
+        graph = nx.DiGraph()
+        if hasattr(self.graph_store, "_nodes") and hasattr(self.graph_store, "_relationships"):
+            nodes_dict = getattr(self.graph_store, "_nodes")
+            relationships_list = getattr(self.graph_store, "_relationships")
+            for node_id, node in nodes_dict.items():
+                props = getattr(node, "properties", {}) or {}
+                graph.add_node(
+                    node_id,
+                    label=str(getattr(node, "label", "Unknown")),
+                    path=str(props.get("file_path", "")),
+                )
+            for rel in relationships_list:
+                graph.add_edge(
+                    rel.source_id,
+                    rel.target_id,
+                    rel_type=getattr(rel, "rel_type", "DEPENDS_ON"),
+                )
+            return graph
+
+        query_res = self.graph_store.query_cypher("MATCH (n) OPTIONAL MATCH (n)-[r]->(m) RETURN n, r, m")
+        for node in query_res.nodes:
+            props = getattr(node, "properties", {}) or {}
+            graph.add_node(
+                node.id,
+                label=str(getattr(node, "label", "Unknown")),
+                path=str(props.get("file_path", "")),
+            )
+        for rel in query_res.relationships:
+            graph.add_edge(
+                rel.source_id,
+                rel.target_id,
+                rel_type=getattr(rel, "rel_type", "DEPENDS_ON"),
+            )
+        return graph
+
+    def _compute_traversal_impact(
+        self,
+        traversal_graph: nx.DiGraph,
+        resolved_id: str,
+        max_depth: int,
+        affected_layers: Set[str],
+    ) -> Tuple[List[ImpactedNodeModel], float]:
+        if resolved_id not in traversal_graph:
+            return [], 0.0
+
+        distances = nx.single_source_shortest_path_length(
+            traversal_graph,
+            source=resolved_id,
+            cutoff=max_depth,
+        )
+        bfs_edges = list(nx.bfs_edges(traversal_graph, source=resolved_id, depth_limit=max_depth))
+
+        visited_nodes: Set[str] = set()
+        impacted_nodes: List[ImpactedNodeModel] = []
+        total_blast_score: float = 0.0
+
+        for parent_id, current_id in bfs_edges:
+            if current_id in visited_nodes:
+                continue
+            visited_nodes.add(current_id)
+
+            depth = distances.get(current_id, 1)
+            node_data = traversal_graph.nodes.get(current_id, {})
+            node_label = node_data.get("label") or self._get_node_label(current_id, traversal_graph)
+            node_path = node_data.get("path") or self._get_node_path(current_id, traversal_graph)
+            edge_data = traversal_graph.get_edge_data(parent_id, current_id) or {}
+            rel_type = edge_data.get("rel_type", "DEPENDS_ON")
+
+            affected_layers.add(node_label)
+            weight = self._get_node_weight(node_label)
+            node_risk = weight / float(depth)
+            total_blast_score += node_risk
+
+            impacted_nodes.append(
+                ImpactedNodeModel(
+                    id=current_id,
+                    label=node_label,
+                    path=node_path,
+                    depth=depth,
+                    relationship=rel_type,
+                    risk_factor=round(node_risk, 3),
+                )
+            )
+
+        return impacted_nodes, total_blast_score
+
     def _resolve_target_node_id(self, target_id: str) -> str:
         node = self.graph_store.find_node(target_id)
         if node:
             return node.id
         return target_id
 
-    def _get_node_label(self, node_id: str) -> str:
+    def _get_node_label(self, node_id: str, graph: Optional[nx.DiGraph] = None) -> str:
+        if graph is not None and node_id in graph.nodes:
+            lbl = graph.nodes[node_id].get("label")
+            if lbl:
+                return str(lbl)
         node = self.graph_store.find_node(node_id)
         if node and node.label:
             return str(node.label)
         return "Unknown"
 
-    def _get_node_path(self, node_id: str) -> str:
+    def _get_node_path(self, node_id: str, graph: Optional[nx.DiGraph] = None) -> str:
+        if graph is not None and node_id in graph.nodes:
+            pth = graph.nodes[node_id].get("path")
+            if pth:
+                return str(pth)
         node = self.graph_store.find_node(node_id)
         if node and node.properties and "file_path" in node.properties:
             return str(node.properties["file_path"])
         return ""
 
-
     def _get_node_weight(self, label: str) -> float:
-        if label == "Contract":
-            return WEIGHT_CONTRACT_NODE
-        if label in ("IngressHandler", "IngressRouter"):
-            return WEIGHT_HANDLER_NODE
-        if label in ("DatabaseMigration", "NamedQuery"):
-            return WEIGHT_DB_MIGRATION_NODE
-        if label == "DomainService":
-            return WEIGHT_SERVICE_NODE
-        if label in ("RepositoryPort", "SharedDomainPort"):
-            return WEIGHT_PORT_NODE
-        return WEIGHT_DEFAULT_NODE
+        return NODE_WEIGHT_REGISTRY.get(label, WEIGHT_DEFAULT_NODE)
 
     def _resolve_risk_level(self, target_label: str, blast_score: float) -> str:
         if target_label in ISOLATED_LOGIC_LABELS:
