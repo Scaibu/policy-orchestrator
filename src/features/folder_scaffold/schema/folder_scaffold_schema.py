@@ -1,4 +1,7 @@
 from typing import Dict, Any
+from pydantic import ValidationError as PydanticValidationError
+from src.shared.kernel.result import Result
+from src.shared.errors.application_error import ValidationError
 from src.shared.utils.data_utils import dict_to_camel_case
 from src.features.folder_scaffold.types.folder_scaffold_types import (
     CreateFileCommand,
@@ -13,51 +16,79 @@ from src.features.folder_scaffold.types.folder_scaffold_types import (
 
 class FolderScaffoldSchema:
     @staticmethod
-    def from_api_create_file(payload: Dict[str, Any]) -> CreateFileCommand:
-        return CreateFileCommand(
-            path=str(payload["path"]).strip(),
-            role=str(payload["role"]).strip(),
-            rel_type=str(payload["rel_type"]).strip(),
-            target=str(payload["target"]).strip(),
-            direction=str(payload.get("direction", "outgoing")).strip().lower(),
-            feature_name=payload.get("feature_name"),
-            package_name=payload.get("package_name"),
-            content=payload.get("content"),
-        )
+    def from_api_create_file(payload: Dict[str, Any]) -> Result[CreateFileCommand, ValidationError]:
+        try:
+            cmd = CreateFileCommand.model_validate(payload)
+            return Result.ok(cmd)
+        except PydanticValidationError as exc:
+            details = [
+                {
+                    "field": ".".join(str(loc) for loc in err["loc"]),
+                    "issue": err["msg"],
+                    "rule": err["type"],
+                }
+                for err in exc.errors()
+            ]
+            return Result.err(ValidationError(message="Validation failed for create file payload", details=details))
 
     @staticmethod
     def to_api_create_file(result: CreateFileResult) -> Dict[str, Any]:
         return dict_to_camel_case(result.model_dump())
 
     @staticmethod
-    def from_api_link_files(payload: Dict[str, Any]) -> LinkFilesCommand:
-        return LinkFilesCommand(
-            source=str(payload["source"]).strip(),
-            rel_type=str(payload["rel_type"]).strip(),
-            target=str(payload["target"]).strip(),
-            properties=payload.get("properties") or {},
-        )
+    def from_api_link_files(payload: Dict[str, Any]) -> Result[LinkFilesCommand, ValidationError]:
+        try:
+            cmd = LinkFilesCommand.model_validate(payload)
+            return Result.ok(cmd)
+        except PydanticValidationError as exc:
+            details = [
+                {
+                    "field": ".".join(str(loc) for loc in err["loc"]),
+                    "issue": err["msg"],
+                    "rule": err["type"],
+                }
+                for err in exc.errors()
+            ]
+            return Result.err(ValidationError(message="Validation failed for link files payload", details=details))
 
     @staticmethod
     def to_api_link_files(result: LinkFilesResult) -> Dict[str, Any]:
         return dict_to_camel_case(result.model_dump())
 
     @staticmethod
-    def from_api_scaffold_feature(payload: Dict[str, Any]) -> ScaffoldFeatureCommand:
-        return ScaffoldFeatureCommand(
-            feature_name=str(payload["feature_name"]).strip(),
-            base_dir=str(payload.get("base_dir", "src/features")).strip(),
-            package_root=payload.get("package_root"),
-        )
+    def from_api_scaffold_feature(payload: Dict[str, Any]) -> Result[ScaffoldFeatureCommand, ValidationError]:
+        try:
+            cmd = ScaffoldFeatureCommand.model_validate(payload)
+            return Result.ok(cmd)
+        except PydanticValidationError as exc:
+            details = [
+                {
+                    "field": ".".join(str(loc) for loc in err["loc"]),
+                    "issue": err["msg"],
+                    "rule": err["type"],
+                }
+                for err in exc.errors()
+            ]
+            return Result.err(ValidationError(message="Validation failed for scaffold feature payload", details=details))
 
     @staticmethod
-    def from_api_scaffold_package(payload: Dict[str, Any]) -> ScaffoldPackageCommand:
-        return ScaffoldPackageCommand(
-            package_name=str(payload["package_name"]).strip(),
-            base_dir=str(payload.get("base_dir", ".")).strip(),
-        )
+    def from_api_scaffold_package(payload: Dict[str, Any]) -> Result[ScaffoldPackageCommand, ValidationError]:
+        try:
+            cmd = ScaffoldPackageCommand.model_validate(payload)
+            return Result.ok(cmd)
+        except PydanticValidationError as exc:
+            details = [
+                {
+                    "field": ".".join(str(loc) for loc in err["loc"]),
+                    "issue": err["msg"],
+                    "rule": err["type"],
+                }
+                for err in exc.errors()
+            ]
+            return Result.err(ValidationError(message="Validation failed for scaffold package payload", details=details))
 
     @staticmethod
     def to_api_scaffold_result(result: ScaffoldExecutionResult) -> Dict[str, Any]:
         return dict_to_camel_case(result.model_dump())
+
 
