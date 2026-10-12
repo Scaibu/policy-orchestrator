@@ -88,6 +88,41 @@ class TestFileStructureRouter(unittest.TestCase):
         self.assertTrue(data["success"])
         self.assertEqual(data["data"]["role"], "RuleSet")
 
+    def test_template_crud_endpoints(self) -> None:
+        create_payload = {
+            "templateType": "FEATURE",
+            "version": "v99_test",
+            "directories": ["src/custom", "tests/custom"],
+            "files": ["src/custom/app.py", "tests/custom/test_app.py"],
+            "metadata": {"test": True},
+        }
+        res_create = self.client.post("/api/v1/file-structure/scaffold/templates", json=create_payload)
+        self.assertEqual(res_create.status_code, 201)
+        data_create = res_create.json()
+        self.assertTrue(data_create["success"])
+        tpl_id = data_create["data"]["id"]
+
+        res_list = self.client.get("/api/v1/file-structure/scaffold/templates")
+        self.assertEqual(res_list.status_code, 200)
+        self.assertTrue(res_list.json()["success"])
+
+        res_get = self.client.get("/api/v1/file-structure/scaffold/templates/FEATURE?version=v99_test")
+        self.assertEqual(res_get.status_code, 200)
+        self.assertTrue(res_get.json()["success"])
+
+        update_payload = {
+            "directories": ["src/custom_updated"],
+            "files": ["src/custom_updated/app.py"],
+            "metadata": {"updated": True},
+        }
+        res_update = self.client.put(f"/api/v1/file-structure/scaffold/templates/{tpl_id}", json=update_payload)
+        self.assertEqual(res_update.status_code, 200)
+        self.assertTrue(res_update.json()["success"])
+
+        res_delete = self.client.delete(f"/api/v1/file-structure/scaffold/templates/{tpl_id}")
+        self.assertEqual(res_delete.status_code, 200)
+        self.assertTrue(res_delete.json()["success"])
+
 if __name__ == "__main__":
     unittest.main()
 

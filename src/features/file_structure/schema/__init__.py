@@ -7,6 +7,8 @@ from src.features.file_structure.schema.file_structure_request_schema import (
     ScanRepositoryRequestSchema,
     LinkFilesRequestSchema,
     CreateFileRequestSchema,
+    CreateScaffoldTemplateRequestSchema,
+    UpdateScaffoldTemplateRequestSchema,
 )
 from src.features.file_structure.schema.file_structure_entity_schema import (
     FileStructureEntitySchema,
@@ -25,6 +27,8 @@ __all__ = [
     "ScanRepositoryRequestSchema",
     "LinkFilesRequestSchema",
     "CreateFileRequestSchema",
+    "CreateScaffoldTemplateRequestSchema",
+    "UpdateScaffoldTemplateRequestSchema",
     "FileStructureEntitySchema",
     "KnowledgeGraphEntitySchema",
     "FeatureGraphMapper",

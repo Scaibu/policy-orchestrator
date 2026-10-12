@@ -1,0 +1,16 @@
+branding:
+  name: "LLM Observability Infrastructure & Policy Orchestrator"
+  short_name: "PolicyOrchestrator"
+  tagline: "High-Performance Architectural Enforcement & Governance Engine"
+  logos:
+    light: "/assets/branding/logo-light.svg"
+    dark: "/assets/branding/logo-dark.svg"
+    icon: "/assets/branding/icon.svg"
+    favicon: "/assets/branding/favicon.ico"
+  assets:
+    watermark: "/assets/branding/watermark.svg"
+    banner: "/assets/branding/banner.png"
+  colors:
+    brand_primary: "#3B82F6"
+    brand_secondary: "#06B6D4"
+    brand_accent: "#8B5CF6"

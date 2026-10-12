@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -11,6 +12,8 @@ class AppConfigLoader:
     _cached_config: Optional[Dict[str, Any]] = None
     _cached_endpoints: Optional[Dict[str, Any]] = None
     _cached_flags: Optional[Dict[str, Any]] = None
+    _cached_theme: Optional[Dict[str, Any]] = None
+    _cached_branding: Optional[Dict[str, Any]] = None
 
     @classmethod
     def _get_config_dir(cls) -> Path:
@@ -30,11 +33,41 @@ class AppConfigLoader:
         return {}
 
     @classmethod
+    def _read_json_file(cls, filename: str) -> Dict[str, Any]:
+        file_path = cls._get_config_dir() / filename
+        if file_path.exists():
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        return {}
+
+    @classmethod
+    def _deep_merge(cls, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        merged = dict(base)
+        for key, val in override.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
+                merged[key] = cls._deep_merge(merged[key], val)
+            else:
+                merged[key] = val
+        return merged
+
+    @classmethod
     def load_config(cls) -> Dict[str, Any]:
         if cls._cached_config is not None:
             return cls._cached_config
 
         data = cls._read_yaml_file("default.yaml")
+        app_env = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).lower()
+        if app_env in ("production", "prod"):
+            prod_overrides = cls._read_yaml_file("production.yaml")
+            data = cls._deep_merge(data, prod_overrides)
+        elif app_env in ("test", "testing"):
+            test_overrides = cls._read_yaml_file("test.yaml")
+            data = cls._deep_merge(data, test_overrides)
 
         db_section = data.setdefault("database", {})
         if "DATABASE_URL" in os.environ:
@@ -70,6 +103,22 @@ class AppConfigLoader:
         return data
 
     @classmethod
+    def load_theme(cls) -> Dict[str, Any]:
+        if cls._cached_theme is not None:
+            return cls._cached_theme
+        data = cls._read_json_file("theme.json")
+        cls._cached_theme = data
+        return data
+
+    @classmethod
+    def load_branding(cls) -> Dict[str, Any]:
+        if cls._cached_branding is not None:
+            return cls._cached_branding
+        data = cls._read_yaml_file("branding.yaml")
+        cls._cached_branding = data
+        return data
+
+    @classmethod
     def get_database_url(cls) -> str:
         cfg = cls.load_config()
         return str(cfg.get("database", {}).get("url", ""))
@@ -85,6 +134,20 @@ class AppConfigLoader:
         endpoints = endpoints_data.get("endpoints", {})
         service_endpoints = endpoints.get(service_name, {})
         return str(service_endpoints.get(key, ""))
+
+    @classmethod
+    def get_full_endpoint(cls, service_name: str, key: str) -> str:
+        endpoints_data = cls.load_endpoints()
+        base_prefix = str(endpoints_data.get("base_prefix", "/api/v1"))
+        service_base = cls.get_endpoint(service_name, "base")
+        sub_endpoint = cls.get_endpoint(service_name, key)
+        if not sub_endpoint:
+            return ""
+        if sub_endpoint.startswith(base_prefix):
+            return sub_endpoint
+        if service_base and not sub_endpoint.startswith(service_base):
+            return f"{base_prefix}{service_base}{sub_endpoint}"
+        return f"{base_prefix}{sub_endpoint}"
 
     @classmethod
     def is_feature_flag_enabled(cls, flag_name: str) -> bool:

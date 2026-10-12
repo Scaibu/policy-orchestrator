@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from src.domain.ports.graph_port import GraphStorePort
 from src.domain.ports.impact_analysis_port import ImpactAnalysisReportModel
 from src.features.file_structure.machines.file_structure_machine import FileStructureLifecycleMachine
@@ -208,6 +208,55 @@ class FileStructureDomainService:
 
     def link_shared(self, feature_name: str, shared_file: str) -> None:
         self.graph_sync.link_shared_dependency(feature_name=feature_name, shared_file=shared_file)
+
+    def list_scaffold_templates(self) -> List[Dict[str, Any]]:
+        return self.repository.list_scaffold_templates()
+
+    def get_scaffold_template(self, template_type: str, version: str = "v1") -> Optional[Dict[str, Any]]:
+        return self.repository.get_scaffold_template(template_type=template_type, version=version)
+
+    def create_scaffold_template(
+        self,
+        template_type: str,
+        version: str,
+        directories: List[str],
+        files: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        template_id = f"tpl_{template_type.lower()}_{version.lower()}"
+        self.repository.save_scaffold_template(
+            template_id=template_id,
+            template_type=template_type,
+            version=version,
+            directories=directories,
+            files=files,
+            metadata=metadata,
+        )
+        return {
+            "id": template_id,
+            "template_type": template_type.upper(),
+            "version": version,
+            "directories": directories,
+            "files": files,
+            "metadata": metadata or {},
+        }
+
+    def update_scaffold_template(
+        self,
+        template_id: str,
+        directories: Optional[List[str]] = None,
+        files: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        return self.repository.update_scaffold_template(
+            template_id=template_id,
+            directories=directories,
+            files=files,
+            metadata=metadata,
+        )
+
+    def delete_scaffold_template(self, template_id: str) -> bool:
+        return self.repository.delete_scaffold_template(template_id=template_id)
 
 KnowledgeGraphDomainService = FileStructureDomainService
 FileStructureService = FileStructureDomainService

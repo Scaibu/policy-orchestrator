@@ -259,6 +259,19 @@ SELECT
 FROM scaffold_templates
 ORDER BY template_type ASC, version ASC;
 
+-- name: FLOW_UPDATE_SCAFFOLD_TEMPLATE
+UPDATE scaffold_templates
+SET
+    directories = :directories,
+    files = :files,
+    metadata = :metadata,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = :id;
+
+-- name: FLOW_DELETE_SCAFFOLD_TEMPLATE
+DELETE FROM scaffold_templates
+WHERE id = :id;
+
 -- name: FLOW_INSERT_SCAFFOLDED_FEATURE
 INSERT INTO scaffolded_features (
     feature_name,

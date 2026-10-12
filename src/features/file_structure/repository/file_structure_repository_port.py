@@ -60,6 +60,24 @@ class FileStructureRepositoryPort(ABC):
         pass
 
     @abstractmethod
+    def list_scaffold_templates(self) -> List[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def update_scaffold_template(
+        self,
+        template_id: str,
+        directories: Optional[List[str]] = None,
+        files: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        pass
+
+    @abstractmethod
+    def delete_scaffold_template(self, template_id: str) -> bool:
+        pass
+
+    @abstractmethod
     def save_scaffolded_feature(
         self,
         feature_name: str,

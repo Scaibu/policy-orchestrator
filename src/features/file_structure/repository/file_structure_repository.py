@@ -18,6 +18,7 @@ class FileStructureRepositoryAdapter(FileStructureRepositoryPort):
     ) -> None:
         self.graph_store = graph_store
         self.db_url = db_url or AppConfigLoader.get_database_url()
+        self._templates_cache: Dict[str, Dict[str, Any]] = {}
 
     def _get_pg_connection(self):
         import psycopg2
@@ -116,6 +117,9 @@ class FileStructureRepositoryAdapter(FileStructureRepositoryPort):
             conn.close()
         except Exception:
             pass
+        for tpl in self._templates_cache.values():
+            if tpl.get("template_type") == template_type.upper() and tpl.get("version") == version:
+                return tpl
         return None
 
     def save_scaffold_template(
@@ -127,6 +131,15 @@ class FileStructureRepositoryAdapter(FileStructureRepositoryPort):
         files: List[str],
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
+        self._templates_cache[template_id] = {
+            "id": template_id,
+            "template_type": template_type.upper(),
+            "version": version,
+            "directories": directories,
+            "files": files,
+            "metadata": metadata or {},
+            "is_active": True,
+        }
         raw_query = FileStructureQueryLoader.get_sql("FLOW_INSERT_SCAFFOLD_TEMPLATE")
         pg_query = (
             raw_query.replace(":id", "%s")
@@ -156,6 +169,95 @@ class FileStructureRepositoryAdapter(FileStructureRepositoryPort):
             conn.close()
         except Exception:
             pass
+
+    def list_scaffold_templates(self) -> List[Dict[str, Any]]:
+        raw_query = FileStructureQueryLoader.get_sql("FLOW_LIST_SCAFFOLD_TEMPLATES")
+        results = []
+        try:
+            conn = self._get_pg_connection()
+            with conn.cursor() as cur:
+                cur.execute(raw_query)
+                rows = cur.fetchall()
+                for row in rows:
+                    dirs = row[3] if isinstance(row[3], list) else json.loads(row[3])
+                    fls = row[4] if isinstance(row[4], list) else json.loads(row[4])
+                    meta = row[5] if isinstance(row[5], dict) else json.loads(row[5] or "{}")
+                    results.append({
+                        "id": row[0],
+                        "template_type": row[1],
+                        "version": row[2],
+                        "directories": dirs,
+                        "files": fls,
+                        "metadata": meta,
+                        "is_active": row[6],
+                    })
+                conn.close()
+                if results:
+                    return results
+        except Exception:
+            pass
+        if not results and self._templates_cache:
+            return list(self._templates_cache.values())
+        return results
+
+    def update_scaffold_template(
+        self,
+        template_id: str,
+        directories: Optional[List[str]] = None,
+        files: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        if template_id in self._templates_cache:
+            curr = self._templates_cache[template_id]
+            if directories is not None:
+                curr["directories"] = directories
+            if files is not None:
+                curr["files"] = files
+            if metadata is not None:
+                curr["metadata"] = metadata
+        raw_query = FileStructureQueryLoader.get_sql("FLOW_UPDATE_SCAFFOLD_TEMPLATE")
+        pg_query = (
+            raw_query.replace(":id", "%s")
+            .replace(":directories", "%s")
+            .replace(":files", "%s")
+            .replace(":metadata", "%s")
+        )
+        try:
+            conn = self._get_pg_connection()
+            with conn.cursor() as cur:
+                cur.execute(
+                    pg_query,
+                    (
+                        json.dumps(directories or []),
+                        json.dumps(files or []),
+                        json.dumps(metadata or {}),
+                        template_id,
+                    ),
+                )
+                conn.commit()
+                rowcount = cur.rowcount
+            conn.close()
+            return rowcount > 0
+        except Exception:
+            return template_id in self._templates_cache
+
+    def delete_scaffold_template(self, template_id: str) -> bool:
+        deleted_cached = False
+        if template_id in self._templates_cache:
+            del self._templates_cache[template_id]
+            deleted_cached = True
+        raw_query = FileStructureQueryLoader.get_sql("FLOW_DELETE_SCAFFOLD_TEMPLATE")
+        pg_query = raw_query.replace(":id", "%s")
+        try:
+            conn = self._get_pg_connection()
+            with conn.cursor() as cur:
+                cur.execute(pg_query, (template_id,))
+                conn.commit()
+                rowcount = cur.rowcount
+            conn.close()
+            return rowcount > 0 or deleted_cached
+        except Exception:
+            return deleted_cached
 
     def save_scaffolded_feature(
         self,

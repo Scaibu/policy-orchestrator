@@ -1,13 +1,25 @@
 {
   "version": "1.0.0",
   "engine": "AlloyDB / PostgreSQL",
-  "last_applied_migration": "0001",
+  "last_applied_migration": "0003",
   "migrations": [
     {
       "number": "0001",
       "name": "0001_create_algorithm_registry_table.sql",
       "applied_at": "2026-10-05T12:00:00Z",
       "checksum": "sha256:7f4a259d6e8b4cb396b1e6123019ab76bcde09819234e7a83d73b069fa201bce"
+    },
+    {
+      "number": "0002",
+      "name": "0002_seed_algorithm_catalog.sql",
+      "applied_at": "2026-10-05T12:30:00Z",
+      "checksum": "sha256:000304684e0162a3cc1933948eede879f859702bddd16c51d5ce0a141560a2b2"
+    },
+    {
+      "number": "0003",
+      "name": "0003_create_scaffold_templates_tables.sql",
+      "applied_at": "2026-10-12T18:59:00Z",
+      "checksum": "sha256:bd9b63aaac8a2e44239145b087f0b48f6874112adb5c7133e77d2eddd102d1f4"
     }
   ]
 }

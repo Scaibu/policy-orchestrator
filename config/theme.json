@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "theme": {
+    "mode": "dark",
+    "palette": {
+      "primary": "#3B82F6",
+      "primaryHover": "#2563EB",
+      "secondary": "#64748B",
+      "background": "#0F172A",
+      "surface": "#1E293B",
+      "textPrimary": "#F8FAFC",
+      "textSecondary": "#94A3B8",
+      "border": "#334155",
+      "accent": "#06B6D4",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444"
+    },
+    "typography": {
+      "fontFamily": "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+      "codeFontFamily": "JetBrains Mono, Menlo, Monaco, monospace",
+      "fontSize": {
+        "xs": "0.75rem",
+        "sm": "0.875rem",
+        "base": "1rem",
+        "lg": "1.125rem",
+        "xl": "1.25rem",
+        "2xl": "1.5rem"
+      },
+      "lineHeight": {
+        "tight": 1.25,
+        "normal": 1.5,
+        "relaxed": 1.75
+      }
+    },
+    "spacing": {
+      "unit": 4,
+      "radius": "8px"
+    }
+  }
+}

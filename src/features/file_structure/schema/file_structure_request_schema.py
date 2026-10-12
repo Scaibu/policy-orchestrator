@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 def to_camel(string: str) -> str:
@@ -51,3 +51,15 @@ class CreateFileRequestSchema(BaseApiSchema):
     package_root: Optional[str] = Field(default=None, description="Optional package root")
     feature_name: Optional[str] = Field(default=None, description="Optional feature name")
     properties: Optional[Dict[str, Any]] = Field(default=None, description="Optional node properties")
+
+class CreateScaffoldTemplateRequestSchema(BaseApiSchema):
+    template_type: str = Field(..., pattern="^(FEATURE|PACKAGE)$", description="Template type (FEATURE or PACKAGE)")
+    version: str = Field(default="v1", min_length=1, max_length=32, description="Template version (e.g. v1, v2)")
+    directories: List[str] = Field(..., min_length=1, description="List of directory path templates")
+    files: List[str] = Field(..., min_length=1, description="List of file path templates")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata")
+
+class UpdateScaffoldTemplateRequestSchema(BaseApiSchema):
+    directories: Optional[List[str]] = Field(default=None, description="Updated list of directory path templates")
+    files: Optional[List[str]] = Field(default=None, description="Updated list of file path templates")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Updated metadata")
