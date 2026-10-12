@@ -1,3 +1,3 @@
-from .scaffold_constants import *
-from .http_constants import *
-from .error_constants import *
+from src.shared.constants.http_constants import *
+from src.shared.constants.error_constants import *
+from src.shared.constants.scaffold_constants import *

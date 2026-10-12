@@ -1,24 +1,12 @@
 api_version: "v1"
 base_prefix: "/api/v1"
 endpoints:
-  file_structure:
-    base: "/file-structure"
-    scaffold_feature: "/scaffold/feature"
-    scaffold_package: "/scaffold/package"
-    impact_analysis: "/impact-analysis"
-    scan_repository: "/scan-repository"
-    link_files: "/link-files"
+  folder_scaffold:
+    base: "/folder-scaffold"
     create_file: "/create-file"
-    feature_map: "/feature/{feature_name}"
-    templates_list: "/scaffold/templates"
-    template_get: "/scaffold/templates/{template_type}"
-    template_create: "/scaffold/templates"
-    template_update: "/scaffold/templates/{template_id}"
-    template_delete: "/scaffold/templates/{template_id}"
-  code_search:
-    base: "/code-search"
-    search: "/code-search/search"
-    analyze: "/code-search/analyze"
+    link_files: "/link-files"
+    scaffold_feature: "/scaffold-feature"
+    scaffold_package: "/scaffold-package"
   health:
     base: "/health"
     live: "/health/live"
@@ -26,34 +14,6 @@ endpoints:
   system:
     base: ""
     health: "/health"
-    rag_index: "/rag/index"
-    rag_search: "/rag/search"
-    agent_run: "/agent/run"
-    agents_list: "/agents"
-    agent_run_by_id: "/agents/{agent_id}/run"
-    audit_scan: "/audit/scan"
-    graph_build: "/graph/build"
-    graph_query: "/graph/query"
-    graph_impact: "/graph/impact/{rule_id}"
-    algos_contracts: "/algos/contracts"
-    algos_contract_by_id: "/algos/contracts/{algo_id}"
-    algos_adapters: "/algos/adapters"
-    algos_compose: "/algos/compose"
-    algos_execute: "/algos/execute/{algo_id}"
-  algorithms:
-    code_engine_diff_buffer: "/algos/code-engine/diff-buffer"
-    code_engine_mutation: "/algos/code-engine/mutation-classifiers"
-    knowledge_graph_foundation: "/algos/knowledge-graph/foundation"
-    knowledge_graph_query_reasoning: "/algos/knowledge-graph/query-reasoning"
-    knowledge_graph_embeddings_gnn: "/algos/knowledge-graph/embeddings-gnn"
-    knowledge_graph_ops_observability: "/algos/knowledge-graph/ops-observability"
-    graph_centrality: "/algos/graph/centrality"
-    graph_communities: "/algos/graph/communities"
-    graph_flows: "/algos/graph/flows"
-    graph_dynamic: "/algos/graph/dynamic"
-    graph_embeddings: "/algos/graph/embeddings"
-    graph_traversal: "/algos/graph/traversal"
-    graph_systems: "/algos/graph/systems"
 upstream_services:
   alloydb:
     health_endpoint: "/health"
@@ -61,7 +21,3 @@ upstream_services:
   neo4j:
     commit_endpoint: "/db/neo4j/tx/commit"
     timeout_seconds: 30
-downstream_services:
-  policy_enforcer:
-    webhook_endpoint: "/api/v1/policies/enforce"
-    timeout_seconds: 15

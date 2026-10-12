@@ -41,3 +41,24 @@ knowledge_graph:
 
 scaffold:
   default_template_version: "v1"
+  feature_subdirectories:
+    - "schema"
+    - "types"
+    - "service"
+    - "rules"
+    - "machines"
+    - "workflows"
+    - "repository"
+    - "queries"
+    - "tests"
+  package_subdirectories:
+    - "contracts"
+    - "config"
+    - "database"
+    - "messaging"
+    - "deploy"
+    - "src/shared"
+    - "src/infra"
+    - "src/features"
+    - "src/api"
+    - "scripts"

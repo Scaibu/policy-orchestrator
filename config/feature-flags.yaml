@@ -8,9 +8,6 @@ flags:
   neo4j_knowledge_graph_sync_enabled:
     enabled: true
     rollout_percentage: 100
-  impact_analysis_cache_enabled:
-    enabled: false
-    rollout_percentage: 0
   strict_validation_gate:
     enabled: true
     rollout_percentage: 100

@@ -157,3 +157,9 @@ class AppConfigLoader:
         if isinstance(flag, dict):
             return bool(flag.get("enabled", False))
         return bool(flag)
+
+    @classmethod
+    def get_scaffold_config(cls) -> Dict[str, Any]:
+        cfg = cls.load_config()
+        return dict(cfg.get("scaffold", {}))
+

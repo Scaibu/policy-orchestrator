@@ -1,0 +1,139 @@
+from typing import Dict, Any, List, Optional
+from pathlib import Path
+from src.shared.constants.scaffold_constants import (
+    REL_CALLS,
+    REL_DECLARES_STATE,
+    REL_CONTROLS_STATE,
+    REL_DEFINES_MODEL,
+    REL_RENDERS_STATE,
+    REL_DISPATCHES_ACTION,
+    REL_IMPLEMENTS_PORT,
+    REL_CONSUMES_PORT,
+    REL_EXECUTES_QUERY,
+    REL_EVALUATES_RULES,
+    REL_TRANSITIONS_MACHINE,
+    REL_RUNS_WORKFLOW,
+    REL_DEFINES_SCHEMA,
+    REL_CONTAINS_FEATURE,
+    ROLE_ROUTER,
+    ROLE_HANDLER,
+    ROLE_SCHEMA,
+    ROLE_TYPES,
+    ROLE_CONTEXT,
+    ROLE_SERVICE,
+    ROLE_RULES,
+    ROLE_MACHINE,
+    ROLE_WORKFLOW,
+    ROLE_REPOSITORY_PORT,
+    ROLE_REPOSITORY_ADAPTER,
+    ROLE_QUERIES,
+    ROLE_INDEX,
+    ROLE_TEST,
+    ROLE_FEATURE_STATE,
+    ROLE_FEATURE_CONTROLLER,
+    ROLE_DOMAIN_MODEL,
+    ROLE_FEATURE_VIEW,
+    LAYER_INGRESS,
+    LAYER_CONTRACT,
+    LAYER_DOMAIN_MODEL,
+    LAYER_DOMAIN_CORE,
+    LAYER_BUSINESS_LOGIC,
+    LAYER_STATE_MACHINE,
+    LAYER_AUTOMATION_DAG,
+    LAYER_PERSISTENCE_PORT,
+    LAYER_PERSISTENCE_ADAPTER,
+    LAYER_PERSISTENCE_SQL,
+    LAYER_FACADE,
+    LAYER_VERIFICATION,
+    LAYER_CLIENT_STATE,
+    LAYER_CLIENT_CONTROLLER,
+    LAYER_CLIENT_MODEL,
+    LAYER_CLIENT_UI,
+    LAYER_GENERAL,
+    PATH_FEATURES,
+)
+
+
+ROLE_LAYER_MAP: Dict[str, str] = {
+    ROLE_ROUTER: LAYER_INGRESS,
+    ROLE_HANDLER: LAYER_INGRESS,
+    ROLE_SCHEMA: LAYER_CONTRACT,
+    ROLE_TYPES: LAYER_DOMAIN_MODEL,
+    ROLE_CONTEXT: LAYER_DOMAIN_CORE,
+    ROLE_SERVICE: LAYER_DOMAIN_CORE,
+    ROLE_RULES: LAYER_BUSINESS_LOGIC,
+    ROLE_MACHINE: LAYER_STATE_MACHINE,
+    ROLE_WORKFLOW: LAYER_AUTOMATION_DAG,
+    ROLE_REPOSITORY_PORT: LAYER_PERSISTENCE_PORT,
+    ROLE_REPOSITORY_ADAPTER: LAYER_PERSISTENCE_ADAPTER,
+    ROLE_QUERIES: LAYER_PERSISTENCE_SQL,
+    ROLE_INDEX: LAYER_FACADE,
+    ROLE_TEST: LAYER_VERIFICATION,
+    ROLE_FEATURE_STATE: LAYER_CLIENT_STATE,
+    ROLE_FEATURE_CONTROLLER: LAYER_CLIENT_CONTROLLER,
+    ROLE_DOMAIN_MODEL: LAYER_CLIENT_MODEL,
+    ROLE_FEATURE_VIEW: LAYER_CLIENT_UI,
+}
+
+
+def can_link(rel_type: str) -> bool:
+    valid_rels = {
+        REL_CALLS,
+        REL_DECLARES_STATE,
+        REL_CONTROLS_STATE,
+        REL_DEFINES_MODEL,
+        REL_RENDERS_STATE,
+        REL_DISPATCHES_ACTION,
+        REL_IMPLEMENTS_PORT,
+        REL_CONSUMES_PORT,
+        REL_EXECUTES_QUERY,
+        REL_EVALUATES_RULES,
+        REL_TRANSITIONS_MACHINE,
+        REL_RUNS_WORKFLOW,
+        REL_DEFINES_SCHEMA,
+        REL_CONTAINS_FEATURE,
+    }
+    return rel_type.upper() in valid_rels
+
+
+def infer_layer(role: str) -> str:
+    return ROLE_LAYER_MAP.get(role, LAYER_GENERAL)
+
+
+def infer_feature_name(file_path: str) -> str:
+    parts = Path(file_path).parts
+    if PATH_FEATURES in parts:
+        idx = parts.index(PATH_FEATURES)
+        if idx + 1 < len(parts):
+            return parts[idx + 1]
+    return ""
+
+
+def resolve_subdirectories(target_type: str, config_subdirectories: Optional[List[str]] = None) -> List[str]:
+    if config_subdirectories and len(config_subdirectories) > 0:
+        return [str(d).strip() for d in config_subdirectories if str(d).strip()]
+    if target_type.upper() == "PACKAGE":
+        return [
+            "contracts",
+            "config",
+            "database",
+            "messaging",
+            "deploy",
+            "src/shared",
+            "src/infra",
+            "src/features",
+            "src/api",
+            "scripts",
+        ]
+    return [
+        "schema",
+        "types",
+        "service",
+        "rules",
+        "machines",
+        "workflows",
+        "repository",
+        "queries",
+        "tests",
+    ]
+

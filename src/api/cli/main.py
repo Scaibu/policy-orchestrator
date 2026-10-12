@@ -2603,13 +2603,22 @@ import argparse
 from dataclasses import asdict
 from typing import List, Dict, Any, Optional
 
-from src.features.audit.service.audit_service import AuditService
-from src.features.refactor.service.refactor_service import RefactorService
-from src.features.policy_sync.service.policy_sync_service import PolicySyncService
-from src.features.rag.service.rag_service import RAGService
-from src.features.rag.types.rag_types import RAGQueryRequest
-from src.features.agent.service.agent_service import AgentService
-from src.features.agent.types.agent_types import AgentExecutionRequest
+try:
+    from src.features.audit.service.audit_service import AuditService
+    from src.features.refactor.service.refactor_service import RefactorService
+    from src.features.policy_sync.service.policy_sync_service import PolicySyncService
+    from src.features.rag.service.rag_service import RAGService
+    from src.features.rag.types.rag_types import RAGQueryRequest
+    from src.features.agent.service.agent_service import AgentService
+    from src.features.agent.types.agent_types import AgentExecutionRequest
+except ImportError:
+    AuditService = None
+    RefactorService = None
+    PolicySyncService = None
+    RAGService = None
+    RAGQueryRequest = None
+    AgentService = None
+    AgentExecutionRequest = None
 from src.infra.adapters.knowledge.policy_rules_loader import PolicyRulesMarkdownLoader
 from src.infra.adapters.vector.in_memory_vector_adapter import InMemoryCosineVectorAdapter
 from src.infra.adapters.llm.openai_compatible_adapter import OpenAICompatibleAdapter
@@ -2619,6 +2628,7 @@ from src.features.code_engine.registry.algorithm_catalog import BUILTIN_ALGORITH
 from src.features.code_engine.service.algorithm_composer_service import AlgorithmComposerService
 from src.infra.adapters.database.in_memory_algorithm_registry_adapter import InMemoryAlgorithmRegistryAdapter
 from src.infra.adapters.database.migration_runner import DatabaseMigrationRunner
+
 
 
 def _init_rag_and_agent(rules_dir: str, backend: str):
@@ -2996,8 +3006,23 @@ def handle_completion_command(args: argparse.Namespace) -> int:
     shell = getattr(args, "shell", "bash")
     algo_ids = [c.id for c in BUILTIN_ALGORITHM_CONTRACTS]
     alias_names = list(ALGO_ALIASES.keys())
-    subcmds = ["search", "scan", "outline", "lint", "deps", "diff", "patch", "exec", "run", "list", "contracts", "compose", "audit", "rag", "agent", "refactor", "policy-check", "migrate", "serve", "completion", "algo"]
+    subcmds = [
+        "search", "scan", "outline", "lint", "deps", "diff", "patch", "exec", "run", "list",
+        "contracts", "compose", "audit", "rag", "agent", "refactor", "policy-check", "migrate",
+        "serve", "completion", "algo", "scaffold-feature", "scaffold-package", "create-file",
+        "link-file", "impact", "feature-map", "package-summary", "feature-files", "graph-scan",
+        "file-lineage"
+    ]
     categories = ["search", "observability", "update", "vector", "graph", "filter"]
+    rel_types = [
+        "CALLS", "DECLARES_STATE", "CONTROLS_STATE", "DEFINES_MODEL", "RENDERS_STATE",
+        "DISPATCHES_ACTION", "IMPLEMENTS_PORT", "CONSUMES_PORT", "EXECUTES_QUERY",
+        "EVALUATES_RULES", "TRANSITIONS_MACHINE", "RUNS_WORKFLOW", "DEFINES_SCHEMA", "CONTAINS_FEATURE"
+    ]
+    roles = [
+        "Router", "Handler", "Schema", "Types", "Context", "Service", "Rules", "Machine",
+        "Workflow", "RepositoryPort", "RepositoryAdapter", "Queries", "Index", "Test"
+    ]
 
     if shell == "bash":
         script = f"""# Bash completion for policy-orchestrator
@@ -3012,11 +3037,44 @@ _policy_orchestrator_completion() {{
     local algo_ids="{' '.join(algo_ids)}"
     local alias_names="{' '.join(alias_names)}"
     local categories="{' '.join(categories)}"
+    local rel_types="{' '.join(rel_types)}"
+    local roles="{' '.join(roles)}"
 
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$subcommands" -- "$cur") )
         return 0
     fi
+
+    case "$prev" in
+        --rel|--rel-type)
+            COMPREPLY=( $(compgen -W "$rel_types" -- "$cur") )
+            return 0
+            ;;
+        --role)
+            COMPREPLY=( $(compgen -W "$roles" -- "$cur") )
+            return 0
+            ;;
+        --direction)
+            COMPREPLY=( $(compgen -W "outgoing incoming" -- "$cur") )
+            return 0
+            ;;
+        --store)
+            COMPREPLY=( $(compgen -W "memory neo4j" -- "$cur") )
+            return 0
+            ;;
+        --category)
+            COMPREPLY=( $(compgen -W "$categories" -- "$cur") )
+            return 0
+            ;;
+        --path|--target|--source|--file)
+            COMPREPLY=( $(compgen -f -- "$cur") )
+            return 0
+            ;;
+        --base-dir|--root|--dir)
+            COMPREPLY=( $(compgen -d -- "$cur") )
+            return 0
+            ;;
+    esac
 
     case "$subcmd" in
         exec|execute)
@@ -3031,32 +3089,21 @@ _policy_orchestrator_completion() {{
                 return 0
             fi
             ;;
-        list)
-            if [ "$prev" = "--category" ]; then
-                COMPREPLY=( $(compgen -W "$categories" -- "$cur") )
-                return 0
-            fi
-            ;;
-        contracts)
-            if [ "$prev" = "--category" ]; then
-                COMPREPLY=( $(compgen -W "$categories" -- "$cur") )
-                return 0
-            fi
-            ;;
-        outline|lint|diff|patch)
+        outline|lint|diff|patch|create-file|link-file|file-lineage)
             COMPREPLY=( $(compgen -f -- "$cur") )
             return 0
             ;;
-        search|scan|deps)
+        search|scan|deps|graph-scan|scaffold-feature|scaffold-package)
             COMPREPLY=( $(compgen -d -- "$cur") )
             return 0
             ;;
     esac
 
-    local opts="--json --help --root --directory --file --find --replace --regex --apply --patterns"
+    local opts="--json --help --root --directory --file --find --replace --regex --apply --patterns --path --role --rel --target --direction --base-dir --name --store --neo4j"
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
 }}
 complete -F _policy_orchestrator_completion policy-orchestrator
+complete -F _policy_orchestrator_completion python3 -m src.api.cli.main
 """
     elif shell == "zsh":
         script = f"""#compdef policy-orchestrator
@@ -3283,70 +3330,84 @@ def resolve_graph_adapter(args: argparse.Namespace):
 
 
 def handle_scaffold_feature_command(args: argparse.Namespace) -> int:
-    from src.features.file_structure.service.file_structure_service import FileStructureDomainService
+    from src.features.folder_scaffold.types.folder_scaffold_types import ScaffoldFeatureCommand
+    from src.shared.types.envelope_types import TraceContext
 
-    adapter = resolve_graph_adapter(args)
-    service = FileStructureDomainService(graph_store=adapter)
     feature_name = getattr(args, "feature_name", None) or getattr(args, "name_flag", None) or getattr(args, "name", None)
     if not feature_name:
         print("Error: Feature name is required.")
         return 1
 
-    owner = getattr(args, "owner", None)
-    status = getattr(args, "status", "active")
-    flags = getattr(args, "flags", None) or getattr(args, "flag", None)
-    migrations = getattr(args, "migrations", None) or getattr(args, "migration", None)
-    contract_version = getattr(args, "contract_version", "v1")
-
-    res = service.scaffold_feature(
+    service = get_folder_scaffold_service(args)
+    base_dir = getattr(args, "base_dir", "src/features")
+    package_root = getattr(args, "package_root", None)
+    cmd = ScaffoldFeatureCommand(
         feature_name=feature_name,
-        base_dir=getattr(args, "base_dir", "src/features"),
-        package_root=getattr(args, "package_root", None),
-        with_router=not getattr(args, "no_router", False),
-        with_handler=not getattr(args, "no_handler", False),
-        with_route_rules=getattr(args, "with_route_rules", False),
-        port_type=getattr(args, "port_type", "local"),
-        owner=owner,
-        status=status,
-        flags=flags,
-        migrations=migrations,
-        contract_version=contract_version,
+        base_dir=base_dir,
+        package_root=package_root,
     )
+    ctx = TraceContext(
+        trace_id="cli-scaffold-feature",
+        request_id="cli-req-scaffold-feature",
+        correlation_id="cli-corr-scaffold-feature",
+    )
+    result = service.scaffoldFeature(ctx, cmd)
+    if result.is_err:
+        print(f"Error scaffolding feature: {result.error()}")
+        return 1
+    res = result.unwrap()
     if getattr(args, "json", False):
-        print(json.dumps(res, indent=2))
+        print(json.dumps(res.model_dump(), indent=2))
     else:
-        print(f"Scaffolded Feature: {res['feature']}")
-        print(f"Target Directory: {res['target_dir']}")
-        print(f"Total Files Created: {res['total_files']}")
-        for f in res.get("files_created", []):
-            print(f"  + {f}")
-        print(f"Knowledge Graph Synced: {res.get('graph_synced', True)} (Status: {status}, Owner: {owner or '@'+res['feature']+'-team'})")
+        print("================================================================================")
+        print("FEATURE DIRECTORIES SCAFFOLDED")
+        print("================================================================================")
+        print(f"Feature:              {res.target_name}")
+        print(f"Target Directory:     {res.target_path}")
+        print(f"Directories Created:  {res.total_directories}")
+        print(f"Neo4j Knowledge Graph Synced (Label: Feature)")
+        print("================================================================================")
     return 0
 
 
 def handle_scaffold_package_command(args: argparse.Namespace) -> int:
-    from src.features.file_structure.service.file_structure_service import FileStructureDomainService
+    from src.features.folder_scaffold.types.folder_scaffold_types import ScaffoldPackageCommand
+    from src.shared.types.envelope_types import TraceContext
 
-    adapter = resolve_graph_adapter(args)
-    service = FileStructureDomainService(graph_store=adapter)
-    package_name = getattr(args, "package_name", None) or getattr(args, "name", None)
+    package_name = getattr(args, "package_name", None) or getattr(args, "name_flag", None) or getattr(args, "name", None)
     if not package_name:
         print("Error: Package name is required.")
         return 1
 
-    res = service.scaffold_package(
+    service = get_folder_scaffold_service(args)
+    base_dir = getattr(args, "base_dir", ".")
+    cmd = ScaffoldPackageCommand(
         package_name=package_name,
-        base_dir=getattr(args, "base_dir", "."),
+        base_dir=base_dir,
     )
+    ctx = TraceContext(
+        trace_id="cli-scaffold-package",
+        request_id="cli-req-scaffold-package",
+        correlation_id="cli-corr-scaffold-package",
+    )
+    result = service.scaffoldPackage(ctx, cmd)
+    if result.is_err:
+        print(f"Error scaffolding package: {result.error()}")
+        return 1
+    res = result.unwrap()
     if getattr(args, "json", False):
-        print(json.dumps(res, indent=2))
+        print(json.dumps(res.model_dump(), indent=2))
     else:
-        print(f"Scaffolded Package: {res['package']}")
-        print(f"Target Root: {res['target_root']}")
-        print(f"Directories Scaffolded: {res['directories_scaffolded']}")
-        print(f"Files Created: {res['files_created']}")
-        print(f"Knowledge Graph Synced: {res.get('graph_synced', True)}")
+        print("================================================================================")
+        print("PACKAGE DIRECTORIES SCAFFOLDED")
+        print("================================================================================")
+        print(f"Package:              {res.target_name}")
+        print(f"Target Root:          {res.target_path}")
+        print(f"Directories Created:  {res.total_directories}")
+        print(f"Neo4j Knowledge Graph Synced (Label: PackageRoot)")
+        print("================================================================================")
     return 0
+
 
 
 def handle_impact_command(args: argparse.Namespace) -> int:
@@ -3574,18 +3635,57 @@ def handle_file_lineage_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def handle_create_file_command(args: argparse.Namespace) -> int:
-    from src.features.file_structure.service.file_structure_service import FileStructureDomainService
+def get_folder_scaffold_service(args: argparse.Namespace):
+    from src.infra.config.config_loader import AppConfigLoader
+    from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
+    from src.infra.adapters.graph.in_memory_graph_adapter import InMemoryGraphAdapter
+    from src.features.folder_scaffold.repository.folder_scaffold_repository import AlloyDBFolderScaffoldRepository
+    from src.features.folder_scaffold.service.folder_scaffold_service import FolderScaffoldDomainService
+    from src.features.folder_scaffold.types.folder_scaffold_deps import FolderScaffoldServiceDeps
 
-    adapter = resolve_graph_adapter(args)
-    service = FileStructureDomainService(graph_store=adapter)
+    db_url = AppConfigLoader.get_database_url()
+    kg_cfg = AppConfigLoader.get_knowledge_graph_config()
+    repo = AlloyDBFolderScaffoldRepository(db_url=db_url)
+    
+    store = getattr(args, "store", None)
+    neo4j_flag = getattr(args, "neo4j", False)
+    if neo4j_flag or store == "neo4j" or os.environ.get("GRAPH_STORE") == "neo4j":
+        graph_store = Neo4jGraphAdapter(
+            uri=kg_cfg.get("uri"),
+            user=kg_cfg.get("user"),
+            password=kg_cfg.get("password"),
+            database=kg_cfg.get("database", "neo4j"),
+        )
+    else:
+        graph_store = Neo4jGraphAdapter(
+            uri=kg_cfg.get("uri"),
+            user=kg_cfg.get("user"),
+            password=kg_cfg.get("password"),
+            database=kg_cfg.get("database", "neo4j"),
+        )
+    scaffold_cfg = AppConfigLoader.get_scaffold_config()
+    deps = FolderScaffoldServiceDeps(
+        repository=repo,
+        graph_store=graph_store,
+        scaffold_config=scaffold_cfg,
+    )
+    return FolderScaffoldDomainService(deps=deps)
+
+
+
+
+def handle_create_file_command(args: argparse.Namespace) -> int:
+    from src.features.folder_scaffold.types.folder_scaffold_types import CreateFileCommand
+    from src.shared.types.envelope_types import TraceContext
+
+    service = get_folder_scaffold_service(args)
 
     file_path = getattr(args, "path", None) or getattr(args, "file_path", None)
     role = getattr(args, "role", None)
     rel_type = getattr(args, "rel_type", None) or getattr(args, "rel", None)
     target = getattr(args, "target", None)
     direction = getattr(args, "direction", "outgoing")
-    package_root = getattr(args, "package_root", None)
+    package_name = getattr(args, "package_root", None)
     feature_name = getattr(args, "feature_name", None)
 
     if not file_path or not role or not rel_type or not target:
@@ -3593,25 +3693,37 @@ def handle_create_file_command(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        res = service.create_file_with_relationship(
-            file_path=file_path,
+        cmd = CreateFileCommand(
+            path=file_path,
             role=role,
             rel_type=rel_type,
-            target_file_or_node=target,
+            target=target,
             direction=direction,
-            package_root=package_root,
             feature_name=feature_name,
+            package_name=package_name,
         )
+        ctx = TraceContext(
+            trace_id="cli-create-file",
+            request_id="cli-req-create-file",
+            correlation_id="cli-corr-create-file",
+        )
+        result = service.createFile(ctx, cmd)
+        if result.is_err:
+            print(f"Error creating file: {result.error()}")
+            return 1
+        res = result.unwrap()
         if getattr(args, "json", False):
-            print(json.dumps(res, indent=2))
+            print(json.dumps(res.model_dump(), indent=2))
         else:
             print("================================================================================")
             print("FILE CREATED & ARCHITECTURALLY LINKED")
             print("================================================================================")
-            print(f"File Path:    {res['file_path']}")
-            print(f"Role / Label: {res['role']}")
-            rel = res["graph_sync"]["relationship"]
-            print(f"Relationship: {rel['source_id']} -[:{rel['rel_type']}]-> {rel['target_id']}")
+            print(f"File Path:    {res.node.file_path}")
+            print(f"Role / Layer: {res.node.role} [{res.node.layer}]")
+            rel = res.relationship
+            print(f"Relationship: {rel.source_id} -[:{rel.rel_type}]-> {rel.target_id}")
+            print(f"AlloyDB:      Persisted ({res.status})")
+            print(f"Neo4j:        Synced (Constraints Enforced)")
             print("================================================================================")
         return 0
     except Exception as exc:
@@ -3620,10 +3732,10 @@ def handle_create_file_command(args: argparse.Namespace) -> int:
 
 
 def handle_link_file_command(args: argparse.Namespace) -> int:
-    from src.features.file_structure.service.file_structure_service import FileStructureDomainService
+    from src.features.folder_scaffold.types.folder_scaffold_types import LinkFilesCommand
+    from src.shared.types.envelope_types import TraceContext
 
-    adapter = resolve_graph_adapter(args)
-    service = FileStructureDomainService(graph_store=adapter)
+    service = get_folder_scaffold_service(args)
 
     source = getattr(args, "source", None)
     rel_type = getattr(args, "rel_type", None) or getattr(args, "rel", None)
@@ -3634,15 +3746,28 @@ def handle_link_file_command(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        res = service.link_files(source=source, rel_type=rel_type, target=target)
+        cmd = LinkFilesCommand(source=source, rel_type=rel_type, target=target)
+        ctx = TraceContext(
+            trace_id="cli-link-file",
+            request_id="cli-req-link-file",
+            correlation_id="cli-corr-link-file",
+        )
+        result = service.linkFiles(ctx, cmd)
+        if result.is_err:
+            print(f"Error linking files: {result.error()}")
+            return 1
+        res = result.unwrap()
         if getattr(args, "json", False):
-            print(json.dumps(res, indent=2))
+            print(json.dumps(res.model_dump(), indent=2))
         else:
-            print(f"Successfully linked: {res['source_id']} -[:{res['relationship_type']}]-> {res['target_id']}")
+            rel = res.relationship
+            print(f"Successfully linked: {rel.source_id} -[:{rel.rel_type}]-> {rel.target_id}")
+            print(f"AlloyDB & Neo4j synchronized.")
         return 0
     except Exception as exc:
         print(f"Error linking files: {exc}")
         return 1
+
 
 
 def handle_serve_command(args: argparse.Namespace) -> int:
@@ -3811,98 +3936,15 @@ def build_parser() -> argparse.ArgumentParser:
     policy_parser.add_argument("--path", default="policies/rules/edgeCases/algos/agent-operating-contract.md", help="Contract path")
     policy_parser.add_argument("--json", action="store_true", help="Output report as JSON")
 
-    # Scaffolding & Knowledge Graph Subcommands
-    scaffold_feat_p = subparsers.add_parser("scaffold-feature", aliases=["feature-scaffold"], help="Scaffold isolated 10-role feature structure with router & handler")
-    scaffold_feat_p.add_argument("feature_name", nargs="?", default=None, help="Name of the feature (snake_case or kebab-case)")
-    scaffold_feat_p.add_argument("--name", dest="name_flag", default=None, help="Feature name flag")
-    scaffold_feat_p.add_argument("--base-dir", default="src/features", help="Base directory (default: src/features)")
-    scaffold_feat_p.add_argument("--package-root", default=None, help="Optional parent package root directory")
-    scaffold_feat_p.add_argument("--no-router", action="store_true", help="Skip router generation")
-    scaffold_feat_p.add_argument("--no-handler", action="store_true", help="Skip handler generation")
-    scaffold_feat_p.add_argument("--no-route-rules", action="store_true", help="Skip route rules generation")
-    scaffold_feat_p.add_argument("--port-type", choices=["local", "shared"], default="local", help="Repository port type")
-    scaffold_feat_p.add_argument("--owner", default=None, help="Owning team handle (e.g. @payments-team)")
-    scaffold_feat_p.add_argument("--status", choices=["active", "deprecated", "sunset"], default="active", help="Feature lifecycle status")
-    scaffold_feat_p.add_argument("--flags", "--flag", dest="flags", default=None, help="Feature flag toggle name")
-    scaffold_feat_p.add_argument("--migrations", "--migration", dest="migrations", default=None, help="Associated DDL migration name")
-    scaffold_feat_p.add_argument("--contract-version", default="v1", help="API Contract major version")
-    scaffold_feat_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    scaffold_feat_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    scaffold_feat_p.add_argument("--json", action="store_true", help="Output result as JSON")
-
-    scaffold_pkg_p = subparsers.add_parser("scaffold-package", aliases=["package-scaffold"], help="Scaffold unified 1-to-10 package structure with .gitkeep hierarchy")
-    scaffold_pkg_p.add_argument("package_name", nargs="?", default=None, help="Name of the package")
-    scaffold_pkg_p.add_argument("--name", dest="name_flag", default=None, help="Package name flag")
-    scaffold_pkg_p.add_argument("--base-dir", default=".", help="Base directory (default: .)")
-    scaffold_pkg_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    scaffold_pkg_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    scaffold_pkg_p.add_argument("--json", action="store_true", help="Output result as JSON")
-
-    impact_p = subparsers.add_parser("impact", aliases=["impact-analysis"], help="Analyze upstream/downstream architectural blast radius & risks")
-    impact_p.add_argument("target_id", nargs="?", default=None, help="Target node ID, feature name, or file path")
-    impact_p.add_argument("--target", dest="target_flag", default=None, help="Target identifier flag")
-    impact_p.add_argument("--direction", choices=["UPSTREAM", "DOWNSTREAM", "upstream", "downstream"], default="UPSTREAM", help="Search direction")
-    impact_p.add_argument("--max-depth", type=int, default=6, help="Maximum search traversal depth")
-    impact_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    impact_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    impact_p.add_argument("--json", action="store_true", help="Output analysis report as JSON")
-
-    feat_map_p = subparsers.add_parser("feature-map", aliases=["map"], help="Resolve complete feature route/handler/port/query architecture mapping")
-    feat_map_p.add_argument("feature_name", nargs="?", default=None, help="Name of the feature")
-    feat_map_p.add_argument("--name", dest="name_flag", default=None, help="Feature name flag")
-    feat_map_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    feat_map_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    feat_map_p.add_argument("--json", action="store_true", help="Output mapping as JSON")
-
-    pkg_summary_p = subparsers.add_parser("package-summary", aliases=["pkg-summary"], help="Get rapid count and registry details of all features in a package")
-    pkg_summary_p.add_argument("package_name", nargs="?", default=None, help="Name of the package")
-    pkg_summary_p.add_argument("--name", dest="name_flag", default=None, help="Package name flag")
-    pkg_summary_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    pkg_summary_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    pkg_summary_p.add_argument("--json", action="store_true", help="Output summary as JSON")
-
-    feat_files_p = subparsers.add_parser("feature-files", aliases=["feat-files"], help="List all canonical files and layers belonging to a feature")
-    feat_files_p.add_argument("feature_name", nargs="?", default=None, help="Name of the feature")
-    feat_files_p.add_argument("--name", dest="name_flag", default=None, help="Feature name flag")
-    feat_files_p.add_argument("--package", dest="package_name", default=None, help="Optional parent package name")
-    feat_files_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    feat_files_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    feat_files_p.add_argument("--json", action="store_true", help="Output file list as JSON")
-
-    graph_sync_p = subparsers.add_parser("graph-scan", aliases=["graph-sync"], help="Scan and index repository files into Architectural Knowledge Graph")
-    graph_sync_p.add_argument("root_dir", nargs="?", default=".", help="Root directory to scan")
-    graph_sync_p.add_argument("--dir", dest="dir_flag", default=None, help="Explicit root directory flag")
-    graph_sync_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    graph_sync_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    graph_sync_p.add_argument("--json", action="store_true", help="Output scan stats as JSON")
-
-    lineage_p = subparsers.add_parser("file-lineage", aliases=["file-relations", "file-deps", "lineage"], help="Resolve upstream, downstream, and full dependency nexus of any file")
-    lineage_p.add_argument("file_path", nargs="?", default=None, help="Target file path or node ID")
-    lineage_p.add_argument("--file", dest="file", default=None, help="Explicit target file path")
-    lineage_p.add_argument("--depth", dest="max_depth", type=int, default=5, help="Maximum traversal depth")
-    lineage_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    lineage_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    lineage_p.add_argument("--json", action="store_true", help="Output lineage as JSON")
-
-    create_file_p = subparsers.add_parser("create-file", aliases=["add-file"], help="Create an architectural file with mandatory upstream/downstream relationship")
-    create_file_p.add_argument("--path", required=True, help="File path to create")
-    create_file_p.add_argument("--role", required=True, help="Architectural role / node label (e.g. DomainService, RuleSet, RepositoryAdapter, etc.)")
-    create_file_p.add_argument("--rel", "--rel-type", dest="rel_type", required=True, help="Relationship type (e.g. INVOKES_DOMAIN, ENFORCES_RULES, CONSUMES_PORT, IMPORTS_SHARED, etc.)")
-    create_file_p.add_argument("--target", required=True, help="Target file path or node ID to link to/from")
-    create_file_p.add_argument("--direction", choices=["outgoing", "incoming"], default="outgoing", help="Direction: outgoing (new_file -> target) or incoming (target -> new_file)")
-    create_file_p.add_argument("--package-root", default=None, help="Package root directory")
-    create_file_p.add_argument("--feature", dest="feature_name", default=None, help="Feature name")
-    create_file_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    create_file_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    create_file_p.add_argument("--json", action="store_true", help="Output result as JSON")
-
-    link_file_p = subparsers.add_parser("link-file", aliases=["link-nodes", "connect-files"], help="Link two architectural files or nodes with a typed relationship")
-    link_file_p.add_argument("--source", required=True, help="Source file path or node ID")
-    link_file_p.add_argument("--rel", "--rel-type", dest="rel_type", required=True, help="Relationship type")
-    link_file_p.add_argument("--target", required=True, help="Target file path or node ID")
-    link_file_p.add_argument("--store", choices=["memory", "neo4j"], default="memory", help="Graph storage backend")
-    link_file_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
-    link_file_p.add_argument("--json", action="store_true", help="Output result as JSON")
+    # Scaffolding & Knowledge Graph Subcommands (Modularized in scaffold_cli.py)
+    from src.api.cli.scaffold_cli import (
+        register_scaffold_subparsers,
+        handle_scaffold_feature,
+        handle_scaffold_package,
+        handle_create_file,
+        handle_link_file,
+    )
+    register_scaffold_subparsers(subparsers)
 
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI REST server")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Bind host")
@@ -3915,6 +3957,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    from src.api.cli.scaffold_cli import (
+        handle_scaffold_feature,
+        handle_scaffold_package,
+        handle_create_file,
+        handle_link_file,
+    )
     parser = build_parser()
     args = parser.parse_args()
 
@@ -3970,10 +4018,10 @@ def main() -> None:
         "agent": handle_agent_command,
         "refactor": handle_refactor_command,
         "policy-check": handle_policy_check_command,
-        "scaffold-feature": handle_scaffold_feature_command,
-        "feature-scaffold": handle_scaffold_feature_command,
-        "scaffold-package": handle_scaffold_package_command,
-        "package-scaffold": handle_scaffold_package_command,
+        "scaffold-feature": handle_scaffold_feature,
+        "feature-scaffold": handle_scaffold_feature,
+        "scaffold-package": handle_scaffold_package,
+        "package-scaffold": handle_scaffold_package,
         "impact": handle_impact_command,
         "impact-analysis": handle_impact_command,
         "feature-map": handle_feature_map_command,
@@ -3988,11 +4036,11 @@ def main() -> None:
         "file-relations": handle_file_lineage_command,
         "file-deps": handle_file_lineage_command,
         "lineage": handle_file_lineage_command,
-        "create-file": handle_create_file_command,
-        "add-file": handle_create_file_command,
-        "link-file": handle_link_file_command,
-        "link-nodes": handle_link_file_command,
-        "connect-files": handle_link_file_command,
+        "create-file": handle_create_file,
+        "add-file": handle_create_file,
+        "link-file": handle_link_file,
+        "link-nodes": handle_link_file,
+        "connect-files": handle_link_file,
         "serve": handle_serve_command,
     }
 

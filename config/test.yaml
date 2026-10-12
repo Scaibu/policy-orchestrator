@@ -2,42 +2,15 @@ server:
   host: "127.0.0.1"
   port: 8081
 
-scanner:
-  default_root: "."
-  max_file_size_mb: 5
-  timeout_seconds: 10
-  max_concurrent_workers: 2
-  ignored_directories:
-    - ".git"
-    - "node_modules"
-    - "dist"
-    - "build"
-    - ".next"
-    - "vendor"
-    - "__pycache__"
-    - "data"
-    - "brain"
-    - ".gemini"
-    - "scratch"
-    - "tmp"
-    - "bin"
-
-policy_sync:
-  authoritative_contract_path: "policies/rules/edgeCases/algos/agent-operating-contract.md"
-  submodule_path: "policies"
-
 database:
   url: "postgresql://alloy_admin:alloysecret@localhost:5432/policy_orchestration_test"
   pool_size: 2
   timeout_seconds: 3
 
 knowledge_graph:
-  backend: "inmemory"
+  backend: "neo4j"
   uri: "http://localhost:7474"
   user: "neo4j"
-  password: "testsecret"
-  database: "test"
+  password: "policysecret"
+  database: "neo4j"
   timeout_seconds: 5
-
-scaffold:
-  default_template_version: "v1"

@@ -1,0 +1,73 @@
+domain: "folder_scaffold"
+description: "Folder and File Scaffolding with Neo4j Knowledge Graph & AlloyDB Persistence"
+version: "1.0.0"
+
+responsibilities:
+  - "Create files and directories with mandatory architectural relationships"
+  - "Sync architectural lineage and dependency DAG into Neo4j property graph"
+  - "Persist scaffolded nodes and relationships into AlloyDB ledger"
+
+ports:
+  driving:
+    - name: "FolderScaffoldServicePort"
+      role: "Driving port exposed to delivery handlers and CLI"
+  driven:
+    - name: "FolderScaffoldRepositoryPort"
+      role: "AlloyDB SQL persistence port"
+    - name: "GraphStorePort"
+      role: "Neo4j graph knowledge store port"
+
+inheritance_chain:
+  class: "FolderScaffoldDomainService"
+  parents:
+    - "AbstractTracedComponent"
+  linearization:
+    - "FolderScaffoldDomainService"
+    - "AbstractTracedComponent"
+    - "FolderScaffoldServicePort"
+    - "ABC"
+    - "object"
+  shared_ancestors:
+    - "AbstractTracedComponent"
+  ports:
+    driving:
+      - "FolderScaffoldServicePort"
+    driven:
+      - "FolderScaffoldRepositoryPort"
+      - "GraphStorePort"
+
+entities:
+  - entity: scaffolded_nodes
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK (scaffolded_nodes_id_pk), CHECK (id = btrim(id))
+      - name: file_path      type: text          null: no   constraint: CHECK (file_path = btrim(file_path)) AND (file_path <> '')
+      - name: role           type: text          null: no   constraint: CHECK (role = btrim(role)) AND (role <> '')
+      - name: layer          type: text          null: no   constraint: CHECK (layer = btrim(layer)) AND (layer <> '')
+      - name: feature_name   type: text          null: yes  constraint: CHECK (feature_name IS NULL OR feature_name = btrim(feature_name))
+      - name: package_name   type: text          null: yes  constraint: CHECK (package_name IS NULL OR package_name = btrim(package_name))
+      - name: file_size_bytes type: bigint       null: no   default: 0 constraint: CHECK (file_size_bytes >= 0)
+      - name: version        type: bigint        null: no   default: 1
+      - name: created_at     type: timestamptz   null: no   default: NOW()
+      - name: updated_at     type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "file_size_bytes is never negative"
+      - "id, file_path, role, layer must be trimmed and non-empty"
+    pii: [none]
+    source_of_truth: db
+
+  - entity: scaffolded_relationships
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK (scaffolded_rel_id_pk), CHECK (id = btrim(id))
+      - name: source_id      type: text          null: no   constraint: FK (scaffolded_rel_source_fk) REFERENCES scaffolded_nodes(id) ON DELETE RESTRICT
+      - name: target_id      type: text          null: no   constraint: FK (scaffolded_rel_target_fk) REFERENCES scaffolded_nodes(id) ON DELETE RESTRICT
+      - name: rel_type       type: text          null: no   constraint: CHECK (rel_type = btrim(rel_type)) AND (rel_type <> '')
+      - name: properties     type: jsonb         null: no   default: '{}' constraint: CHECK (jsonb_typeof(properties) = 'object')
+      - name: created_at     type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "source_id and target_id must reference valid scaffolded_nodes"
+      - "properties must be a valid JSONB object"
+      - "rel_type must be non-empty and trimmed"
+    pii: [none]
+    source_of_truth: db
