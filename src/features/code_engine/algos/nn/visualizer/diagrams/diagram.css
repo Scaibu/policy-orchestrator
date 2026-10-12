@@ -234,6 +234,57 @@ html body .diagram-frame:hover {
   box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.7), 0 0 24px rgba(56, 189, 248, 0.08);
 }
 
+/* Formal Mathematical Formulation Banner for Computational & Dynamic Flow */
+.diagram-math-banner {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-left: 3px solid var(--cyan);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-top: 18px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.diagram-math-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.diagram-math-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--cyan);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagram-math-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--emerald);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.diagram-math-equation {
+  font-size: 14px;
+  color: #ffffff;
+  padding: 8px 12px;
+  background: rgba(6, 9, 17, 0.8);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+  text-align: center;
+}
+
 /* Interactive SVG Toolbar */
 .diagram-toolbar {
   display: flex;
