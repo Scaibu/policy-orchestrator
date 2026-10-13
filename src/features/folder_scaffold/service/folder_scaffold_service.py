@@ -11,6 +11,8 @@ from src.features.folder_scaffold.types.folder_scaffold_types import (
     LinkFilesCommand,
     CreateFileResult,
     LinkFilesResult,
+    ScaffoldTreeCommand,
+    ScaffoldTreeResult,
     ScaffoldedFileNode,
     ScaffoldedRelationshipRecord,
 )
@@ -191,6 +193,99 @@ class FolderScaffoldDomainService(AbstractTracedComponent, FolderScaffoldService
             if span and Status is not None and StatusCode is not None:
                 span.set_status(Status(StatusCode.OK))
             return Result.ok(res)
+        except Exception as exc:
+            mapped = self.mapFailure(exc)
+            if span and Status is not None and StatusCode is not None:
+                span.record_exception(mapped)
+                span.set_status(Status(StatusCode.ERROR, str(mapped)))
+            return Result.err(mapped)
+        finally:
+            if span:
+                span.end()
+
+    def scaffoldTree(
+        self, ctx: TraceContext, cmd: ScaffoldTreeCommand
+    ) -> Result[ScaffoldTreeResult, Exception]:
+        span = None
+        if self._tracer:
+            span = self._tracer.start_span("folder_scaffold.scaffold_tree")
+        try:
+            root_path = Path(cmd.root_id)
+            root_id = str(root_path.resolve()) if ("/" in cmd.root_id or "." in cmd.root_id) else cmd.root_id
+
+            root_node = ScaffoldedFileNode(
+                id=root_id,
+                file_path=str(root_path),
+                role=cmd.root_role,
+                layer="ROOT",
+                feature_name=None,
+                package_name=cmd.root_id,
+                size_bytes=0,
+            )
+            self._repository.save_node(root_node)
+            self._graph_store.upsert_node(
+                GraphNode(
+                    id=root_id,
+                    label="PackageRoot" if cmd.root_role == "PackageRoot" else GRAPH_LABEL_FILE_NODE,
+                    properties={"id": root_id, "file_path": str(root_path), "role": cmd.root_role},
+                )
+            )
+
+            created_nodes: list[ScaffoldedFileNode] = []
+            created_relationships: list[ScaffoldedRelationshipRecord] = []
+
+            for node_spec in cmd.nodes:
+                target_ref = node_spec.target
+                if target_ref in ("$ROOT", "root", cmd.root_id):
+                    target_ref = root_id
+
+                file_cmd = CreateFileCommand(
+                    path=node_spec.path,
+                    role=node_spec.role,
+                    rel_type=node_spec.rel_type,
+                    target=target_ref,
+                    direction=node_spec.direction,
+                    feature_name=node_spec.feature_name,
+                    package_name=node_spec.package_name or cmd.root_id,
+                    content=node_spec.content,
+                )
+                res = self.createFile(ctx, file_cmd)
+                if res.is_err:
+                    raise res.error()
+                c_res = res.unwrap()
+                created_nodes.append(c_res.node)
+                created_relationships.append(c_res.relationship)
+
+            for rel_spec in cmd.relationships:
+                src_ref = rel_spec.source
+                tgt_ref = rel_spec.target
+                if src_ref in ("$ROOT", "root", cmd.root_id):
+                    src_ref = root_id
+                if tgt_ref in ("$ROOT", "root", cmd.root_id):
+                    tgt_ref = root_id
+
+                link_cmd = LinkFilesCommand(
+                    source=src_ref,
+                    rel_type=rel_spec.rel_type,
+                    target=tgt_ref,
+                    properties=rel_spec.properties or {},
+                )
+                l_res = self.linkFiles(ctx, link_cmd)
+                if l_res.is_err:
+                    raise l_res.error()
+                created_relationships.append(l_res.unwrap().relationship)
+
+            summary = ScaffoldTreeResult(
+                root_id=root_id,
+                total_created_files=len(created_nodes),
+                total_relationships=len(created_relationships),
+                nodes=created_nodes,
+                relationships=created_relationships,
+                status=STATUS_SUCCESS,
+            )
+            if span and Status is not None and StatusCode is not None:
+                span.set_status(Status(StatusCode.OK))
+            return Result.ok(summary)
         except Exception as exc:
             mapped = self.mapFailure(exc)
             if span and Status is not None and StatusCode is not None:

@@ -1,0 +1,432 @@
+{
+  "_template": {
+    "name": "0-rule-package-structure",
+    "version": "1.0.0",
+    "description": "Canonical Rule 0 polyglot sub-package structure. 10 mandatory subsystems in strict sequential order: contracts → config → database → messaging → deploy → src/shared → src/infra → src/features → src/api → scripts. All nodes persist to AlloyDB (scaffolded_nodes + scaffolded_relationships) and sync to Neo4j knowledge graph for impact analysis and lineage tracing.",
+    "source_rule": "policies/rules/folderStructure/0-package-folder-writing-rule.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-tree --manifest templates/0-rule-package-structure.template.json --store neo4j",
+    "variables": {
+      "PACKAGE_NAME": "Replace with your package name, e.g. identity-service, billing-service"
+    }
+  },
+  "root_id": "PACKAGE_NAME",
+  "root_role": "PackageRoot",
+  "nodes": [
+    {
+      "path": "contracts/openapi/.gitkeep",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "contracts/proto/.gitkeep",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "contracts/asyncapi/.gitkeep",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "contracts/json-schema/.gitkeep",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "config/env.schema",
+      "role": "Schema",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "contracts/openapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Environment Variable Schema\n# All variables must be declared here before use in src/infra/config/\n"
+    },
+    {
+      "path": "config/default.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Default environment manifest\n# Validated against config/env.schema at boot\n"
+    },
+    {
+      "path": "config/production.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Production environment manifest\n"
+    },
+    {
+      "path": "config/feature-flags.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Feature flags and rollout percentages\n"
+    },
+    {
+      "path": "config/endpoints.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "contracts/openapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# All REST route paths mapped from OpenAPI contracts\n"
+    },
+    {
+      "path": "database/migrations/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "contracts/json-schema/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/rls/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/indexes/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/cdc/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/retention/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/seeds/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/schema.lock",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Cryptographic checksum lockfile of applied migrations\n"
+    },
+    {
+      "path": "messaging/topics/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "contracts/asyncapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "messaging/schema-registry/.gitkeep",
+      "role": "Schema",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "contracts/asyncapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "messaging/dlq/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "messaging/topics/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "messaging/subscriptions/.gitkeep",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "messaging/topics/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "messaging/topics.lock",
+      "role": "Queries",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "messaging/topics/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Cryptographic checksum lockfile of provisioned topics\n"
+    },
+    {
+      "path": "deploy/k8s/.gitkeep",
+      "role": "Context",
+      "rel_type": "RUNS_WORKFLOW",
+      "target": "PACKAGE_NAME",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "deploy/helm/.gitkeep",
+      "role": "Context",
+      "rel_type": "RUNS_WORKFLOW",
+      "target": "deploy/k8s/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/constants/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/utils/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/errors/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/types/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/infra/config/.gitkeep",
+      "role": "Service",
+      "rel_type": "RESOLVES_CONFIG",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/infra/database/.gitkeep",
+      "role": "RepositoryAdapter",
+      "rel_type": "EXECUTES_QUERY",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/infra/messaging/.gitkeep",
+      "role": "RepositoryAdapter",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "messaging/topics/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/infra/clients/.gitkeep",
+      "role": "RepositoryAdapter",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "contracts/openapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/infra/observability/.gitkeep",
+      "role": "Service",
+      "rel_type": "CALLS",
+      "target": "src/infra/config/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/features/.gitkeep",
+      "role": "Index",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/rest/v1/.gitkeep",
+      "role": "Router",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "contracts/openapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/events/.gitkeep",
+      "role": "Router",
+      "rel_type": "IMPLEMENTS_PORT",
+      "target": "contracts/asyncapi/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "scripts/run.sh",
+      "role": "Workflow",
+      "rel_type": "CALLS",
+      "target": "src/api/rest/v1/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+    },
+    {
+      "path": "scripts/migrate.sh",
+      "role": "Workflow",
+      "rel_type": "EXECUTES_QUERY",
+      "target": "database/migrations/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+    },
+    {
+      "path": "scripts/test.sh",
+      "role": "Workflow",
+      "rel_type": "CALLS",
+      "target": "src/features/.gitkeep",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+    },
+    {
+      "path": "Dockerfile",
+      "role": "Workflow",
+      "rel_type": "CALLS",
+      "target": "scripts/run.sh",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "FROM python:3.12-slim\nWORKDIR /app\nCOPY . .\n"
+    }
+  ],
+  "relationships": [
+    { "source": "config/default.yaml",              "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
+    { "source": "config/production.yaml",            "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
+    { "source": "config/feature-flags.yaml",         "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
+    { "source": "config/endpoints.yaml",             "rel_type": "MAPS_CONTRACT",        "target": "contracts/openapi/.gitkeep" },
+
+    { "source": "database/rls/.gitkeep",             "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
+    { "source": "database/indexes/.gitkeep",         "rel_type": "OPTIMIZES",            "target": "database/migrations/.gitkeep" },
+    { "source": "database/schema.lock",              "rel_type": "CHECKSUMS",            "target": "database/migrations/.gitkeep" },
+    { "source": "database/cdc/.gitkeep",             "rel_type": "STREAMS_CHANGES_FROM", "target": "database/migrations/.gitkeep" },
+    { "source": "database/retention/.gitkeep",       "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
+
+    { "source": "messaging/schema-registry/.gitkeep","rel_type": "VALIDATES_AGAINST",   "target": "contracts/asyncapi/.gitkeep" },
+    { "source": "messaging/subscriptions/.gitkeep",  "rel_type": "BINDS_TO",             "target": "messaging/topics/.gitkeep" },
+    { "source": "messaging/dlq/.gitkeep",            "rel_type": "HANDLES_FAILURES_FROM","target": "messaging/topics/.gitkeep" },
+    { "source": "messaging/topics.lock",             "rel_type": "CHECKSUMS",            "target": "messaging/topics/.gitkeep" },
+
+    { "source": "src/infra/config/.gitkeep",         "rel_type": "RESOLVES_CONFIG",      "target": "config/feature-flags.yaml" },
+    { "source": "src/infra/config/.gitkeep",         "rel_type": "RESOLVES_CONFIG",      "target": "config/endpoints.yaml" },
+    { "source": "src/infra/database/.gitkeep",       "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
+    { "source": "src/infra/database/.gitkeep",       "rel_type": "ENFORCES",             "target": "database/rls/.gitkeep" },
+    { "source": "src/infra/messaging/.gitkeep",      "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
+    { "source": "src/infra/messaging/.gitkeep",      "rel_type": "VALIDATES_AGAINST",    "target": "messaging/schema-registry/.gitkeep" },
+    { "source": "src/infra/messaging/.gitkeep",      "rel_type": "ROUTES_FAILURE_TO",    "target": "messaging/dlq/.gitkeep" },
+    { "source": "src/infra/clients/.gitkeep",        "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
+    { "source": "src/infra/clients/.gitkeep",        "rel_type": "GENERATED_FROM",       "target": "contracts/proto/.gitkeep" },
+    { "source": "src/infra/observability/.gitkeep",  "rel_type": "DEPENDS_ON",           "target": "src/shared/types/.gitkeep" },
+    { "source": "database/cdc/.gitkeep",             "rel_type": "PUBLISHES_TO",         "target": "src/infra/messaging/.gitkeep" },
+
+    { "source": "src/features/.gitkeep",             "rel_type": "CONSUMES_PORT",        "target": "src/infra/database/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "CONSUMES_PORT",        "target": "src/infra/messaging/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "CALLS",                "target": "src/infra/clients/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "CALLS",                "target": "src/infra/observability/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "DEPENDS_ON",           "target": "src/shared/constants/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "DEPENDS_ON",           "target": "src/shared/errors/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "DEPENDS_ON",           "target": "src/shared/types/.gitkeep" },
+    { "source": "src/features/.gitkeep",             "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
+
+    { "source": "src/api/rest/v1/.gitkeep",          "rel_type": "DISPATCHES_TO",        "target": "src/features/.gitkeep" },
+    { "source": "src/api/rest/v1/.gitkeep",          "rel_type": "RESOLVES_CONFIG",      "target": "config/endpoints.yaml" },
+    { "source": "src/api/rest/v1/.gitkeep",          "rel_type": "DEPENDS_ON",           "target": "src/shared/errors/.gitkeep" },
+    { "source": "src/api/rest/v1/.gitkeep",          "rel_type": "CALLS",                "target": "src/infra/observability/.gitkeep" },
+    { "source": "src/api/events/.gitkeep",           "rel_type": "DISPATCHES_TO",        "target": "src/features/.gitkeep" },
+    { "source": "src/api/events/.gitkeep",           "rel_type": "CONSUMES_PORT",        "target": "src/infra/messaging/.gitkeep" },
+    { "source": "src/api/events/.gitkeep",           "rel_type": "VALIDATES_AGAINST",    "target": "contracts/asyncapi/.gitkeep" },
+
+    { "source": "deploy/k8s/.gitkeep",               "rel_type": "DEPLOYS",              "target": "src/api/rest/v1/.gitkeep" },
+    { "source": "deploy/k8s/.gitkeep",               "rel_type": "RESOLVES_CONFIG",      "target": "config/production.yaml" },
+    { "source": "deploy/helm/.gitkeep",              "rel_type": "PACKAGES",             "target": "deploy/k8s/.gitkeep" },
+    { "source": "deploy/helm/.gitkeep",              "rel_type": "RESOLVES_CONFIG",      "target": "config/endpoints.yaml" },
+
+    { "source": "scripts/migrate.sh",               "rel_type": "CONSUMES_PORT",        "target": "src/infra/database/.gitkeep" },
+    { "source": "scripts/migrate.sh",               "rel_type": "CHECKSUMS",            "target": "database/schema.lock" },
+    { "source": "scripts/migrate.sh",               "rel_type": "RESOLVES_CONFIG",      "target": "config/env.schema" },
+    { "source": "scripts/run.sh",                   "rel_type": "RESOLVES_CONFIG",      "target": "config/env.schema" },
+    { "source": "Dockerfile",                       "rel_type": "VALIDATES_AGAINST",    "target": "config/env.schema" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "0-package-folder-writing-rule.md",
+    "total_steps": 10,
+    "total_nodes": 38,
+    "total_relationships": 47
+  }
+}

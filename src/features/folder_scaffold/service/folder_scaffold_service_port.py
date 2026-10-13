@@ -7,6 +7,8 @@ from src.features.folder_scaffold.types.folder_scaffold_types import (
     LinkFilesCommand,
     CreateFileResult,
     LinkFilesResult,
+    ScaffoldTreeCommand,
+    ScaffoldTreeResult,
 )
 
 
@@ -21,4 +23,10 @@ class FolderScaffoldServicePort(ABC):
     def linkFiles(
         self, ctx: TraceContext, cmd: LinkFilesCommand
     ) -> Result[LinkFilesResult, Exception]:
+        pass
+
+    @abstractmethod
+    def scaffoldTree(
+        self, ctx: TraceContext, cmd: "ScaffoldTreeCommand"
+    ) -> Result["ScaffoldTreeResult", Exception]:
         pass
