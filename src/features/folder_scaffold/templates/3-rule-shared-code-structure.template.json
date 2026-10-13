@@ -1,0 +1,224 @@
+{
+  "_template": {
+    "name": "3-rule-shared-code-structure",
+    "version": "1.0.0",
+    "description": "Canonical Rule 3 Shared Libraries (src/shared/) and Declarative Configuration (config/) Boundary Structure. Pure utilities, constants, errors, envelope types, and zero-IO invariants. Zero-omission policy.",
+    "source_rule": "policies/rules/folderStructure/3.shared.code.writing.rule.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-tree --manifest src/features/folder_scaffold/templates/3-rule-shared-code-structure.template.json --package PACKAGE_NAME --store memory",
+    "variables": {
+      "PACKAGE_NAME": "Replace with your package name, e.g. identity-service, billing-service"
+    }
+  },
+  "root_id": "PACKAGE_NAME",
+  "root_role": "PackageRoot",
+  "nodes": [
+    {
+      "path": "src/shared/constants/system_constants.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Universal system constants and header keys\"\"\"\n"
+    },
+    {
+      "path": "src/shared/constants/error_codes.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Canonical application error codes\"\"\"\n"
+    },
+    {
+      "path": "src/shared/constants/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/utils/date_utils.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Pure ISO 8601 UTC date and time helpers\"\"\"\n"
+    },
+    {
+      "path": "src/shared/utils/data_utils.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Pure data transformation and list utilities\"\"\"\n"
+    },
+    {
+      "path": "src/shared/utils/crypto_utils.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Pure SHA-256 and UUIDv7 helpers\"\"\"\n"
+    },
+    {
+      "path": "src/shared/utils/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/errors/application_error.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard ApplicationError base and typed domain errors\"\"\"\n"
+    },
+    {
+      "path": "src/shared/errors/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/shared/types/envelope_types.py",
+      "role": "Types",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard ApiResponse envelope and TraceContext interfaces\"\"\"\n"
+    },
+    {
+      "path": "src/shared/types/pagination_types.py",
+      "role": "Types",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard pagination request and metadata response models\"\"\"\n"
+    },
+    {
+      "path": "src/shared/types/.gitkeep",
+      "role": "Types",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "config/env.schema",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Environment Variable Schema\n"
+    },
+    {
+      "path": "config/default.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Default environment configuration\n"
+    },
+    {
+      "path": "config/development.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Development environment configuration\n"
+    },
+    {
+      "path": "config/production.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Production environment configuration\n"
+    },
+    {
+      "path": "config/test.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Test environment configuration\n"
+    },
+    {
+      "path": "config/feature-flags.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Feature flags and rollout toggles\n"
+    },
+    {
+      "path": "config/endpoints.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# All route paths and external integration endpoints\n"
+    },
+    {
+      "path": "config/theme.json",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "{\n  \"theme\": \"dark\"\n}\n"
+    },
+    {
+      "path": "config/branding.yaml",
+      "role": "Context",
+      "rel_type": "DEFINES_SCHEMA",
+      "target": "config/env.schema",
+      "direction": "outgoing",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Branding metadata and logos\n"
+    }
+  ],
+  "relationships": [
+    { "source": "src/shared/errors/application_error.py", "rel_type": "DEPENDS_ON", "target": "src/shared/constants/error_codes.py" },
+    { "source": "src/shared/types/envelope_types.py",     "rel_type": "DEPENDS_ON", "target": "src/shared/constants/system_constants.py" },
+    { "source": "src/shared/utils/data_utils.py",         "rel_type": "DEPENDS_ON", "target": "src/shared/types/envelope_types.py" },
+    { "source": "config/default.yaml",                    "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/development.yaml",                "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/production.yaml",                 "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/test.yaml",                       "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/feature-flags.yaml",              "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/endpoints.yaml",                  "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/theme.json",                      "rel_type": "CONFORMS_TO", "target": "config/env.schema" },
+    { "source": "config/branding.yaml",                   "rel_type": "CONFORMS_TO", "target": "config/env.schema" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "3.shared.code.writing.rule.md",
+    "modules": ["constants", "utils", "errors", "types", "config"]
+  }
+}

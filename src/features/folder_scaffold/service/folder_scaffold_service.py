@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Optional
 from src.shared.types.envelope_types import TraceContext
@@ -206,6 +207,7 @@ class FolderScaffoldDomainService(AbstractTracedComponent, FolderScaffoldService
     def scaffoldTree(
         self, ctx: TraceContext, cmd: ScaffoldTreeCommand
     ) -> Result[ScaffoldTreeResult, Exception]:
+        start_t = time.perf_counter()
         span = None
         if self._tracer:
             span = self._tracer.start_span("folder_scaffold.scaffold_tree")
@@ -275,6 +277,7 @@ class FolderScaffoldDomainService(AbstractTracedComponent, FolderScaffoldService
                     raise l_res.error()
                 created_relationships.append(l_res.unwrap().relationship)
 
+            duration_ms = round((time.perf_counter() - start_t) * 1000.0, 2)
             summary = ScaffoldTreeResult(
                 root_id=root_id,
                 total_created_files=len(created_nodes),
@@ -282,6 +285,7 @@ class FolderScaffoldDomainService(AbstractTracedComponent, FolderScaffoldService
                 nodes=created_nodes,
                 relationships=created_relationships,
                 status=STATUS_SUCCESS,
+                duration_ms=duration_ms,
             )
             if span and Status is not None and StatusCode is not None:
                 span.set_status(Status(StatusCode.OK))

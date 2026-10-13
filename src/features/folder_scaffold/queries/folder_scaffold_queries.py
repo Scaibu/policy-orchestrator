@@ -121,3 +121,15 @@ WHERE package_name = %(package_name)s
 GROUP BY subsystem
 ORDER BY subsystem;
 """
+
+FLOW_DELETE_SCAFFOLDED_RELATIONSHIPS_BY_PACKAGE = """
+DELETE FROM scaffolded_relationships
+WHERE source_id IN (SELECT id FROM scaffolded_nodes WHERE package_name = %(package_name)s OR file_path LIKE %(path_pattern)s)
+   OR target_id IN (SELECT id FROM scaffolded_nodes WHERE package_name = %(package_name)s OR file_path LIKE %(path_pattern)s);
+"""
+
+FLOW_DELETE_SCAFFOLDED_NODES_BY_PACKAGE = """
+DELETE FROM scaffolded_nodes
+WHERE package_name = %(package_name)s OR file_path LIKE %(path_pattern)s;
+"""
+

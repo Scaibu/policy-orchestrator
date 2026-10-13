@@ -17,9 +17,15 @@
     },
     {
       "number": "0003",
-      "name": "0003_create_scaffold_templates_tables.sql",
+      "name": "0003_create_scaffolded_nodes_and_relationships.sql",
       "applied_at": "2026-10-12T18:59:00Z",
-      "checksum": "sha256:bd9b63aaac8a2e44239145b087f0b48f6874112adb5c7133e77d2eddd102d1f4"
+      "checksum": "sha256:b699eca81a23b4d3069af905bccdc5599b72533326005b86f6612aae0bb8b31a"
+    },
+    {
+      "number": "0003",
+      "name": "0003_create_graph_constraints.cypher",
+      "applied_at": "2026-10-13T10:00:00Z",
+      "checksum": "sha256:5bdc29c604d293af39976a48edc87918b1456d419a0efac4d3d22fff58004742"
     }
   ]
 }

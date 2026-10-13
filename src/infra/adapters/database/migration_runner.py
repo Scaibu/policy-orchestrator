@@ -57,6 +57,69 @@ class DatabaseMigrationRunner:
         else:
             return self._rollback_sqlite_migrations(conn)
 
+    def run_graph_migrations(self, graph_port: Optional[Any] = None) -> Dict[str, Any]:
+        try:
+            from src.domain.ports.graph_port import GraphStorePort
+            from src.features.folder_scaffold.queries.folder_scaffold_graph_queries import (
+                FLOW_GRAPH_SCHEMA_MIGRATION_STATEMENTS,
+            )
+            adapter = graph_port
+            if adapter is None:
+                from src.infra.config.config_loader import AppConfigLoader
+                from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
+                cfg = AppConfigLoader.get_knowledge_graph_config()
+                adapter = Neo4jGraphAdapter(
+                    uri=cfg.get("uri"),
+                    user=cfg.get("user"),
+                    password=cfg.get("password"),
+                    database=cfg.get("database", "neo4j"),
+                )
+            for stmt in FLOW_GRAPH_SCHEMA_MIGRATION_STATEMENTS:
+                adapter.query_cypher(stmt)
+            return {
+                "status": "success",
+                "applied_statements_count": len(FLOW_GRAPH_SCHEMA_MIGRATION_STATEMENTS),
+                "db": "neo4j",
+            }
+        except Exception as exc:
+            return {"status": "error", "error": str(exc), "db": "neo4j"}
+
+    def rollback_graph_migrations(self, graph_port: Optional[Any] = None) -> Dict[str, Any]:
+        try:
+            from src.domain.ports.graph_port import GraphStorePort
+            from src.features.folder_scaffold.queries.folder_scaffold_graph_queries import (
+                FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS,
+            )
+            adapter = graph_port
+            if adapter is None:
+                from src.infra.config.config_loader import AppConfigLoader
+                from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
+                cfg = AppConfigLoader.get_knowledge_graph_config()
+                adapter = Neo4jGraphAdapter(
+                    uri=cfg.get("uri"),
+                    user=cfg.get("user"),
+                    password=cfg.get("password"),
+                    database=cfg.get("database", "neo4j"),
+                )
+            for stmt in FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS:
+                adapter.query_cypher(stmt)
+            return {
+                "status": "success",
+                "rolled_back_statements_count": len(FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS),
+                "db": "neo4j",
+            }
+        except Exception as exc:
+            return {"status": "error", "error": str(exc), "db": "neo4j"}
+
+    def run_all_migrations(self) -> Dict[str, Any]:
+        sql_res = self.run_migrations()
+        graph_res = self.run_graph_migrations()
+        return {
+            "sql": sql_res,
+            "graph": graph_res,
+            "status": "success" if sql_res.get("status") == "success" and graph_res.get("status") != "error" else "partial_or_error",
+        }
+
     def _run_sqlite_migrations(self, conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
         close_conn = False
         if conn is None:

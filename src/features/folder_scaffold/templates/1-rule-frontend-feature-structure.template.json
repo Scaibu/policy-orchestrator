@@ -1,0 +1,96 @@
+{
+  "_template": {
+    "name": "1-rule-frontend-feature-structure",
+    "version": "1.0.0",
+    "description": "Canonical Rule 1 Frontend Feature Structure adhering to the State-Controller-Model Triad: View -> Controller -> State -> Model. Zero-omission policy.",
+    "source_rule": "policies/rules/folderStructure/1-feature-folder-writing-rule.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-tree --manifest src/features/folder_scaffold/templates/1-rule-frontend-feature-structure.template.json --feature FEATURE_NAME --store memory",
+    "variables": {
+      "FEATURE_NAME": "Replace with your frontend feature name, e.g. wallet, dashboard, order"
+    }
+  },
+  "root_id": "FEATURE_NAME",
+  "root_role": "Feature",
+  "nodes": [
+    {
+      "path": "src/features/FEATURE_NAME/ui/FEATURE_NAME.view.tsx",
+      "role": "FeatureView",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "export function FeatureView() { return <div>FeatureView</div>; }\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/controller/FEATURE_NAME.controller.ts",
+      "role": "FeatureController",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "export class FeatureController {}\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/state/FEATURE_NAME.state.ts",
+      "role": "FeatureState",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "export class FeatureState {}\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/models/FEATURE_NAME.model.ts",
+      "role": "DomainModel",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "export interface FeatureModel {}\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/adapter/FEATURE_NAME.adapter.ts",
+      "role": "RepositoryAdapter",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "export class FeatureAdapter {}\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/tests/FEATURE_NAME.controller.test.ts",
+      "role": "Test",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "describe('FeatureController', () => {});\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/tests/FEATURE_NAME.state.test.ts",
+      "role": "Test",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "describe('FeatureState', () => {});\n"
+    }
+  ],
+  "relationships": [
+    { "source": "src/features/FEATURE_NAME/ui/FEATURE_NAME.view.tsx",           "rel_type": "RENDERS_STATE",      "target": "src/features/FEATURE_NAME/state/FEATURE_NAME.state.ts" },
+    { "source": "src/features/FEATURE_NAME/ui/FEATURE_NAME.view.tsx",           "rel_type": "DISPATCHES_ACTION",  "target": "src/features/FEATURE_NAME/controller/FEATURE_NAME.controller.ts" },
+    { "source": "src/features/FEATURE_NAME/controller/FEATURE_NAME.controller.ts","rel_type": "CONTROLS_STATE",   "target": "src/features/FEATURE_NAME/state/FEATURE_NAME.state.ts" },
+    { "source": "src/features/FEATURE_NAME/controller/FEATURE_NAME.controller.ts","rel_type": "CALLS",            "target": "src/features/FEATURE_NAME/adapter/FEATURE_NAME.adapter.ts" },
+    { "source": "src/features/FEATURE_NAME/state/FEATURE_NAME.state.ts",         "rel_type": "DEFINES_MODEL",     "target": "src/features/FEATURE_NAME/models/FEATURE_NAME.model.ts" },
+    { "source": "src/features/FEATURE_NAME/adapter/FEATURE_NAME.adapter.ts",     "rel_type": "DEFINES_MODEL",     "target": "src/features/FEATURE_NAME/models/FEATURE_NAME.model.ts" },
+    { "source": "src/features/FEATURE_NAME/tests/FEATURE_NAME.controller.test.ts","rel_type": "VERIFIES",          "target": "src/features/FEATURE_NAME/controller/FEATURE_NAME.controller.ts" },
+    { "source": "src/features/FEATURE_NAME/tests/FEATURE_NAME.state.test.ts",     "rel_type": "VERIFIES",          "target": "src/features/FEATURE_NAME/state/FEATURE_NAME.state.ts" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "1-feature-folder-writing-rule.md",
+    "paradigm": "frontend_state_controller_model_triad",
+    "canonical_roles": 6
+  }
+}

@@ -3274,23 +3274,32 @@ def handle_policy_check_command(args: argparse.Namespace) -> int:
 
 
 def handle_migrate_command(args: argparse.Namespace) -> int:
-    db_target = getattr(args, "db", "sqlite")
+    from src.infra.config.config_loader import AppConfigLoader
+    db_target = getattr(args, "db", "all")
     if db_target == "sqlite":
         db_url = f"sqlite:///{getattr(args, 'sqlite_path', 'policy_registry.db')}"
     else:
-        db_url = getattr(args, "postgres_url", "postgresql://postgres:postgres@localhost:5432/postgres")
+        db_url = getattr(args, "postgres_url", None) or AppConfigLoader.get_database_url()
 
     runner = DatabaseMigrationRunner(db_url)
     action = getattr(args, "action", "run")
 
     if action == "run":
-        runner.run_migrations()
-        count = runner.seed_algorithm_catalog()
-        print(f"✅ Migration successful on {db_target}: Applied schema migrations, Seeded {count} algorithm contracts & type adapters.")
+        if db_target in ("all", "alloydb", "postgres"):
+            runner.run_migrations()
+            count = runner.seed_algorithm_catalog()
+            print(f"✅ AlloyDB SQL migration and catalog seed successful: {count} contracts.")
+        if db_target in ("all", "neo4j"):
+            graph_res = runner.run_graph_migrations()
+            print(f"✅ Neo4j Graph constraint migration successful: {graph_res}")
         return 0
     elif action == "rollback":
-        res = runner.rollback_migrations()
-        print(f"🔄 Rollback successful on {db_target}: {res}")
+        if db_target in ("all", "neo4j"):
+            graph_res = runner.rollback_graph_migrations()
+            print(f"🔄 Neo4j Graph rollback successful: {graph_res}")
+        if db_target in ("all", "alloydb", "postgres", "sqlite"):
+            res = runner.rollback_migrations()
+            print(f"🔄 SQL rollback successful: {res}")
         return 0
     elif action == "seed":
         count = runner.seed_algorithm_catalog()
@@ -3453,9 +3462,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     migrate_parser = subparsers.add_parser("migrate", help="Run database migrations and seed algorithm contracts")
     migrate_parser.add_argument("action", choices=["run", "status", "rollback", "seed", "parity"], default="run", nargs="?", help="Migration action")
-    migrate_parser.add_argument("--db", choices=["sqlite", "alloydb", "postgres"], default="sqlite", help="Target database")
+    migrate_parser.add_argument("--db", choices=["all", "alloydb", "postgres", "neo4j", "sqlite"], default="all", help="Target database (all runs both AlloyDB and Neo4j)")
     migrate_parser.add_argument("--sqlite-path", default="policy_registry.db", help="SQLite database path")
-    migrate_parser.add_argument("--postgres-url", default="postgresql://postgres:postgres@localhost:5432/postgres", help="PostgreSQL connection string")
+    migrate_parser.add_argument("--postgres-url", default=None, help="PostgreSQL connection string")
 
 
     rag_parser = subparsers.add_parser("rag", help="Retrieve or index grounded policy rules")

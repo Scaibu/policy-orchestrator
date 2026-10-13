@@ -1,0 +1,177 @@
+{
+  "_template": {
+    "name": "1-rule-feature-structure",
+    "version": "1.0.0",
+    "description": "Canonical Rule 1 Backend Stateless Hexagonal Feature Structure. All 14 canonical roles in strict flow order: router -> handler -> schema -> types -> context -> service -> rules -> machine -> workflow -> ports -> adapters -> queries -> index -> tests. Zero-omission policy.",
+    "source_rule": "policies/rules/folderStructure/1-feature-folder-writing-rule.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-tree --manifest src/features/folder_scaffold/templates/1-rule-feature-structure.template.json --feature FEATURE_NAME --store memory",
+    "variables": {
+      "FEATURE_NAME": "Replace with your feature name, e.g. auth, billing, wallet"
+    }
+  },
+  "root_id": "FEATURE_NAME",
+  "root_role": "Feature",
+  "nodes": [
+    {
+      "path": "src/api/rest/v1/routers/FEATURE_NAME.router.py",
+      "role": "Router",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Ingress router for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/api/rest/v1/handlers/FEATURE_NAME.handler.py",
+      "role": "Handler",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Ingress delivery handler for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/schema/FEATURE_NAME.schema.py",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"ACL validation and schema mappings for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/types/FEATURE_NAME.types.py",
+      "role": "Types",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Domain models and DTOs for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/context.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "feature: FEATURE_NAME\nmode: stateless_hexagonal\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Pure domain orchestrator service for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/rules/FEATURE_NAME.rules.py",
+      "role": "Rules",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Business logic decision tables for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/machines/FEATURE_NAME.machine.py",
+      "role": "Machine",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"State machine DAG for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/workflows/FEATURE_NAME.workflow.py",
+      "role": "Workflow",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Automation workflows for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/repository/FEATURE_NAME.repository.port.py",
+      "role": "RepositoryPort",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Outbound port contract for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/repository/FEATURE_NAME.repository.py",
+      "role": "RepositoryAdapter",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Resilient outbound adapter for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/queries/FEATURE_NAME.queries.py",
+      "role": "Queries",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Named FLOW_* SQL queries for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/index.py",
+      "role": "Index",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Public facade for FEATURE_NAME\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/tests/FEATURE_NAME.rules.test.py",
+      "role": "Test",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Unit tests for FEATURE_NAME business rules\"\"\"\n"
+    },
+    {
+      "path": "src/features/FEATURE_NAME/tests/FEATURE_NAME.machine.test.py",
+      "role": "Test",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "FEATURE_NAME",
+      "direction": "incoming",
+      "feature_name": "FEATURE_NAME",
+      "content": "\"\"\"Unit tests for FEATURE_NAME state machine\"\"\"\n"
+    }
+  ],
+  "relationships": [
+    { "source": "src/api/rest/v1/routers/FEATURE_NAME.router.py",               "rel_type": "DISPATCHES_TO",        "target": "src/api/rest/v1/handlers/FEATURE_NAME.handler.py" },
+    { "source": "src/api/rest/v1/handlers/FEATURE_NAME.handler.py",             "rel_type": "DEFINES_SCHEMA",      "target": "src/features/FEATURE_NAME/schema/FEATURE_NAME.schema.py" },
+    { "source": "src/api/rest/v1/handlers/FEATURE_NAME.handler.py",             "rel_type": "DEPENDS_ON",          "target": "src/features/FEATURE_NAME/types/FEATURE_NAME.types.py" },
+    { "source": "src/api/rest/v1/handlers/FEATURE_NAME.handler.py",             "rel_type": "CALLS",               "target": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py" },
+    { "source": "src/features/FEATURE_NAME/schema/FEATURE_NAME.schema.py",       "rel_type": "DEFINES_MODEL",       "target": "src/features/FEATURE_NAME/types/FEATURE_NAME.types.py" },
+    { "source": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",     "rel_type": "DEPENDS_ON",          "target": "src/features/FEATURE_NAME/types/FEATURE_NAME.types.py" },
+    { "source": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",     "rel_type": "DEPENDS_ON",          "target": "src/features/FEATURE_NAME/context.yml" },
+    { "source": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",     "rel_type": "EVALUATES_RULES",     "target": "src/features/FEATURE_NAME/rules/FEATURE_NAME.rules.py" },
+    { "source": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",     "rel_type": "TRANSITIONS_MACHINE", "target": "src/features/FEATURE_NAME/machines/FEATURE_NAME.machine.py" },
+    { "source": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",     "rel_type": "RUNS_WORKFLOW",       "target": "src/features/FEATURE_NAME/workflows/FEATURE_NAME.workflow.py" },
+    { "source": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py",     "rel_type": "CONSUMES_PORT",       "target": "src/features/FEATURE_NAME/repository/FEATURE_NAME.repository.port.py" },
+    { "source": "src/features/FEATURE_NAME/repository/FEATURE_NAME.repository.py","rel_type": "IMPLEMENTS_PORT",    "target": "src/features/FEATURE_NAME/repository/FEATURE_NAME.repository.port.py" },
+    { "source": "src/features/FEATURE_NAME/repository/FEATURE_NAME.repository.py","rel_type": "EXECUTES_QUERY",     "target": "src/features/FEATURE_NAME/queries/FEATURE_NAME.queries.py" },
+    { "source": "src/features/FEATURE_NAME/index.py",                           "rel_type": "EXPORTS",             "target": "src/features/FEATURE_NAME/service/FEATURE_NAME.service.py" },
+    { "source": "src/features/FEATURE_NAME/index.py",                           "rel_type": "EXPORTS",             "target": "src/features/FEATURE_NAME/types/FEATURE_NAME.types.py" },
+    { "source": "src/features/FEATURE_NAME/tests/FEATURE_NAME.rules.test.py",   "rel_type": "VERIFIES",            "target": "src/features/FEATURE_NAME/rules/FEATURE_NAME.rules.py" },
+    { "source": "src/features/FEATURE_NAME/tests/FEATURE_NAME.machine.test.py", "rel_type": "VERIFIES",            "target": "src/features/FEATURE_NAME/machines/FEATURE_NAME.machine.py" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "1-feature-folder-writing-rule.md",
+    "paradigm": "backend_stateless_hexagonal",
+    "canonical_roles": 14
+  }
+}

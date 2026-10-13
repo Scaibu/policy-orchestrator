@@ -77,7 +77,8 @@ class ScaffoldTreeRelationshipSpec(BaseModel):
 
 
 class ScaffoldTreeCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    template_meta: Optional[Dict[str, Any]] = Field(default=None, alias="_template", description="Template metadata")
     root_id: str = Field(..., description="Root package/feature identifier or path")
     root_role: str = Field(default="PackageRoot", description="Role of the root node")
     nodes: List[ScaffoldTreeNodeSpec] = Field(default_factory=list, description="Ordered list of nodes to create")
@@ -95,6 +96,7 @@ class ScaffoldTreeResult(BaseModel):
     nodes: List[ScaffoldedFileNode]
     relationships: List[ScaffoldedRelationshipRecord]
     status: str
+    duration_ms: Optional[float] = 0.0
 
 
 class ImpactNodeDetail(BaseModel):
