@@ -102,8 +102,8 @@ router.include_router(code_engine_mutation_router)
 from .routers.algorithm_registry_router import router as algorithm_registry_router
 router.include_router(algorithm_registry_router)
 
-from .routers.file_structure_router import router as file_structure_router
-router.include_router(file_structure_router)
+from .routers.folder_scaffold_router import router as folder_scaffold_router
+router.include_router(folder_scaffold_router)
 
 # -----------------------------------------------------------------------------
 # RE-EXPORTS FOR FULL BACKWARD COMPATIBILITY

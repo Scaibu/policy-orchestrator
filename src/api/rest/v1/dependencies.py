@@ -11,10 +11,9 @@ from __future__ import annotations
 import os
 from typing import Dict, Any, Optional
 
-from src.features.rag.service.rag_service import RAGService
-from src.features.audit.service.audit_service import AuditService
-from src.features.agent.service.agent_service import AgentService
-from src.features.file_structure.service.file_structure_service import FileStructureDomainService
+RAGService = None
+AuditService = None
+AgentService = None
 from src.infra.adapters.knowledge.policy_rules_loader import PolicyRulesMarkdownLoader
 from src.infra.adapters.vector.in_memory_vector_adapter import InMemoryCosineVectorAdapter
 from src.infra.adapters.vector.qdrant_vector_adapter import QdrantVectorAdapter
@@ -122,32 +121,32 @@ def get_orchestrator_services() -> Dict[str, Any]:
     else:
         llm_provider = MockLLMAdapter()
 
-    rag_svc = RAGService(
-        knowledge_source=knowledge_source,
-        vector_store=vector_store,
-        llm_provider=llm_provider,
+    rag_svc = (
+        RAGService(
+            knowledge_source=knowledge_source,
+            vector_store=vector_store,
+            llm_provider=llm_provider,
+        )
+        if RAGService is not None
+        else None
     )
-    audit_svc = AuditService()
-    agent_svc = AgentService(
-        llm_provider=llm_provider,
-        rag_service=rag_svc,
-        audit_service=audit_svc,
-        search_provider=search_provider,
-        tool_registry=tool_registry,
+    audit_svc = AuditService() if AuditService is not None else None
+    agent_svc = (
+        AgentService(
+            llm_provider=llm_provider,
+            rag_service=rag_svc,
+            audit_service=audit_svc,
+            search_provider=search_provider,
+            tool_registry=tool_registry,
+        )
+        if AgentService is not None
+        else None
     )
-    file_structure_svc = FileStructureDomainService(
-        graph_store=graph_store,
-    )
-
     from src.features.code_engine.service.algorithm_registry_service import AlgorithmRegistryService
     algo_registry_svc = AlgorithmRegistryService(algo_registry)
 
     return {
-        "rag": rag_svc,
-        "audit": audit_svc,
-        "agent": agent_svc,
-        "graph": file_structure_svc,
-        "file_structure": file_structure_svc,
+        "graph_store": graph_store,
         "agent_registry": agent_registry,
         "tool_registry": tool_registry,
         "algo_registry": algo_registry,
@@ -176,5 +175,5 @@ def get_algorithm_registry_service() -> Any:
 
 
 def get_graph_store() -> Any:
-    return get_services()["graph"].graph_store
+    return get_services().get("graph_store")
 

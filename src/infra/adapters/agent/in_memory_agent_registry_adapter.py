@@ -31,7 +31,7 @@ from src.domain.ports.agent_manifest_port import (
     AgentManifest,
     AgentRole,
 )
-from src.features.agent.registry.builtin_agents import BUILTIN_AGENT_MANIFESTS
+BUILTIN_AGENT_MANIFESTS = []
 
 class InMemoryAgentManifestRegistryAdapter(AgentManifestRegistryPort):
     def __init__(self, load_builtins: bool = True) -> None:

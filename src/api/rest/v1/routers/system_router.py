@@ -25,10 +25,21 @@ from pydantic import BaseModel, Field
 
 from src.api.rest.envelope import build_success_envelope, build_error_envelope
 from ..dependencies import get_services, get_code_engine_service
-from src.features.rag.schema.rag_schema import RAGSearchRequestDTO, IndexingStatusDTO
-from src.features.rag.types.rag_types import RAGQueryRequest
-from src.features.agent.schema.agent_schema import AgentRunRequestDTO
-from src.features.agent.types.agent_types import AgentExecutionRequest
+class RAGSearchRequestDTO(BaseModel):
+    query: str = Field(..., description="Query string")
+    top_k: int = Field(default=5, description="Top-k documents")
+    category_filter: Optional[str] = Field(default=None)
+    min_score: float = Field(default=0.0)
+
+class IndexingStatusDTO(BaseModel):
+    status: str = "UNAVAILABLE"
+
+class AgentRunRequestDTO(BaseModel):
+    prompt: str = Field(..., description="Task prompt")
+    target_directory: str = Field(default=".")
+    max_steps: int = Field(default=10)
+    temperature: float = Field(default=0.0)
+    session_id: Optional[str] = Field(default=None)
 from src.domain.ports.agent_manifest_port import AgentRole
 from src.domain.models.algorithm_contract import (
     AlgorithmCategory,
