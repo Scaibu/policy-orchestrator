@@ -127,4 +127,49 @@ WHERE n.package_name = $package_name
 DETACH DELETE n
 """
 
+FLOW_GRAPH_IMPACT_ANALYSIS_UPSTREAM = """
+MATCH path = (target:FileNode {{id: $target_id}})<-[r*1..{max_depth}]-(impacted:FileNode)
+RETURN
+    impacted.id AS id,
+    impacted.file_path AS file_path,
+    impacted.role AS role,
+    impacted.layer AS layer,
+    length(path) AS depth,
+    [rel in relationships(path) | type(rel)][0] AS relationship
+ORDER BY depth ASC
+LIMIT 200
+"""
 
+FLOW_GRAPH_IMPACT_ANALYSIS_DOWNSTREAM = """
+MATCH path = (target:FileNode {{id: $target_id}})-[r*1..{max_depth}]->(impacted:FileNode)
+RETURN
+    impacted.id AS id,
+    impacted.file_path AS file_path,
+    impacted.role AS role,
+    impacted.layer AS layer,
+    length(path) AS depth,
+    [rel in relationships(path) | type(rel)][0] AS relationship
+ORDER BY depth ASC
+LIMIT 200
+"""
+
+FLOW_GRAPH_LINEAGE_DIRECT_UPSTREAM = """
+MATCH (target:FileNode {id: $target_id})<-[r]-(caller:FileNode)
+RETURN caller.id AS id, caller.file_path AS file_path, caller.role AS role, caller.layer AS layer, type(r) AS rel_type
+LIMIT 50
+"""
+
+FLOW_GRAPH_LINEAGE_DIRECT_DOWNSTREAM = """
+MATCH (target:FileNode {id: $target_id})-[r]->(dep:FileNode)
+RETURN dep.id AS id, dep.file_path AS file_path, dep.role AS role, dep.layer AS layer, type(r) AS rel_type
+LIMIT 50
+"""
+
+
+def build_graph_impact_analysis_query(direction: str, max_depth: int) -> str:
+    template = (
+        FLOW_GRAPH_IMPACT_ANALYSIS_UPSTREAM
+        if direction.upper().strip() == "UPSTREAM"
+        else FLOW_GRAPH_IMPACT_ANALYSIS_DOWNSTREAM
+    )
+    return template.format(max_depth=max_depth)

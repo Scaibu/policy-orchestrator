@@ -14,6 +14,12 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 import time
 
+try:
+    from opentelemetry.trace import Status, StatusCode
+except ImportError:
+    Status = None
+    StatusCode = None
+
 from src.shared.types.envelope_types import TraceContext
 from src.shared.kernel.result import Result
 from src.shared.kernel.abstract_traced_component import AbstractTracedComponent
@@ -28,6 +34,11 @@ from src.features.folder_scaffold.types.folder_scaffold_types import (
     BlastRadiusReport,
     FileLineageReport,
     ImpactNodeDetail,
+)
+from src.features.folder_scaffold.queries.folder_scaffold_graph_queries import (
+    build_graph_impact_analysis_query,
+    FLOW_GRAPH_LINEAGE_DIRECT_UPSTREAM,
+    FLOW_GRAPH_LINEAGE_DIRECT_DOWNSTREAM,
 )
 
 
@@ -51,28 +62,17 @@ class FolderScaffoldAnalyzerDomainService(AbstractTracedComponent, FolderScaffol
         direction: str = "UPSTREAM",
         max_depth: int = 5,
     ) -> Result[BlastRadiusReport, Exception]:
-        start = time.perf_counter()
-        normalized_id = (
-            str(Path(target_id).resolve()) if "/" in target_id or "." in target_id else target_id
-        )
-
-        direction_clean = direction.upper().strip()
-        arrow_in = "<-[r*1.." + str(max_depth) + "]-" if direction_clean == "UPSTREAM" else "-[r*1.." + str(max_depth) + "]->"
-
-        cypher = f"""
-        MATCH path = (target:FileNode {{id: $target_id}}){arrow_in}(impacted:FileNode)
-        RETURN
-            impacted.id AS id,
-            impacted.file_path AS file_path,
-            impacted.role AS role,
-            impacted.layer AS layer,
-            length(path) AS depth,
-            [rel in relationships(path) | type(rel)][0] AS relationship
-        ORDER BY depth ASC
-        LIMIT 200
-        """
-
+        span = None
+        if self._tracer:
+            span = self._tracer.start_span("folder_scaffold.analyze_impact")
         try:
+            start = time.perf_counter()
+            normalized_id = (
+                str(Path(target_id).resolve()) if "/" in target_id or "." in target_id else target_id
+            )
+
+            direction_clean = direction.upper().strip()
+            cypher = build_graph_impact_analysis_query(direction_clean, max_depth)
             res = self._graph_store.query_cypher(cypher, {"target_id": normalized_id})
             impacted_nodes: List[ImpactNodeDetail] = []
             seen_ids = set()
@@ -113,9 +113,18 @@ class FolderScaffoldAnalyzerDomainService(AbstractTracedComponent, FolderScaffol
                 total_impacted=total,
                 execution_time_ms=elapsed_ms,
             )
+            if span and Status is not None and StatusCode is not None:
+                span.set_status(Status(StatusCode.OK))
             return Result.ok(report)
         except Exception as exc:
-            return Result.err(self.mapFailure(exc))
+            mapped = self.mapFailure(exc)
+            if span and Status is not None and StatusCode is not None:
+                span.record_exception(mapped)
+                span.set_status(Status(StatusCode.ERROR, str(mapped)))
+            return Result.err(mapped)
+        finally:
+            if span:
+                span.end()
 
     def get_file_lineage(
         self,
@@ -123,25 +132,20 @@ class FolderScaffoldAnalyzerDomainService(AbstractTracedComponent, FolderScaffol
         file_path: str,
         max_depth: int = 5,
     ) -> Result[FileLineageReport, Exception]:
-        normalized_id = (
-            str(Path(file_path).resolve()) if "/" in file_path or "." in file_path else file_path
-        )
-
-        upstream_cypher = """
-        MATCH (target:FileNode {id: $target_id})<-[r]-(caller:FileNode)
-        RETURN caller.id AS id, caller.file_path AS file_path, caller.role AS role, caller.layer AS layer, type(r) AS rel_type
-        LIMIT 50
-        """
-
-        downstream_cypher = """
-        MATCH (target:FileNode {id: $target_id})-[r]->(dep:FileNode)
-        RETURN dep.id AS id, dep.file_path AS file_path, dep.role AS role, dep.layer AS layer, type(r) AS rel_type
-        LIMIT 50
-        """
-
+        span = None
+        if self._tracer:
+            span = self._tracer.start_span("folder_scaffold.get_file_lineage")
         try:
-            up_res = self._graph_store.query_cypher(upstream_cypher, {"target_id": normalized_id})
-            down_res = self._graph_store.query_cypher(downstream_cypher, {"target_id": normalized_id})
+            normalized_id = (
+                str(Path(file_path).resolve()) if "/" in file_path or "." in file_path else file_path
+            )
+
+            up_res = self._graph_store.query_cypher(
+                FLOW_GRAPH_LINEAGE_DIRECT_UPSTREAM, {"target_id": normalized_id}
+            )
+            down_res = self._graph_store.query_cypher(
+                FLOW_GRAPH_LINEAGE_DIRECT_DOWNSTREAM, {"target_id": normalized_id}
+            )
 
             direct_upstream = [
                 {
@@ -183,6 +187,15 @@ class FolderScaffoldAnalyzerDomainService(AbstractTracedComponent, FolderScaffol
                 is_root_ingress=len(direct_upstream) == 0,
                 is_leaf_node=len(direct_downstream) == 0,
             )
+            if span and Status is not None and StatusCode is not None:
+                span.set_status(Status(StatusCode.OK))
             return Result.ok(lineage)
         except Exception as exc:
-            return Result.err(self.mapFailure(exc))
+            mapped = self.mapFailure(exc)
+            if span and Status is not None and StatusCode is not None:
+                span.record_exception(mapped)
+                span.set_status(Status(StatusCode.ERROR, str(mapped)))
+            return Result.err(mapped)
+        finally:
+            if span:
+                span.end()
