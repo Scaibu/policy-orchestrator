@@ -5,7 +5,7 @@ ALGORITHM & ARCHITECTURE BLUEPRINT: REST API V1 UNIFIED FACADE ROUTER
 
 1. OVERVIEW & OBJECTIVE:
    Unified facade aggregator composing all modular role-based routers for REST API V1:
-   - System Router (System health, RAG, AI agents, audit, graph)
+   - System Router (System health)
    - Folder Scaffold Router (File scaffolding & relationship modeling)
 
 2. ZERO-INLINE-COMMENT DOCTRINE:
@@ -28,18 +28,5 @@ router.include_router(folder_scaffold_router)
 # -----------------------------------------------------------------------------
 
 from .routers.system_router import (
-    GraphQueryDTO,
-    RAGSearchRequestDTO,
-    AgentRunRequestDTO,
-    IndexingStatusDTO,
     health_check,
-    index_policies,
-    search_policies,
-    run_agent,
-    list_declarative_agents,
-    run_specialized_agent,
-    scan_repository,
-    build_graph,
-    query_graph,
-    get_rule_impact,
 )
