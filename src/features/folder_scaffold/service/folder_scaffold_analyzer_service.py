@@ -37,9 +37,12 @@ class FolderScaffoldAnalyzerDomainService(AbstractTracedComponent, FolderScaffol
         repository: FolderScaffoldRepositoryPort,
         graph_store: GraphStorePort,
     ) -> None:
-        super().__init__(component_name="FolderScaffoldAnalyzerDomainService")
+        super().__init__()
         self._repository = repository
         self._graph_store = graph_store
+
+    def mapFailure(self, cause: Exception) -> Exception:
+        return cause
 
     def analyze_impact(
         self,
