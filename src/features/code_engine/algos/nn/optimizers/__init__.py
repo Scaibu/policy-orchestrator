@@ -1,1 +1,0 @@
-"""Optimizers algorithms module."""

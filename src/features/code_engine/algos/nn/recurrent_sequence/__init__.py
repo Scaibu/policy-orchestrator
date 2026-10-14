@@ -1,1 +1,0 @@
-"""Recurrent Sequence algorithms module."""
