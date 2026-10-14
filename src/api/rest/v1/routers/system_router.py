@@ -24,7 +24,7 @@ from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel, Field
 
 from src.api.rest.envelope import build_success_envelope, build_error_envelope
-from ..dependencies import get_services, get_code_engine_service
+from ..dependencies import get_services
 class RAGSearchRequestDTO(BaseModel):
     query: str = Field(..., description="Query string")
     top_k: int = Field(default=5, description="Top-k documents")
@@ -41,27 +41,12 @@ class AgentRunRequestDTO(BaseModel):
     temperature: float = Field(default=0.0)
     session_id: Optional[str] = Field(default=None)
 from src.domain.ports.agent_manifest_port import AgentRole
-from src.domain.models.algorithm_contract import (
-    AlgorithmCategory,
-    Purity,
-    SideEffectScope,
-    AlgorithmContract,
-    TypeAdapterContract,
-)
 
 router = APIRouter()
 
 class GraphQueryDTO(BaseModel):
     query: str = Field(..., description="Cypher or pattern matching query")
     parameters: Optional[Dict[str, Any]] = Field(default=None, description="Query parameters")
-
-class AlgoComposeRequestDTO(BaseModel):
-    algo_ids: List[str] = Field(..., description="Ordered list of algorithm IDs to compose")
-    strict_check: bool = Field(default=True, description="Enforce strict contract safety checks")
-
-class AlgoExecuteRequestDTO(BaseModel):
-    inputs: Dict[str, Any] = Field(default_factory=dict, description="Algorithm input parameters")
-    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Optional algorithm execution parameters")
 
 @router.get("/health")
 def health_check(request: Request) -> Dict[str, Any]:
@@ -265,19 +250,6 @@ def scan_repository(request: Request, target_directory: str = ".") -> Dict[str, 
         trace_id=trace_id,
     )
 
-@router.post("/algos/execute/{algo_id}")
-def execute_algorithm_direct(algo_id: str, payload: AlgoExecuteRequestDTO, request: Request) -> Dict[str, Any]:
-    trace_id = request.headers.get("x-trace-id")
-    svc = get_code_engine_service()
-    try:
-        res = svc.execute_algorithm(algo_id=algo_id, inputs=payload.inputs, parameters=payload.parameters)
-        return build_success_envelope(data={"algo_id": algo_id, "result": res}, trace_id=trace_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.post("/graph/build")
 def build_graph(request: Request) -> Dict[str, Any]:
     trace_id = request.headers.get("x-trace-id")
@@ -307,66 +279,3 @@ def get_rule_impact(rule_id: str, request: Request) -> Dict[str, Any]:
     svcs = get_services()
     impact = svcs["graph"].get_rule_impact(rule_id)
     return build_success_envelope(data={"rule_id": rule_id, "impact": impact}, trace_id=trace_id)
-
-
-@router.get("/algos/contracts")
-def list_algorithm_contracts(
-    request: Request,
-    category: Optional[str] = None,
-    tag: Optional[str] = None,
-    purity: Optional[str] = None,
-    side_effects: Optional[str] = None,
-) -> Dict[str, Any]:
-    trace_id = request.headers.get("x-trace-id")
-    svcs = get_services()
-    
-    cat_enum = AlgorithmCategory(category) if category else None
-    purity_enum = Purity(purity) if purity else None
-    se_enum = SideEffectScope(side_effects) if side_effects else None
-    tags_filter = [tag] if tag else None
-
-    contracts = svcs["algo_registry"].list_algorithms(
-        category=cat_enum,
-        tags=tags_filter,
-        purity=purity_enum,
-        side_effects=se_enum,
-    )
-    return build_success_envelope(
-        data={"total_contracts": len(contracts), "contracts": [c.model_dump() for c in contracts]},
-        trace_id=trace_id,
-    )
-
-
-@router.get("/algos/contracts/{algo_id}")
-def get_algorithm_contract(algo_id: str, request: Request) -> Dict[str, Any]:
-    trace_id = request.headers.get("x-trace-id")
-    svcs = get_services()
-    contract = svcs["algo_registry"].get_algorithm(algo_id)
-    if not contract:
-        raise HTTPException(status_code=404, detail=f"Algorithm contract '{algo_id}' not found.")
-    return build_success_envelope(data=contract.model_dump(), trace_id=trace_id)
-
-
-@router.get("/algos/adapters")
-def list_type_adapters(request: Request) -> Dict[str, Any]:
-    trace_id = request.headers.get("x-trace-id")
-    svcs = get_services()
-    adapters = svcs["algo_registry"].list_adapters()
-    return build_success_envelope(
-        data={"total_adapters": len(adapters), "adapters": [a.model_dump() for a in adapters]},
-        trace_id=trace_id,
-    )
-
-
-@router.post("/algos/compose")
-def compose_algorithm_pipeline(payload: AlgoComposeRequestDTO, request: Request) -> Dict[str, Any]:
-    trace_id = request.headers.get("x-trace-id")
-    svcs = get_services()
-    try:
-        plan = svcs["composer"].compose_pipeline(
-            algo_ids=payload.algo_ids,
-            strict_contract_check=payload.strict_check,
-        )
-        return build_success_envelope(data=plan, trace_id=trace_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))

@@ -26,14 +26,8 @@ from src.infra.adapters.agent.in_memory_agent_registry_adapter import InMemoryAg
 from src.infra.adapters.llm.openai_compatible_adapter import OpenAICompatibleAdapter
 from src.infra.adapters.llm.mock_llm_adapter import MockLLMAdapter
 from src.infra.adapters.database import (
-    InMemoryAlgorithmRegistryAdapter,
-    SQLiteAlgorithmRegistryAdapter,
-    AlloyDBAlgorithmRegistryAdapter,
-    PostgresAlgorithmRegistryAdapter,
     DatabaseMigrationRunner,
 )
-from src.features.code_engine.service.algorithm_composer_service import AlgorithmComposerService
-from src.features.code_engine.service.code_engine_service import CodeEngineService
 
 
 def get_orchestrator_services() -> Dict[str, Any]:
@@ -74,85 +68,17 @@ def get_orchestrator_services() -> Dict[str, Any]:
     db_url = os.environ.get("DATABASE_URL")
     auto_migrate = os.environ.get("AUTO_MIGRATE", "true").lower() == "true"
 
-    if db_url and (db_url.startswith("postgres://") or db_url.startswith("postgresql://")):
-        if auto_migrate:
-            try:
-                migration_runner = DatabaseMigrationRunner(db_url)
-                migration_runner.run_migrations()
-                migration_runner.seed_algorithm_catalog()
-            except Exception:
-                pass
-        algo_registry = AlloyDBAlgorithmRegistryAdapter(db_url)
-    elif db_url and db_url.startswith("sqlite://"):
-        if auto_migrate:
-            try:
-                migration_runner = DatabaseMigrationRunner(db_url)
-                migration_runner.run_migrations()
-                migration_runner.seed_algorithm_catalog()
-            except Exception:
-                pass
-        db_path = db_url.replace("sqlite:///", "")
-        algo_registry = SQLiteAlgorithmRegistryAdapter(db_path)
-    else:
-        algo_registry = SQLiteAlgorithmRegistryAdapter(":memory:")
-        if auto_migrate:
-            try:
-                migration_runner = DatabaseMigrationRunner("sqlite:///:memory:")
-                migration_runner.run_migrations(conn=algo_registry._memory_conn)
-                migration_runner.seed_algorithm_catalog(conn=algo_registry._memory_conn)
-            except Exception:
-                pass
-
-    composer_svc = AlgorithmComposerService(algo_registry)
-    code_engine_svc = CodeEngineService()
-
-    if llm_backend == "openai":
-        llm_provider = OpenAICompatibleAdapter(
-            base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-            api_key=os.environ.get("OPENAI_API_KEY", ""),
-            model_name=os.environ.get("OPENAI_MODEL", "gpt-4o"),
-        )
-    elif llm_backend == "ollama":
-        llm_provider = OpenAICompatibleAdapter(
-            base_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
-            api_key="EMPTY",
-            model_name=os.environ.get("OLLAMA_MODEL", "llama3.2"),
-        )
-    else:
-        llm_provider = MockLLMAdapter()
-
-    rag_svc = (
-        RAGService(
-            knowledge_source=knowledge_source,
-            vector_store=vector_store,
-            llm_provider=llm_provider,
-        )
-        if RAGService is not None
-        else None
-    )
-    audit_svc = AuditService() if AuditService is not None else None
-    agent_svc = (
-        AgentService(
-            llm_provider=llm_provider,
-            rag_service=rag_svc,
-            audit_service=audit_svc,
-            search_provider=search_provider,
-            tool_registry=tool_registry,
-        )
-        if AgentService is not None
-        else None
-    )
-    from src.features.code_engine.service.algorithm_registry_service import AlgorithmRegistryService
-    algo_registry_svc = AlgorithmRegistryService(algo_registry)
+    if auto_migrate and db_url:
+        try:
+            migration_runner = DatabaseMigrationRunner(db_url)
+            migration_runner.run_migrations()
+        except Exception:
+            pass
 
     return {
         "graph_store": graph_store,
         "agent_registry": agent_registry,
         "tool_registry": tool_registry,
-        "algo_registry": algo_registry,
-        "algo_registry_service": algo_registry_svc,
-        "composer": composer_svc,
-        "code_engine": code_engine_svc,
     }
 
 
@@ -164,14 +90,6 @@ def get_services() -> Dict[str, Any]:
     if _SERVICES is None:
         _SERVICES = get_orchestrator_services()
     return _SERVICES
-
-
-def get_code_engine_service() -> CodeEngineService:
-    return get_services()["code_engine"]
-
-
-def get_algorithm_registry_service() -> Any:
-    return get_services()["algo_registry_service"]
 
 
 def get_graph_store() -> Any:
