@@ -1,0 +1,545 @@
+{
+  "_template": {
+    "name": "deploy-structure",
+    "version": "1.0.0",
+    "description": "Multi-Target Polyglot Deployment Hub: Docker, Kubernetes, Helm, Terraform, ArgoCD, Topology, and Release.",
+    "source_rule": "policies/rules/folder-structure/api-structure.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-deploy --package PACKAGE_NAME --base-dir <target_dir>",
+    "variables": {
+      "PACKAGE_NAME": "Replace with your package name"
+    }
+  },
+  "root_id": "PACKAGE_NAME/deploy",
+  "root_role": "PackageRoot",
+  "nodes": [
+    {
+      "path": "deploy/docker/base/Dockerfile.base",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Shared multi-stage base runtime (Python/Node)\nFROM python:3.10-slim AS base\n"
+    },
+    {
+      "path": "deploy/docker/base/registry.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Container registry endpoints and credentials\nregistry:\n  url: \"ghcr.io/scaibu\"\n"
+    },
+    {
+      "path": "deploy/docker/service/Dockerfile",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Package-specific production container build\nFROM ghcr.io/scaibu/base:latest\nWORKDIR /app\nCOPY . .\n"
+    },
+    {
+      "path": "deploy/docker/service/Dockerfile.dev",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Package-specific local development build with hot reload\n"
+    },
+    {
+      "path": "deploy/docker/compose/docker-compose.single.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Standalone runner for this package\nversion: '3.8'\nservices:\n  app:\n    build: ../service\n"
+    },
+    {
+      "path": "deploy/docker/compose/docker-compose.polyglot.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Multi-package coordination runner (2 Python + 1 Node.js)\nversion: '3.8'\n"
+    },
+    {
+      "path": "deploy/docker/compose/docker-compose.infra.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Local backing dependencies (Postgres, Redis, Kafka)\nversion: '3.8'\n"
+    },
+    {
+      "path": "deploy/k8s/base/deployment.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Kubernetes Deployment manifest\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/service.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Kubernetes Service routing\napiVersion: v1\nkind: Service\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/hpa.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Horizontal Pod Autoscaler\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/configmap.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Injected environment configurations\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: PACKAGE_NAME-config\n"
+    },
+    {
+      "path": "deploy/k8s/base/ingress.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Ingress routing rules\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/pdb.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Pod Disruption Budget\napiVersion: policy/v1\nkind: PodDisruptionBudget\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/local-polyglot/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/dev/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/staging/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/prod/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/helm/Chart.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: v2\nname: PACKAGE_NAME\ndescription: Helm chart for PACKAGE_NAME\nversion: 0.1.0\nappVersion: \"1.0.0\"\n"
+    },
+    {
+      "path": "deploy/helm/Chart.lock",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Pinned sub-chart dependencies lockfile\n"
+    },
+    {
+      "path": "deploy/helm/values.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Base default Helm values\nreplicaCount: 1\nimage:\n  repository: ghcr.io/scaibu/PACKAGE_NAME\n  tag: latest\n"
+    },
+    {
+      "path": "deploy/helm/env-values/values.dev.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Development values\n"
+    },
+    {
+      "path": "deploy/helm/env-values/values.staging.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Staging values\n"
+    },
+    {
+      "path": "deploy/helm/env-values/values.prod.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Production values (HA)\nreplicaCount: 3\n"
+    },
+    {
+      "path": "deploy/helm/templates/_helpers.tpl",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "{{/* Common Helm template helpers */}}\n"
+    },
+    {
+      "path": "deploy/helm/templates/deployment.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized Deployment template\n"
+    },
+    {
+      "path": "deploy/helm/templates/service.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized Service template\n"
+    },
+    {
+      "path": "deploy/helm/templates/ingress.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized Ingress template\n"
+    },
+    {
+      "path": "deploy/helm/templates/hpa.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized HPA template\n"
+    },
+    {
+      "path": "deploy/helm/templates/pdb.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized PDB template\n"
+    },
+    {
+      "path": "deploy/helm/packaging/package.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nhelm package . -d dist/\n"
+    },
+    {
+      "path": "deploy/helm/packaging/publish.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nhelm push dist/*.tgz oci://ghcr.io/scaibu/charts\n"
+    },
+    {
+      "path": "deploy/argocd/project.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: AppProject\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/argocd/applications/app.dev.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: PACKAGE_NAME-dev\n"
+    },
+    {
+      "path": "deploy/argocd/applications/app.staging.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: PACKAGE_NAME-staging\n"
+    },
+    {
+      "path": "deploy/argocd/applications/app.prod.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: PACKAGE_NAME-prod\n"
+    },
+    {
+      "path": "deploy/argocd/applicationset.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: ApplicationSet\nmetadata:\n  name: PACKAGE_NAME-set\n"
+    },
+    {
+      "path": "deploy/terraform/backend.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Remote state locking (S3/DynamoDB or GCS)\n"
+    },
+    {
+      "path": "deploy/terraform/versions.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Pinned Terraform & provider versions\n"
+    },
+    {
+      "path": "deploy/terraform/environments/dev.tfvars",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "environment = \"dev\"\n"
+    },
+    {
+      "path": "deploy/terraform/environments/staging.tfvars",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "environment = \"staging\"\n"
+    },
+    {
+      "path": "deploy/terraform/environments/prod.tfvars",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "environment = \"prod\"\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/database.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# RDS / AlloyDB clusters with automated backups (prevent_destroy = true)\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/storage.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# S3 / GCS buckets with versioning & KMS\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/cache.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Redis / ElastiCache multi-AZ cluster\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/secrets.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Vault / AWS Secrets Manager containers\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateless/compute.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# EKS NodeGroups, ECS tasks, or Cloud Run\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateless/ingress.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Application Load Balancer (ALB), CloudFront CDN, Route53 DNS\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateless/autoscaling.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Cluster autoscaler & target tracking policies\n"
+    },
+    {
+      "path": "deploy/terraform/modules/security/iam.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Least-privilege IAM roles & IRSA bindings\n"
+    },
+    {
+      "path": "deploy/terraform/modules/security/security_groups.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Strict network CIDR ingress/egress rules\n"
+    },
+    {
+      "path": "deploy/terraform/modules/security/kms.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Dedicated Customer Managed KMS keys\n"
+    },
+    {
+      "path": "deploy/terraform/main.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Root composition invoking stateful & stateless modules\n"
+    },
+    {
+      "path": "deploy/terraform/variables.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Declarative input variables\n"
+    },
+    {
+      "path": "deploy/terraform/outputs.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Exported endpoints and ARNs\n"
+    },
+    {
+      "path": "deploy/topology/network_map.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Declares hostnames, ports & protocols for sibling services\nservices:\n  - name: py-service-1\n    port: 8001\n  - name: py-service-2\n    port: 8002\n  - name: node-service-1\n    port: 3000\n"
+    },
+    {
+      "path": "deploy/release/deploy.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\n# Unified release runner\n"
+    },
+    {
+      "path": "deploy/release/rollback.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/deploy",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\n# Emergency rollback runner\n"
+    }
+  ],
+  "relationships": [
+    { "source": "deploy/docker/service/Dockerfile",                     "rel_type": "DEPENDS_ON", "target": "deploy/docker/base/Dockerfile.base" },
+    { "source": "deploy/k8s/base/deployment.yaml",                      "rel_type": "DEPLOYS",    "target": "deploy/docker/service/Dockerfile" },
+    { "source": "deploy/helm/templates/deployment.yaml",               "rel_type": "DEPLOYS",    "target": "deploy/docker/service/Dockerfile" },
+    { "source": "deploy/argocd/applications/app.prod.yaml",             "rel_type": "BINDS_TO",   "target": "deploy/helm/env-values/values.prod.yaml" },
+    { "source": "deploy/argocd/applications/app.dev.yaml",              "rel_type": "BINDS_TO",   "target": "deploy/k8s/overlays/dev/kustomization.yaml" },
+    { "source": "deploy/terraform/main.tf",                             "rel_type": "CALLS",      "target": "deploy/terraform/modules/stateful/database.tf" },
+    { "source": "deploy/terraform/main.tf",                             "rel_type": "CALLS",      "target": "deploy/terraform/modules/stateless/compute.tf" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "api-structure.md",
+    "paradigm": "multi_target_deploy_hub",
+    "canonical_roles": 57
+  }
+}
