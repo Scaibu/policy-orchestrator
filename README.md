@@ -33,7 +33,15 @@ python3 src/api/cli/folder_scaffold_cli.py scaffold-package \
     --base-dir <base-dir>
   ```
 
-### 3. Analyze Architectural Knowledge Graph
+### 3. Scaffold Consolidated Database Hub
+Creates the unified `database/` structure (`migrations/sql/`, `migrations/cypher/`, `seeds/`, `engine/`, `config/`, and `schema.lock`):
+```bash
+python3 src/api/cli/folder_scaffold_cli.py scaffold-database \
+  --package <package-name> \
+  --base-dir <base-dir>
+```
+
+### 4. Analyze Architectural Knowledge Graph
 - **Blast Radius / Impact Analysis** (find callers and dependencies affected by a change):
   ```bash
   python3 src/api/cli/folder_scaffold_cli.py analyze-impact \

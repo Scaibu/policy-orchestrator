@@ -1,0 +1,130 @@
+{
+  "_template": {
+    "name": "database-structure",
+    "version": "1.0.0",
+    "description": "Consolidated Database Hub: migrations (sql, cypher), seeds, engine (connection, transaction, executor, runner), and config (rls, topology).",
+    "source_rule": "policies/rules/folder-structure/api-structure.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-database --package PACKAGE_NAME --base-dir <target_dir>",
+    "variables": {
+      "PACKAGE_NAME": "Replace with your package name"
+    }
+  },
+  "root_id": "PACKAGE_NAME/database",
+  "root_role": "PackageRoot",
+  "nodes": [
+    {
+      "path": "database/schema.lock",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "{\"version\": \"1.0.0\", \"checksums\": {}}\n"
+    },
+    {
+      "path": "database/migrations/sql/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/migrations/cypher/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "database/seeds/dev_seeds.sql",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "-- Development seed data fixtures\n"
+    },
+    {
+      "path": "database/seeds/test_seeds.sql",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "-- Test environment seed fixtures\n"
+    },
+    {
+      "path": "database/engine/connection.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Connection pooling and client lifecycle for Primary & Replica\"\"\"\n"
+    },
+    {
+      "path": "database/engine/transaction.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Unit of Work / atomic transaction runner (commit & rollback)\"\"\"\n"
+    },
+    {
+      "path": "database/engine/executor.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Parameterized query executor with OpenTelemetry tracing\"\"\"\n"
+    },
+    {
+      "path": "database/engine/runner.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Migration runner verifying checksums against schema.lock\"\"\"\n"
+    },
+    {
+      "path": "database/config/rls.sql",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "-- Row-level security policies (multi-tenancy)\n"
+    },
+    {
+      "path": "database/config/topology.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/database",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Replication topology and read/write quorum configuration\ntopology:\n  mode: primary_replica\n"
+    }
+  ],
+  "relationships": [
+    { "source": "database/schema.lock",            "rel_type": "CHECKSUMS",   "target": "database/migrations/sql/.gitkeep" },
+    { "source": "database/engine/runner.py",        "rel_type": "VERIFIES",    "target": "database/schema.lock" },
+    { "source": "database/engine/runner.py",        "rel_type": "EXECUTES_QUERY", "target": "database/migrations/sql/.gitkeep" },
+    { "source": "database/engine/connection.py",    "rel_type": "RESOLVES_CONFIG", "target": "database/config/topology.yaml" },
+    { "source": "database/engine/transaction.py",   "rel_type": "DEPENDS_ON",  "target": "database/engine/connection.py" },
+    { "source": "database/engine/executor.py",      "rel_type": "DEPENDS_ON",  "target": "database/engine/connection.py" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "api-structure.md",
+    "paradigm": "consolidated_database_hub",
+    "canonical_roles": 11
+  }
+}

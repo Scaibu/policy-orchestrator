@@ -193,9 +193,11 @@ HEADER_FILE_LINEAGE = "FILE KNOWLEDGE GRAPH LINEAGE"
 
 CLI_CMD_SCAFFOLD_PACKAGE = "scaffold-package"
 CLI_CMD_SCAFFOLD_FEATURE = "scaffold-feature"
+CLI_CMD_SCAFFOLD_DATABASE = "scaffold-database"
 
 CLI_HELP_SCAFFOLD_PACKAGE = "Scaffold complete polyglot sub-package structure per 0-package-folder-writing-rule.md"
 CLI_HELP_SCAFFOLD_FEATURE = "Scaffold hexagonal backend or frontend feature in a package per 1-feature-folder-writing-rule.md"
+CLI_HELP_SCAFFOLD_DATABASE = "Scaffold consolidated database hub (migrations, seeds, engine, config) in a package"
 
 CLI_ERR_PACKAGE_NAME_REQUIRED = "Error: --name <package_name> is required for scaffold-package."
 CLI_ERR_FEATURE_NAME_REQUIRED = "Error: --name <feature_name> and --package <package_name> are required for scaffold-feature."
@@ -203,6 +205,7 @@ CLI_ERR_FEATURE_NAME_REQUIRED = "Error: --name <feature_name> and --package <pac
 TEMPLATE_FILE_PACKAGE_STRUCTURE = "0-rule-package-structure.template.json"
 TEMPLATE_FILE_BACKEND_FEATURE = "1-rule-backend-feature-structure.template.json"
 TEMPLATE_FILE_FRONTEND_FEATURE = "1-rule-frontend-feature-structure.template.json"
+TEMPLATE_FILE_DATABASE_STRUCTURE = "database-structure.template.json"
 
 FEATURE_TYPE_BACKEND = "backend"
 FEATURE_TYPE_FRONTEND = "frontend"
