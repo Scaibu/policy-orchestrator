@@ -41,7 +41,15 @@ python3 src/api/cli/folder_scaffold_cli.py scaffold-database \
   --base-dir <base-dir>
 ```
 
-### 4. Analyze Architectural Knowledge Graph
+### 4. Scaffold Consolidated Messaging Hub
+Creates the unified `messaging/` structure (`topics/`, `schemas/`, `policies/`, `engine/client/`, `engine/producers/`, `engine/consumers/`, `engine/pipeline/`, and `topics.lock`):
+```bash
+python3 src/api/cli/folder_scaffold_cli.py scaffold-messaging \
+  --package <package-name> \
+  --base-dir <base-dir>
+```
+
+### 5. Analyze Architectural Knowledge Graph
 - **Blast Radius / Impact Analysis** (find callers and dependencies affected by a change):
   ```bash
   python3 src/api/cli/folder_scaffold_cli.py analyze-impact \

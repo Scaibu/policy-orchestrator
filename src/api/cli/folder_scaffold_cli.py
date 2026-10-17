@@ -48,6 +48,7 @@ from src.shared.constants.scaffold_constants import (
     CLI_CMD_SCAFFOLD_PACKAGE,
     CLI_CMD_SCAFFOLD_FEATURE,
     CLI_CMD_SCAFFOLD_DATABASE,
+    CLI_CMD_SCAFFOLD_MESSAGING,
     CLI_CMD_ANALYZE_IMPACT,
     CLI_CMD_ANALYZE_LINEAGE,
     STORE_MEMORY,
@@ -86,6 +87,7 @@ from src.shared.constants.scaffold_constants import (
     CLI_HELP_SCAFFOLD_PACKAGE,
     CLI_HELP_SCAFFOLD_FEATURE,
     CLI_HELP_SCAFFOLD_DATABASE,
+    CLI_HELP_SCAFFOLD_MESSAGING,
     CLI_HELP_ANALYZE_IMPACT,
     CLI_HELP_ANALYZE_LINEAGE,
     CLI_ERR_MANIFEST_REQUIRED,
@@ -101,6 +103,7 @@ from src.shared.constants.scaffold_constants import (
     TEMPLATE_FILE_BACKEND_FEATURE,
     TEMPLATE_FILE_FRONTEND_FEATURE,
     TEMPLATE_FILE_DATABASE_STRUCTURE,
+    TEMPLATE_FILE_MESSAGING_STRUCTURE,
     FEATURE_TYPE_BACKEND,
     FEATURE_TYPE_FRONTEND,
     HEADER_TREE_SCAFFOLDED,
@@ -292,6 +295,27 @@ def handle_scaffold_database(args: argparse.Namespace) -> int:
         package_name=package_name,
         feature_name=None,
         root_id=f"{package_name}/database",
+        args=args,
+    )
+
+
+def handle_scaffold_messaging(args: argparse.Namespace) -> int:
+    package_name = getattr(args, "package_name", None) or getattr(args, "package", None) or getattr(args, "name", None)
+    if not package_name:
+        print(CLI_ERR_PACKAGE_NAME_REQUIRED)
+        return EXIT_FAILURE
+
+    manifest_path = get_template_path(TEMPLATE_FILE_MESSAGING_STRUCTURE)
+    base_dir = getattr(args, "base_dir", None)
+    if not base_dir:
+        base_dir = str(Path(repo_root).parent.parent / "packages" / package_name)
+
+    return execute_scaffold_manifest(
+        manifest_path=manifest_path,
+        base_dir=base_dir,
+        package_name=package_name,
+        feature_name=None,
+        root_id=f"{package_name}/messaging",
         args=args,
     )
 
@@ -491,6 +515,16 @@ def build_folder_scaffold_cli_parser() -> argparse.ArgumentParser:
     scaffold_db_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
     scaffold_db_p.add_argument("--json", action="store_true", help="Output result as JSON")
 
+    scaffold_msg_p = subparsers.add_parser(
+        CLI_CMD_SCAFFOLD_MESSAGING,
+        help=CLI_HELP_SCAFFOLD_MESSAGING,
+    )
+    scaffold_msg_p.add_argument("--package", "--package-name", "--name", dest="package", required=True, help="Target package name where messaging hub should reside")
+    scaffold_msg_p.add_argument("--base-dir", dest="base_dir", default=None, help="Package root directory (default: packages/<package>)")
+    scaffold_msg_p.add_argument("--store", choices=[STORE_MEMORY, STORE_NEO4J], default=STORE_MEMORY, help="Graph storage backend")
+    scaffold_msg_p.add_argument("--neo4j", action="store_true", help="Use live Neo4j graph storage")
+    scaffold_msg_p.add_argument("--json", action="store_true", help="Output result as JSON")
+
     return parser
 
 
@@ -501,6 +535,7 @@ def main() -> None:
         CLI_CMD_SCAFFOLD_PACKAGE: handle_scaffold_package,
         CLI_CMD_SCAFFOLD_FEATURE: handle_scaffold_feature,
         CLI_CMD_SCAFFOLD_DATABASE: handle_scaffold_database,
+        CLI_CMD_SCAFFOLD_MESSAGING: handle_scaffold_messaging,
         CLI_CMD_SCAFFOLD_TREE: handle_scaffold_tree,
         CLI_CMD_ANALYZE_IMPACT: handle_analyze_impact,
         CLI_CMD_ANALYZE_LINEAGE: handle_analyze_lineage,

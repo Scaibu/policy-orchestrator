@@ -1,0 +1,160 @@
+{
+  "_template": {
+    "name": "messaging-structure",
+    "version": "1.0.0",
+    "description": "Consolidated Messaging Hub: topics, schemas, policies, and engine (client, producers, consumers, pipeline).",
+    "source_rule": "policies/rules/folder-structure/api-structure.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-messaging --package PACKAGE_NAME --base-dir <target_dir>",
+    "variables": {
+      "PACKAGE_NAME": "Replace with your package name"
+    }
+  },
+  "root_id": "PACKAGE_NAME/messaging",
+  "root_role": "PackageRoot",
+  "nodes": [
+    {
+      "path": "messaging/topics.lock",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "{\"version\": \"1.0.0\", \"topics\": []}\n"
+    },
+    {
+      "path": "messaging/topics/topics.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Declarative topic provisioning manifests\ntopics:\n  - name: PACKAGE_NAME.events\n    partitions: 3\n    replication_factor: 1\n    retention_ms: 604800000\n"
+    },
+    {
+      "path": "messaging/schemas/.gitkeep",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "messaging/policies/dlq_policy.yaml",
+      "role": "Rules",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Dead Letter Queue and retry policy\nretry:\n  max_attempts: 3\n  backoff_multiplier: 2.0\n  initial_interval_ms: 1000\ndlq:\n  topic: PACKAGE_NAME.events.dlq\n"
+    },
+    {
+      "path": "messaging/engine/client/connection_pool.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Broker connection manager & SASL/TLS authentication\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/client/cluster_health.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Liveness & readiness checks and partition metadata inspector\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/producers/event_publisher.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Core CloudEvents publisher (batching, acks=all, partition key hasher)\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/producers/envelope_builder.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Injects CloudEvents 1.0 metadata & W3C traceparent headers\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/consumers/consumer_group.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Worker pool, partition rebalance listener & poll loop\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/consumers/commit_manager.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"At-least-once / exact-once offset commit coordinator\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/consumers/dispatcher.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Routes deserialized payloads to registered internal handlers\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/pipeline/tracing_interceptor.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"OpenTelemetry trace extraction & span creation interceptor\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/pipeline/retry_policy.py",
+      "role": "Rules",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Exponential backoff jitter & retry counter\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/pipeline/dead_letter_router.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME/messaging",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Automatically forwards poisoned/failed messages to DLQ topic\"\"\"\n"
+    }
+  ],
+  "relationships": [
+    { "source": "messaging/topics.lock",                                "rel_type": "CHECKSUMS",         "target": "messaging/topics/topics.yaml" },
+    { "source": "messaging/engine/producers/event_publisher.py",        "rel_type": "DEPENDS_ON",        "target": "messaging/engine/client/connection_pool.py" },
+    { "source": "messaging/engine/producers/event_publisher.py",        "rel_type": "CALLS",             "target": "messaging/engine/producers/envelope_builder.py" },
+    { "source": "messaging/engine/consumers/consumer_group.py",         "rel_type": "DEPENDS_ON",        "target": "messaging/engine/client/connection_pool.py" },
+    { "source": "messaging/engine/consumers/consumer_group.py",         "rel_type": "CALLS",             "target": "messaging/engine/consumers/commit_manager.py" },
+    { "source": "messaging/engine/consumers/consumer_group.py",         "rel_type": "DISPATCHES_TO",     "target": "messaging/engine/consumers/dispatcher.py" },
+    { "source": "messaging/engine/pipeline/dead_letter_router.py",      "rel_type": "ENFORCES",          "target": "messaging/policies/dlq_policy.yaml" },
+    { "source": "messaging/engine/pipeline/dead_letter_router.py",      "rel_type": "PUBLISHES_TO",     "target": "messaging/engine/producers/event_publisher.py" },
+    { "source": "messaging/engine/producers/event_publisher.py",        "rel_type": "BINDS_TO",          "target": "messaging/engine/pipeline/tracing_interceptor.py" }
+  ],
+  "metadata": {
+    "template_version": "1.0.0",
+    "created_by": "folder-scaffold-cli",
+    "rule_reference": "api-structure.md",
+    "paradigm": "consolidated_messaging_hub",
+    "canonical_roles": 14
+  }
+}
