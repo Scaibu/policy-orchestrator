@@ -1,4 +1,4 @@
-from src.features.folder_scaffold.rules.folder_scaffold_rules import (
+from src.features.folder_scaffold.domain.rules.folder_scaffold_rules import (
     can_link,
     infer_layer,
     infer_feature_name,

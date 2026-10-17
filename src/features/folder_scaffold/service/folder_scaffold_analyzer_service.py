@@ -27,15 +27,15 @@ from src.domain.ports.graph_port import GraphStorePort
 from src.features.folder_scaffold.service.folder_scaffold_analyzer_service_port import (
     FolderScaffoldAnalyzerServicePort,
 )
-from src.features.folder_scaffold.repository.folder_scaffold_repository_port import (
+from src.features.folder_scaffold.infrastructure.ports.folder_scaffold_repository_port import (
     FolderScaffoldRepositoryPort,
 )
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     BlastRadiusReport,
     FileLineageReport,
     ImpactNodeDetail,
 )
-from src.features.folder_scaffold.queries.folder_scaffold_graph_queries import (
+from src.features.folder_scaffold.infrastructure.queries.folder_scaffold_graph_queries import (
     build_graph_impact_analysis_query,
     FLOW_GRAPH_LINEAGE_DIRECT_UPSTREAM,
     FLOW_GRAPH_LINEAGE_DIRECT_DOWNSTREAM,

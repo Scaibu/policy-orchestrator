@@ -1,11 +1,11 @@
 import json
 from typing import Optional
-from src.features.folder_scaffold.repository.folder_scaffold_repository_port import FolderScaffoldRepositoryPort
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.infrastructure.ports.folder_scaffold_repository_port import FolderScaffoldRepositoryPort
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     ScaffoldedFileNode,
     ScaffoldedRelationshipRecord,
 )
-from src.features.folder_scaffold.queries.folder_scaffold_queries import (
+from src.features.folder_scaffold.infrastructure.queries.folder_scaffold_queries import (
     FLOW_INSERT_SCAFFOLDED_NODE,
     FLOW_INSERT_SCAFFOLDED_RELATIONSHIP,
     FLOW_GET_SCAFFOLDED_NODE_BY_ID,

@@ -1,4 +1,4 @@
-from src.features.folder_scaffold.machines.folder_scaffold_machine import (
+from src.features.folder_scaffold.domain.machines.folder_scaffold_machine import (
     STATE_PENDING,
     STATE_VALIDATED,
     STATE_WRITTEN,

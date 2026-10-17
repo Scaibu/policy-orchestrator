@@ -48,7 +48,7 @@ class DatabaseMigrationRunner:
     def run_graph_migrations(self, graph_port: Optional[Any] = None) -> Dict[str, Any]:
         try:
             from src.domain.ports.graph_port import GraphStorePort
-            from src.features.folder_scaffold.queries.folder_scaffold_graph_queries import (
+            from src.features.folder_scaffold.infrastructure.queries.folder_scaffold_graph_queries import (
                 FLOW_GRAPH_SCHEMA_MIGRATION_STATEMENTS,
             )
             adapter = graph_port
@@ -75,7 +75,7 @@ class DatabaseMigrationRunner:
     def rollback_graph_migrations(self, graph_port: Optional[Any] = None) -> Dict[str, Any]:
         try:
             from src.domain.ports.graph_port import GraphStorePort
-            from src.features.folder_scaffold.queries.folder_scaffold_graph_queries import (
+            from src.features.folder_scaffold.infrastructure.queries.folder_scaffold_graph_queries import (
                 FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS,
             )
             adapter = graph_port

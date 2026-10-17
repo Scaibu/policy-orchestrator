@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any
-from src.features.folder_scaffold.repository.folder_scaffold_repository_port import FolderScaffoldRepositoryPort
+from src.features.folder_scaffold.infrastructure.ports.folder_scaffold_repository_port import FolderScaffoldRepositoryPort
 from src.domain.ports.graph_port import GraphStorePort
 
 

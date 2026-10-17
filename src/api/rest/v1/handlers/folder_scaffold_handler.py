@@ -10,8 +10,8 @@ from src.shared.constants.http_constants import (
 )
 from src.features.folder_scaffold.service.folder_scaffold_service_port import FolderScaffoldServicePort
 from src.features.folder_scaffold.service.folder_scaffold_analyzer_service_port import FolderScaffoldAnalyzerServicePort
-from src.features.folder_scaffold.schema.folder_scaffold_schema import FolderScaffoldSchema
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.contracts.folder_scaffold_schema import FolderScaffoldSchema
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
     ScaffoldTreeCommand,

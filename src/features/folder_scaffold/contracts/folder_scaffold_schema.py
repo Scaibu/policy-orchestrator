@@ -3,7 +3,7 @@ from pydantic import ValidationError as PydanticValidationError
 from src.shared.kernel.result import Result
 from src.shared.errors.application_error import ValidationError
 from src.shared.utils.data_utils import dict_to_camel_case
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
     CreateFileResult,

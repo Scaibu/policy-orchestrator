@@ -29,7 +29,7 @@ repo_root = str(Path(__file__).resolve().parent.parent.parent.parent)
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
     ScaffoldTreeCommand,
@@ -39,10 +39,10 @@ from src.infra.config.config_loader import AppConfigLoader
 from src.domain.ports.graph_port import GraphStorePort
 from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
 from src.infra.adapters.graph.in_memory_graph_adapter import InMemoryGraphAdapter
-from src.features.folder_scaffold.repository.folder_scaffold_repository import AlloyDBFolderScaffoldRepository
+from src.features.folder_scaffold.infrastructure.adapters.folder_scaffold_repository_adapter import AlloyDBFolderScaffoldRepository
 from src.features.folder_scaffold.service.folder_scaffold_service import FolderScaffoldDomainService
 from src.features.folder_scaffold.service.folder_scaffold_analyzer_service import FolderScaffoldAnalyzerDomainService
-from src.features.folder_scaffold.types.folder_scaffold_deps import FolderScaffoldServiceDeps
+from src.features.folder_scaffold.contracts.folder_scaffold_deps import FolderScaffoldServiceDeps
 from src.shared.constants.scaffold_constants import (
     CLI_CMD_SCAFFOLD_TREE,
     CLI_CMD_SCAFFOLD_PACKAGE,

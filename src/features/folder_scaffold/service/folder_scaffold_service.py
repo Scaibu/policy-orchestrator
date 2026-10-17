@@ -6,8 +6,8 @@ from src.shared.kernel.result import Result
 from src.shared.kernel.abstract_traced_component import AbstractTracedComponent
 from src.domain.ports.graph_port import GraphNode, GraphRelationship
 from src.features.folder_scaffold.service.folder_scaffold_service_port import FolderScaffoldServicePort
-from src.features.folder_scaffold.types.folder_scaffold_deps import FolderScaffoldServiceDeps
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.contracts.folder_scaffold_deps import FolderScaffoldServiceDeps
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
     CreateFileResult,
@@ -17,12 +17,12 @@ from src.features.folder_scaffold.types.folder_scaffold_types import (
     ScaffoldedFileNode,
     ScaffoldedRelationshipRecord,
 )
-from src.features.folder_scaffold.rules.folder_scaffold_rules import (
+from src.features.folder_scaffold.domain.rules.folder_scaffold_rules import (
     can_link,
     infer_layer,
     infer_feature_name,
 )
-from src.features.folder_scaffold.machines.folder_scaffold_machine import (
+from src.features.folder_scaffold.domain.machines.folder_scaffold_machine import (
     STATE_PENDING,
     STATE_VALIDATED,
     STATE_WRITTEN,

@@ -1,6 +1,6 @@
 import argparse
 import json
-from src.features.folder_scaffold.types.folder_scaffold_types import (
+from src.features.folder_scaffold.contracts.folder_scaffold_types import (
     CreateFileCommand,
     LinkFilesCommand,
 )
@@ -8,9 +8,9 @@ from src.shared.types.envelope_types import TraceContext
 from src.infra.config.config_loader import AppConfigLoader
 from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
 from src.infra.adapters.graph.in_memory_graph_adapter import InMemoryGraphAdapter
-from src.features.folder_scaffold.repository.folder_scaffold_repository import AlloyDBFolderScaffoldRepository
+from src.features.folder_scaffold.infrastructure.adapters.folder_scaffold_repository_adapter import AlloyDBFolderScaffoldRepository
 from src.features.folder_scaffold.service.folder_scaffold_service import FolderScaffoldDomainService
-from src.features.folder_scaffold.types.folder_scaffold_deps import FolderScaffoldServiceDeps
+from src.features.folder_scaffold.contracts.folder_scaffold_deps import FolderScaffoldServiceDeps
 
 
 def get_folder_scaffold_service(args: argparse.Namespace) -> FolderScaffoldDomainService:
