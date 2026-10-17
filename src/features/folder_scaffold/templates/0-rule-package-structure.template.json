@@ -1,10 +1,10 @@
 {
   "_template": {
     "name": "0-rule-package-structure",
-    "version": "1.0.0",
-    "description": "Canonical Rule 0 polyglot sub-package structure. 10 mandatory subsystems in strict sequential order: contracts -> config -> database -> messaging -> deploy -> src/shared -> src/infra -> src/features -> src/api -> scripts. Zero-omission policy.",
-    "source_rule": "policies/rules/folderStructure/0-package-folder-writing-rule.md",
-    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-tree --manifest src/features/folder_scaffold/templates/0-rule-package-structure.template.json --store memory",
+    "version": "3.0.0",
+    "description": "Unified Rule 0 polyglot sub-package structure with consolidated database, messaging, and deploy hubs, contract-first src/api/contracts/, src/main entrypoint, and structured scripts/.",
+    "source_rule": "policies/rules/folder-structure/0-package-folder-writing-rule.md",
+    "usage": "python3 src/api/cli/folder_scaffold_cli.py scaffold-package --name PACKAGE_NAME --base-dir <target_dir>",
     "variables": {
       "PACKAGE_NAME": "Replace with your package name, e.g. identity-service, billing-service"
     }
@@ -13,341 +13,125 @@
   "root_role": "PackageRoot",
   "nodes": [
     {
-      "path": "contracts/openapi/.gitkeep",
-      "role": "ContractSpec",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "contracts/graphql/.gitkeep",
-      "role": "ContractSpec",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "contracts/proto/.gitkeep",
-      "role": "ContractSpec",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "contracts/asyncapi/.gitkeep",
-      "role": "ContractSpec",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "contracts/json-schema/.gitkeep",
-      "role": "ContractSpec",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "config/env.schema",
-      "role": "Schema",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "contracts/openapi/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Environment Variable Schema\n# All variables must be declared here before use in src/infra/config/\n"
-    },
-    {
-      "path": "config/default.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Default environment manifest\n# Validated against config/env.schema at boot\n"
-    },
-    {
-      "path": "config/development.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Development environment manifest\n"
-    },
-    {
-      "path": "config/production.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Production environment manifest\n"
-    },
-    {
-      "path": "config/test.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Test environment manifest\n"
-    },
-    {
-      "path": "config/feature-flags.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Feature flags and rollout percentages\n"
-    },
-    {
-      "path": "config/endpoints.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "contracts/openapi/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# All REST route paths mapped from OpenAPI contracts\n"
-    },
-    {
-      "path": "config/branding.yaml",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Branding metadata and assets\n"
-    },
-    {
-      "path": "config/theme.json",
-      "role": "Context",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "config/env.schema",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "{\n  \"theme\": \"dark\"\n}\n"
-    },
-    {
-      "path": "database/migrations/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/json-schema/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/rls/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/indexes/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/partitioning/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/storage_engine/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/replication/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/consensus/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/quorums/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/cdc/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/sharding/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/crdts/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/anti_entropy/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/fencing/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/retention/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "database/seeds/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
       "path": "database/schema.lock",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Cryptographic checksum lockfile of applied migrations\n"
-    },
-    {
-      "path": "messaging/topics/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/asyncapi/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "messaging/schema-registry/.gitkeep",
       "role": "Schema",
-      "rel_type": "DEFINES_SCHEMA",
-      "target": "contracts/asyncapi/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "{\"version\": \"1.0.0\", \"checksums\": {}}\n"
+    },
+    {
+      "path": "database/migrations/sql/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
       "content": ""
     },
     {
-      "path": "messaging/dlq/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "messaging/topics/.gitkeep",
-      "direction": "outgoing",
+      "path": "database/migrations/cypher/.gitkeep",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
       "content": ""
     },
     {
-      "path": "messaging/subscriptions/.gitkeep",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "messaging/topics/.gitkeep",
-      "direction": "outgoing",
+      "path": "database/seeds/dev_seeds.sql",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "-- Development seed data fixtures\n"
+    },
+    {
+      "path": "database/seeds/test_seeds.sql",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "-- Test environment seed fixtures\n"
+    },
+    {
+      "path": "database/engine/connection.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Connection pooling and client lifecycle for Primary & Replica\"\"\"\n"
+    },
+    {
+      "path": "database/engine/transaction.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Unit of Work / atomic transaction runner (commit & rollback)\"\"\"\n"
+    },
+    {
+      "path": "database/engine/executor.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Parameterized query executor with OpenTelemetry tracing\"\"\"\n"
+    },
+    {
+      "path": "database/engine/runner.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Migration runner verifying checksums against schema.lock\"\"\"\n"
+    },
+    {
+      "path": "database/config/rls.sql",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "-- Row-level security policies (multi-tenancy)\n"
+    },
+    {
+      "path": "database/config/topology.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Replication topology and read/write quorum configuration\ntopology:\n  mode: primary_replica\n"
     },
     {
       "path": "messaging/topics.lock",
-      "role": "Queries",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "messaging/topics/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": "# Cryptographic checksum lockfile of provisioned topics\n"
-    },
-    {
-      "path": "deploy/k8s/.gitkeep",
-      "role": "Context",
-      "rel_type": "RUNS_WORKFLOW",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
       "target": "PACKAGE_NAME",
-      "direction": "outgoing",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "{\"version\": \"1.0.0\", \"topics\": []}\n"
     },
     {
-      "path": "deploy/helm/.gitkeep",
+      "path": "messaging/topics/topics.yaml",
       "role": "Context",
-      "rel_type": "RUNS_WORKFLOW",
-      "target": "deploy/k8s/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "# Declarative topic provisioning manifests\ntopics:\n  - name: PACKAGE_NAME.events\n    partitions: 3\n    replication_factor: 1\n    retention_ms: 604800000\n"
     },
     {
-      "path": "src/shared/constants/.gitkeep",
-      "role": "Context",
+      "path": "messaging/schemas/.gitkeep",
+      "role": "Schema",
       "rel_type": "CONTAINS_FEATURE",
       "target": "PACKAGE_NAME",
       "direction": "incoming",
@@ -355,74 +139,722 @@
       "content": ""
     },
     {
-      "path": "src/shared/utils/.gitkeep",
-      "role": "Context",
+      "path": "messaging/policies/dlq_policy.yaml",
+      "role": "Rules",
       "rel_type": "CONTAINS_FEATURE",
       "target": "PACKAGE_NAME",
       "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "# Dead Letter Queue and retry policy\nretry:\n  max_attempts: 3\n  backoff_multiplier: 2.0\n  initial_interval_ms: 1000\ndlq:\n  topic: PACKAGE_NAME.events.dlq\n"
     },
     {
-      "path": "src/shared/errors/.gitkeep",
-      "role": "Context",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "src/shared/types/.gitkeep",
-      "role": "Context",
-      "rel_type": "CONTAINS_FEATURE",
-      "target": "PACKAGE_NAME",
-      "direction": "incoming",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "src/infra/config/.gitkeep",
+      "path": "messaging/engine/client/connection_pool.py",
       "role": "Service",
-      "rel_type": "RESOLVES_CONFIG",
-      "target": "config/env.schema",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "\"\"\"Broker connection manager & SASL/TLS authentication\"\"\"\n"
     },
     {
-      "path": "src/infra/database/.gitkeep",
-      "role": "RepositoryAdapter",
-      "rel_type": "EXECUTES_QUERY",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "src/infra/messaging/.gitkeep",
-      "role": "RepositoryAdapter",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "messaging/topics/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "src/infra/clients/.gitkeep",
-      "role": "RepositoryAdapter",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/openapi/.gitkeep",
-      "direction": "outgoing",
-      "package_name": "PACKAGE_NAME",
-      "content": ""
-    },
-    {
-      "path": "src/infra/observability/.gitkeep",
+      "path": "messaging/engine/client/cluster_health.py",
       "role": "Service",
-      "rel_type": "CALLS",
-      "target": "src/infra/config/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Liveness & readiness checks and partition metadata inspector\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/producers/event_publisher.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Core CloudEvents publisher (batching, acks=all, partition key hasher)\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/producers/envelope_builder.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Injects CloudEvents 1.0 metadata & W3C traceparent headers\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/consumers/consumer_group.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Worker pool, partition rebalance listener & poll loop\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/consumers/commit_manager.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"At-least-once / exact-once offset commit coordinator\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/consumers/dispatcher.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Routes deserialized payloads to registered internal handlers\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/pipeline/tracing_interceptor.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"OpenTelemetry trace extraction & span creation interceptor\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/pipeline/retry_policy.py",
+      "role": "Rules",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Exponential backoff jitter & retry counter\"\"\"\n"
+    },
+    {
+      "path": "messaging/engine/pipeline/dead_letter_router.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Automatically forwards poisoned/failed messages to DLQ topic\"\"\"\n"
+    },
+    {
+      "path": "deploy/docker/base/Dockerfile.base",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Shared multi-stage base runtime (Python/Node)\nFROM python:3.10-slim AS base\n"
+    },
+    {
+      "path": "deploy/docker/base/registry.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Container registry endpoints and credentials\nregistry:\n  url: \"ghcr.io/scaibu\"\n"
+    },
+    {
+      "path": "deploy/docker/service/Dockerfile",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Package-specific production container build\nFROM ghcr.io/scaibu/base:latest\nWORKDIR /app\nCOPY . .\n"
+    },
+    {
+      "path": "deploy/docker/service/Dockerfile.dev",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Package-specific local development build with hot reload\n"
+    },
+    {
+      "path": "deploy/docker/compose/docker-compose.single.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Standalone runner for this package\nversion: '3.8'\nservices:\n  app:\n    build: ../service\n"
+    },
+    {
+      "path": "deploy/docker/compose/docker-compose.polyglot.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Multi-package coordination runner (2 Python + 1 Node.js)\nversion: '3.8'\n"
+    },
+    {
+      "path": "deploy/docker/compose/docker-compose.infra.yml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Local backing dependencies (Postgres, Redis, Kafka)\nversion: '3.8'\n"
+    },
+    {
+      "path": "deploy/k8s/base/deployment.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Kubernetes Deployment manifest\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/service.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Kubernetes Service routing\napiVersion: v1\nkind: Service\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/hpa.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Horizontal Pod Autoscaler\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/configmap.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Injected environment configurations\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: PACKAGE_NAME-config\n"
+    },
+    {
+      "path": "deploy/k8s/base/ingress.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Ingress routing rules\napiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/base/pdb.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Pod Disruption Budget\napiVersion: policy/v1\nkind: PodDisruptionBudget\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/local-polyglot/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/dev/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/staging/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/k8s/overlays/prod/kustomization.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n  - ../../base\n"
+    },
+    {
+      "path": "deploy/helm/Chart.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: v2\nname: PACKAGE_NAME\ndescription: Helm chart for PACKAGE_NAME\nversion: 0.1.0\nappVersion: \"1.0.0\"\n"
+    },
+    {
+      "path": "deploy/helm/Chart.lock",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Pinned sub-chart dependencies lockfile\n"
+    },
+    {
+      "path": "deploy/helm/values.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Base default Helm values\nreplicaCount: 1\nimage:\n  repository: ghcr.io/scaibu/PACKAGE_NAME\n  tag: latest\n"
+    },
+    {
+      "path": "deploy/helm/env-values/values.dev.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Development values\n"
+    },
+    {
+      "path": "deploy/helm/env-values/values.staging.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Staging values\n"
+    },
+    {
+      "path": "deploy/helm/env-values/values.prod.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Production values (HA)\nreplicaCount: 3\n"
+    },
+    {
+      "path": "deploy/helm/templates/_helpers.tpl",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "{{/* Common Helm template helpers */}}\n"
+    },
+    {
+      "path": "deploy/helm/templates/deployment.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized Deployment template\n"
+    },
+    {
+      "path": "deploy/helm/templates/service.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized Service template\n"
+    },
+    {
+      "path": "deploy/helm/templates/ingress.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized Ingress template\n"
+    },
+    {
+      "path": "deploy/helm/templates/hpa.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized HPA template\n"
+    },
+    {
+      "path": "deploy/helm/templates/pdb.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Parameterized PDB template\n"
+    },
+    {
+      "path": "deploy/helm/packaging/package.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nhelm package . -d dist/\n"
+    },
+    {
+      "path": "deploy/helm/packaging/publish.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\nhelm push dist/*.tgz oci://ghcr.io/scaibu/charts\n"
+    },
+    {
+      "path": "deploy/argocd/project.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: AppProject\nmetadata:\n  name: PACKAGE_NAME\n"
+    },
+    {
+      "path": "deploy/argocd/applications/app.dev.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: PACKAGE_NAME-dev\n"
+    },
+    {
+      "path": "deploy/argocd/applications/app.staging.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: PACKAGE_NAME-staging\n"
+    },
+    {
+      "path": "deploy/argocd/applications/app.prod.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: Application\nmetadata:\n  name: PACKAGE_NAME-prod\n"
+    },
+    {
+      "path": "deploy/argocd/applicationset.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "apiVersion: argoproj.io/v1alpha1\nkind: ApplicationSet\nmetadata:\n  name: PACKAGE_NAME-set\n"
+    },
+    {
+      "path": "deploy/terraform/backend.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Remote state locking (S3/DynamoDB or GCS)\n"
+    },
+    {
+      "path": "deploy/terraform/versions.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Pinned Terraform & provider versions\n"
+    },
+    {
+      "path": "deploy/terraform/environments/dev.tfvars",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "environment = \"dev\"\n"
+    },
+    {
+      "path": "deploy/terraform/environments/staging.tfvars",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "environment = \"staging\"\n"
+    },
+    {
+      "path": "deploy/terraform/environments/prod.tfvars",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "environment = \"prod\"\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/database.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# RDS / AlloyDB clusters with automated backups (prevent_destroy = true)\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/storage.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# S3 / GCS buckets with versioning & KMS\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/cache.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Redis / ElastiCache multi-AZ cluster\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateful/secrets.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Vault / AWS Secrets Manager containers\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateless/compute.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# EKS NodeGroups, ECS tasks, or Cloud Run\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateless/ingress.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Application Load Balancer (ALB), CloudFront CDN, Route53 DNS\n"
+    },
+    {
+      "path": "deploy/terraform/modules/stateless/autoscaling.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Cluster autoscaler & target tracking policies\n"
+    },
+    {
+      "path": "deploy/terraform/modules/security/iam.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Least-privilege IAM roles & IRSA bindings\n"
+    },
+    {
+      "path": "deploy/terraform/modules/security/security_groups.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Strict network CIDR ingress/egress rules\n"
+    },
+    {
+      "path": "deploy/terraform/modules/security/kms.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Dedicated Customer Managed KMS keys\n"
+    },
+    {
+      "path": "deploy/terraform/main.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Root composition invoking stateful & stateless modules\n"
+    },
+    {
+      "path": "deploy/terraform/variables.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Declarative input variables\n"
+    },
+    {
+      "path": "deploy/terraform/outputs.tf",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Exported endpoints and ARNs\n"
+    },
+    {
+      "path": "deploy/topology/network_map.yaml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# Declares hostnames, ports & protocols for sibling services\nservices:\n  - name: py-service-1\n    port: 8001\n  - name: py-service-2\n    port: 8002\n  - name: node-service-1\n    port: 3000\n"
+    },
+    {
+      "path": "deploy/release/deploy.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\n# Unified release runner\n"
+    },
+    {
+      "path": "deploy/release/rollback.sh",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\n# Emergency rollback runner\n"
+    },
+    {
+      "path": "src/main.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Application root bootstrap and server runner\"\"\"\n"
+    },
+    {
+      "path": "src/api/contracts/openapi/v1.yaml",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# OpenAPI 3.1 REST Specification\nopenapi: 3.1.0\ninfo:\n  title: PACKAGE_NAME API\n  version: 1.0.0\npaths: {}\n"
+    },
+    {
+      "path": "src/api/contracts/openapi/changelog.md",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# OpenAPI Changelog\n"
+    },
+    {
+      "path": "src/api/contracts/graphql/v1.graphql",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# GraphQL Schema Definition\ntype Query {\n  health: String!\n}\n"
+    },
+    {
+      "path": "src/api/contracts/graphql/changelog.md",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# GraphQL Changelog\n"
+    },
+    {
+      "path": "src/api/contracts/proto/v1/.gitkeep",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/contracts/asyncapi/v1.yaml",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "# AsyncAPI 2.6 Event Specification\nasyncapi: 2.6.0\ninfo:\n  title: PACKAGE_NAME Events\n  version: 1.0.0\nchannels: {}\n"
+    },
+    {
+      "path": "src/api/contracts/json-schema/.gitkeep",
+      "role": "ContractSpec",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/rest/v1/.gitkeep",
+      "role": "Router",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/graphql/v1/.gitkeep",
+      "role": "Router",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/grpc/v1/.gitkeep",
+      "role": "Router",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ""
+    },
+    {
+      "path": "src/api/events/.gitkeep",
+      "role": "Router",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
       "content": ""
     },
@@ -436,216 +868,531 @@
       "content": ""
     },
     {
-      "path": "src/api/rest/v1/.gitkeep",
-      "role": "Router",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/openapi/.gitkeep",
-      "direction": "outgoing",
+      "path": "src/infra/config/config.loader.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Strongly-typed environment & secrets configuration loader\"\"\"\n"
+    },
+    {
+      "path": "src/infra/config/env.schema.py",
+      "role": "Schema",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Runtime configuration schema definition\"\"\"\n"
+    },
+    {
+      "path": "src/infra/clients/.gitkeep",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
       "content": ""
     },
     {
-      "path": "src/api/graphql/v1/.gitkeep",
-      "role": "Router",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/graphql/.gitkeep",
-      "direction": "outgoing",
+      "path": "src/infra/observability/tracer.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "\"\"\"OpenTelemetry tracer & span context injector\"\"\"\n"
     },
     {
-      "path": "src/api/grpc/v1/.gitkeep",
-      "role": "Router",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/proto/.gitkeep",
-      "direction": "outgoing",
+      "path": "src/infra/observability/metrics.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "\"\"\"Prometheus / OTLP metrics recorder\"\"\"\n"
     },
     {
-      "path": "src/api/events/.gitkeep",
-      "role": "Router",
-      "rel_type": "IMPLEMENTS_PORT",
-      "target": "contracts/asyncapi/.gitkeep",
-      "direction": "outgoing",
+      "path": "src/infra/observability/profiler.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": ""
+      "content": "\"\"\"Continuous profiler probe\"\"\"\n"
     },
     {
-      "path": "scripts/run.sh",
+      "path": "src/infra/observability/logger.py",
+      "role": "Service",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Structured JSON logger with W3C trace correlation\"\"\"\n"
+    },
+    {
+      "path": "src/shared/constants/system.constants.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"System-wide defaults, timeouts & headers\"\"\"\n"
+    },
+    {
+      "path": "src/shared/constants/error_codes.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard canonical error code enums\"\"\"\n"
+    },
+    {
+      "path": "src/shared/utils/date.utils.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Pure ISO 8601 UTC date/time helpers\"\"\"\n"
+    },
+    {
+      "path": "src/shared/utils/crypto.utils.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Pure SHA256 body hashing & UUIDv7 generator\"\"\"\n"
+    },
+    {
+      "path": "src/shared/utils/data.utils.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Pure list filtering, sorting & sanitization\"\"\"\n"
+    },
+    {
+      "path": "src/shared/errors/application.error.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Base ApplicationError class\"\"\"\n"
+    },
+    {
+      "path": "src/shared/errors/typed.errors.py",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard NotFound, Validation, Unauthorized, Conflict errors\"\"\"\n"
+    },
+    {
+      "path": "src/shared/types/envelope.types.py",
+      "role": "Types",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard ApiResponse and TraceContext interfaces\"\"\"\n"
+    },
+    {
+      "path": "src/shared/types/pagination.types.py",
+      "role": "Types",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "\"\"\"Standard PageRequest and PageResponse pagination types\"\"\"\n"
+    },
+    {
+      "path": "scripts/run/run.sh",
       "role": "Workflow",
-      "rel_type": "CALLS",
-      "target": "src/api/rest/v1/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+      "content": "#!/usr/bin/env bash\n# Local development runner\nset -euo pipefail\n"
     },
     {
-      "path": "scripts/migrate.sh",
+      "path": "scripts/run/run.prod.sh",
       "role": "Workflow",
-      "rel_type": "EXECUTES_QUERY",
-      "target": "database/migrations/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+      "content": "#!/usr/bin/env bash\n# Production boot runner\nset -euo pipefail\n"
     },
     {
-      "path": "scripts/test.sh",
+      "path": "scripts/migrate/migrate.sh",
       "role": "Workflow",
-      "rel_type": "CALLS",
-      "target": "src/features/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+      "content": "#!/usr/bin/env bash\n# Applies pending DDL migrations\nset -euo pipefail\n"
     },
     {
-      "path": "scripts/generate.sh",
+      "path": "scripts/migrate/rollback.sh",
       "role": "Workflow",
-      "rel_type": "CALLS",
-      "target": "contracts/proto/.gitkeep",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "#!/usr/bin/env bash\nset -euo pipefail\n"
+      "content": "#!/usr/bin/env bash\n# Reverts last migration batch\nset -euo pipefail\n"
     },
     {
-      "path": "Dockerfile",
+      "path": "scripts/test/test.unit.sh",
       "role": "Workflow",
-      "rel_type": "CALLS",
-      "target": "scripts/run.sh",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "FROM python:3.12-slim\nWORKDIR /app\nCOPY . .\n"
+      "content": "#!/usr/bin/env bash\n# Runs unit tests\nset -euo pipefail\n"
     },
     {
-      "path": "Dockerfile.dev",
+      "path": "scripts/test/test.integration.sh",
       "role": "Workflow",
-      "rel_type": "CALLS",
-      "target": "scripts/run.sh",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "FROM python:3.12-slim\nWORKDIR /app\nCOPY . .\n"
+      "content": "#!/usr/bin/env bash\n# Runs testcontainers integration suites\nset -euo pipefail\n"
     },
     {
-      "path": "docker-compose.yml",
+      "path": "scripts/test/test.e2e.sh",
       "role": "Workflow",
-      "rel_type": "CALLS",
-      "target": "Dockerfile",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "version: '3.8'\nservices:\n  app:\n    build: .\n"
+      "content": "#!/usr/bin/env bash\n# Runs end-to-end regression runner\nset -euo pipefail\n"
+    },
+    {
+      "path": "scripts/generate/generate.contracts.sh",
+      "role": "Workflow",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\n# Compiles Protobuf & OpenAPI specs\nset -euo pipefail\n"
+    },
+    {
+      "path": "scripts/generate/generate.clients.sh",
+      "role": "Workflow",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "#!/usr/bin/env bash\n# Generates upstream client SDKs\nset -euo pipefail\n"
+    },
+    {
+      "path": ".gitignore",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "*.pyc\n__pycache__/\nnode_modules/\ndist/\n.venv/\n"
+    },
+    {
+      "path": ".dockerignore",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ".git\n.venv\n__pycache__\ndist\n"
+    },
+    {
+      "path": ".helmignore",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": ".git\n*.tgz\n"
     },
     {
       "path": ".env.example",
       "role": "Schema",
-      "rel_type": "CONFORMS_TO",
-      "target": "config/env.schema",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "# Example environment configuration\n"
+      "content": "# Sanitized example environment configuration\n"
     },
     {
       "path": ".package-meta.yaml",
       "role": "Context",
-      "rel_type": "CONFORMS_TO",
-      "target": "config/env.schema",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
       "content": "name: PACKAGE_NAME\nversion: 1.0.0\n"
     },
     {
       "path": ".port-registry",
       "role": "Context",
-      "rel_type": "RESOLVES_CONFIG",
-      "target": "config/endpoints.yaml",
-      "direction": "outgoing",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
       "package_name": "PACKAGE_NAME",
-      "content": "# Port assignments\n"
+      "content": "# Local port allocation\nPORT=8000\n"
+    },
+    {
+      "path": "pyproject.toml",
+      "role": "Context",
+      "rel_type": "CONTAINS_FEATURE",
+      "target": "PACKAGE_NAME",
+      "direction": "incoming",
+      "package_name": "PACKAGE_NAME",
+      "content": "[project]\nname = \"PACKAGE_NAME\"\nversion = \"1.0.0\"\n"
     }
   ],
   "relationships": [
-    { "source": "config/default.yaml",              "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-    { "source": "config/development.yaml",          "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-    { "source": "config/production.yaml",           "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-    { "source": "config/test.yaml",                 "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-    { "source": "config/feature-flags.yaml",        "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-    { "source": "config/endpoints.yaml",            "rel_type": "MAPS_CONTRACT",        "target": "contracts/openapi/.gitkeep" },
-    { "source": "config/branding.yaml",             "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-    { "source": "config/theme.json",                "rel_type": "CONFORMS_TO",          "target": "config/env.schema" },
-
-    { "source": "database/rls/.gitkeep",            "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/indexes/.gitkeep",        "rel_type": "OPTIMIZES",            "target": "database/migrations/.gitkeep" },
-    { "source": "database/partitioning/.gitkeep",   "rel_type": "OPTIMIZES",            "target": "database/migrations/.gitkeep" },
-    { "source": "database/storage_engine/.gitkeep", "rel_type": "OPTIMIZES",            "target": "database/migrations/.gitkeep" },
-    { "source": "database/replication/.gitkeep",    "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/consensus/.gitkeep",      "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/quorums/.gitkeep",        "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/cdc/.gitkeep",            "rel_type": "STREAMS_CHANGES_FROM", "target": "database/migrations/.gitkeep" },
-    { "source": "database/sharding/.gitkeep",       "rel_type": "OPTIMIZES",            "target": "database/migrations/.gitkeep" },
-    { "source": "database/crdts/.gitkeep",          "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/anti_entropy/.gitkeep",   "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/fencing/.gitkeep",        "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/retention/.gitkeep",      "rel_type": "GOVERNS",              "target": "database/migrations/.gitkeep" },
-    { "source": "database/schema.lock",             "rel_type": "CHECKSUMS",            "target": "database/migrations/.gitkeep" },
-
-    { "source": "messaging/schema-registry/.gitkeep","rel_type": "VALIDATES_AGAINST",  "target": "contracts/asyncapi/.gitkeep" },
-    { "source": "messaging/subscriptions/.gitkeep", "rel_type": "BINDS_TO",            "target": "messaging/topics/.gitkeep" },
-    { "source": "messaging/dlq/.gitkeep",           "rel_type": "HANDLES_FAILURES_FROM","target": "messaging/topics/.gitkeep" },
-    { "source": "messaging/topics.lock",            "rel_type": "CHECKSUMS",            "target": "messaging/topics/.gitkeep" },
-
-    { "source": "src/infra/config/.gitkeep",        "rel_type": "RESOLVES_CONFIG",      "target": "config/feature-flags.yaml" },
-    { "source": "src/infra/config/.gitkeep",        "rel_type": "RESOLVES_CONFIG",      "target": "config/endpoints.yaml" },
-    { "source": "src/infra/database/.gitkeep",      "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
-    { "source": "src/infra/database/.gitkeep",      "rel_type": "ENFORCES",             "target": "database/rls/.gitkeep" },
-    { "source": "src/infra/messaging/.gitkeep",     "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
-    { "source": "src/infra/messaging/.gitkeep",     "rel_type": "VALIDATES_AGAINST",   "target": "messaging/schema-registry/.gitkeep" },
-    { "source": "src/infra/messaging/.gitkeep",     "rel_type": "ROUTES_FAILURE_TO",   "target": "messaging/dlq/.gitkeep" },
-    { "source": "src/infra/clients/.gitkeep",       "rel_type": "RESOLVES_CONFIG",      "target": "src/infra/config/.gitkeep" },
-    { "source": "src/infra/clients/.gitkeep",       "rel_type": "GENERATED_FROM",      "target": "contracts/proto/.gitkeep" },
-    { "source": "src/infra/observability/.gitkeep", "rel_type": "DEPENDS_ON",          "target": "src/shared/types/.gitkeep" },
-    { "source": "database/cdc/.gitkeep",            "rel_type": "PUBLISHES_TO",        "target": "src/infra/messaging/.gitkeep" },
-
-    { "source": "src/features/.gitkeep",            "rel_type": "CONSUMES_PORT",       "target": "src/infra/database/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "CONSUMES_PORT",       "target": "src/infra/messaging/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "CALLS",               "target": "src/infra/clients/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "CALLS",               "target": "src/infra/observability/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "DEPENDS_ON",          "target": "src/shared/constants/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "DEPENDS_ON",          "target": "src/shared/errors/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "DEPENDS_ON",          "target": "src/shared/types/.gitkeep" },
-    { "source": "src/features/.gitkeep",            "rel_type": "RESOLVES_CONFIG",     "target": "src/infra/config/.gitkeep" },
-
-    { "source": "src/api/rest/v1/.gitkeep",         "rel_type": "DISPATCHES_TO",       "target": "src/features/.gitkeep" },
-    { "source": "src/api/rest/v1/.gitkeep",         "rel_type": "RESOLVES_CONFIG",     "target": "config/endpoints.yaml" },
-    { "source": "src/api/rest/v1/.gitkeep",         "rel_type": "DEPENDS_ON",          "target": "src/shared/errors/.gitkeep" },
-    { "source": "src/api/rest/v1/.gitkeep",         "rel_type": "CALLS",               "target": "src/infra/observability/.gitkeep" },
-    { "source": "src/api/graphql/v1/.gitkeep",      "rel_type": "DISPATCHES_TO",       "target": "src/features/.gitkeep" },
-    { "source": "src/api/graphql/v1/.gitkeep",      "rel_type": "VALIDATES_AGAINST",   "target": "contracts/graphql/.gitkeep" },
-    { "source": "src/api/grpc/v1/.gitkeep",         "rel_type": "DISPATCHES_TO",       "target": "src/features/.gitkeep" },
-    { "source": "src/api/grpc/v1/.gitkeep",         "rel_type": "VALIDATES_AGAINST",   "target": "contracts/proto/.gitkeep" },
-    { "source": "src/api/events/.gitkeep",          "rel_type": "DISPATCHES_TO",       "target": "src/features/.gitkeep" },
-    { "source": "src/api/events/.gitkeep",          "rel_type": "CONSUMES_PORT",       "target": "src/infra/messaging/.gitkeep" },
-    { "source": "src/api/events/.gitkeep",          "rel_type": "VALIDATES_AGAINST",   "target": "contracts/asyncapi/.gitkeep" },
-
-    { "source": "deploy/k8s/.gitkeep",              "rel_type": "DEPLOYS",             "target": "src/api/rest/v1/.gitkeep" },
-    { "source": "deploy/k8s/.gitkeep",              "rel_type": "RESOLVES_CONFIG",     "target": "config/production.yaml" },
-    { "source": "deploy/helm/.gitkeep",             "rel_type": "PACKAGES",            "target": "deploy/k8s/.gitkeep" },
-    { "source": "deploy/helm/.gitkeep",             "rel_type": "RESOLVES_CONFIG",     "target": "config/endpoints.yaml" },
-
-    { "source": "scripts/migrate.sh",              "rel_type": "CONSUMES_PORT",       "target": "src/infra/database/.gitkeep" },
-    { "source": "scripts/migrate.sh",              "rel_type": "CHECKSUMS",           "target": "database/schema.lock" },
-    { "source": "scripts/migrate.sh",              "rel_type": "RESOLVES_CONFIG",     "target": "config/env.schema" },
-    { "source": "scripts/run.sh",                  "rel_type": "RESOLVES_CONFIG",     "target": "config/env.schema" },
-    { "source": "scripts/generate.sh",             "rel_type": "GENERATED_FROM",      "target": "contracts/proto/.gitkeep" },
-    { "source": "Dockerfile",                      "rel_type": "VALIDATES_AGAINST",   "target": "config/env.schema" },
-    { "source": "Dockerfile.dev",                  "rel_type": "VALIDATES_AGAINST",   "target": "config/env.schema" },
-    { "source": "docker-compose.yml",              "rel_type": "DEPLOYS",             "target": "Dockerfile" },
-    { "source": ".env.example",                              "rel_type": "CONFORMS_TO",         "target": "config/env.schema" },
-    { "source": ".package-meta.yaml",                        "rel_type": "CONFORMS_TO",         "target": "config/env.schema" },
-    { "source": ".port-registry",                            "rel_type": "RESOLVES_CONFIG",     "target": "config/endpoints.yaml" }
+    {
+      "source": "database/schema.lock",
+      "rel_type": "CHECKSUMS",
+      "target": "database/migrations/sql/.gitkeep"
+    },
+    {
+      "source": "database/engine/runner.py",
+      "rel_type": "VERIFIES",
+      "target": "database/schema.lock"
+    },
+    {
+      "source": "database/engine/runner.py",
+      "rel_type": "EXECUTES_QUERY",
+      "target": "database/migrations/sql/.gitkeep"
+    },
+    {
+      "source": "database/engine/connection.py",
+      "rel_type": "RESOLVES_CONFIG",
+      "target": "database/config/topology.yaml"
+    },
+    {
+      "source": "database/engine/transaction.py",
+      "rel_type": "DEPENDS_ON",
+      "target": "database/engine/connection.py"
+    },
+    {
+      "source": "database/engine/executor.py",
+      "rel_type": "DEPENDS_ON",
+      "target": "database/engine/connection.py"
+    },
+    {
+      "source": "messaging/topics.lock",
+      "rel_type": "CHECKSUMS",
+      "target": "messaging/topics/topics.yaml"
+    },
+    {
+      "source": "messaging/engine/producers/event_publisher.py",
+      "rel_type": "DEPENDS_ON",
+      "target": "messaging/engine/client/connection_pool.py"
+    },
+    {
+      "source": "messaging/engine/producers/event_publisher.py",
+      "rel_type": "CALLS",
+      "target": "messaging/engine/producers/envelope_builder.py"
+    },
+    {
+      "source": "messaging/engine/consumers/consumer_group.py",
+      "rel_type": "DEPENDS_ON",
+      "target": "messaging/engine/client/connection_pool.py"
+    },
+    {
+      "source": "messaging/engine/consumers/consumer_group.py",
+      "rel_type": "CALLS",
+      "target": "messaging/engine/consumers/commit_manager.py"
+    },
+    {
+      "source": "messaging/engine/consumers/consumer_group.py",
+      "rel_type": "DISPATCHES_TO",
+      "target": "messaging/engine/consumers/dispatcher.py"
+    },
+    {
+      "source": "messaging/engine/pipeline/dead_letter_router.py",
+      "rel_type": "ENFORCES",
+      "target": "messaging/policies/dlq_policy.yaml"
+    },
+    {
+      "source": "messaging/engine/pipeline/dead_letter_router.py",
+      "rel_type": "PUBLISHES_TO",
+      "target": "messaging/engine/producers/event_publisher.py"
+    },
+    {
+      "source": "messaging/engine/producers/event_publisher.py",
+      "rel_type": "BINDS_TO",
+      "target": "messaging/engine/pipeline/tracing_interceptor.py"
+    },
+    {
+      "source": "deploy/docker/service/Dockerfile",
+      "rel_type": "DEPENDS_ON",
+      "target": "deploy/docker/base/Dockerfile.base"
+    },
+    {
+      "source": "deploy/k8s/base/deployment.yaml",
+      "rel_type": "DEPLOYS",
+      "target": "deploy/docker/service/Dockerfile"
+    },
+    {
+      "source": "deploy/helm/templates/deployment.yaml",
+      "rel_type": "DEPLOYS",
+      "target": "deploy/docker/service/Dockerfile"
+    },
+    {
+      "source": "deploy/argocd/applications/app.prod.yaml",
+      "rel_type": "BINDS_TO",
+      "target": "deploy/helm/env-values/values.prod.yaml"
+    },
+    {
+      "source": "deploy/argocd/applications/app.dev.yaml",
+      "rel_type": "BINDS_TO",
+      "target": "deploy/k8s/overlays/dev/kustomization.yaml"
+    },
+    {
+      "source": "deploy/terraform/main.tf",
+      "rel_type": "CALLS",
+      "target": "deploy/terraform/modules/stateful/database.tf"
+    },
+    {
+      "source": "deploy/terraform/main.tf",
+      "rel_type": "CALLS",
+      "target": "deploy/terraform/modules/stateless/compute.tf"
+    },
+    {
+      "source": "src/main.py",
+      "rel_type": "RESOLVES_CONFIG",
+      "target": "src/infra/config/config.loader.py"
+    },
+    {
+      "source": "src/main.py",
+      "rel_type": "CONSUMES_PORT",
+      "target": "database/engine/connection.py"
+    },
+    {
+      "source": "src/main.py",
+      "rel_type": "CONSUMES_PORT",
+      "target": "messaging/engine/client/connection_pool.py"
+    },
+    {
+      "source": "src/main.py",
+      "rel_type": "DISPATCHES_TO",
+      "target": "src/api/rest/v1/.gitkeep"
+    },
+    {
+      "source": "src/infra/config/config.loader.py",
+      "rel_type": "CONFORMS_TO",
+      "target": "src/infra/config/env.schema.py"
+    },
+    {
+      "source": "src/infra/config/config.loader.py",
+      "rel_type": "RESOLVES_CONFIG",
+      "target": ".env.example"
+    },
+    {
+      "source": "src/api/rest/v1/.gitkeep",
+      "rel_type": "VALIDATES_AGAINST",
+      "target": "src/api/contracts/openapi/v1.yaml"
+    },
+    {
+      "source": "src/api/rest/v1/.gitkeep",
+      "rel_type": "DISPATCHES_TO",
+      "target": "src/features/.gitkeep"
+    },
+    {
+      "source": "src/api/graphql/v1/.gitkeep",
+      "rel_type": "VALIDATES_AGAINST",
+      "target": "src/api/contracts/graphql/v1.graphql"
+    },
+    {
+      "source": "src/api/grpc/v1/.gitkeep",
+      "rel_type": "VALIDATES_AGAINST",
+      "target": "src/api/contracts/proto/v1/.gitkeep"
+    },
+    {
+      "source": "src/api/events/.gitkeep",
+      "rel_type": "VALIDATES_AGAINST",
+      "target": "src/api/contracts/asyncapi/v1.yaml"
+    },
+    {
+      "source": "src/api/events/.gitkeep",
+      "rel_type": "CONSUMES_PORT",
+      "target": "messaging/engine/consumers/consumer_group.py"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "CONSUMES_PORT",
+      "target": "database/engine/executor.py"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "CONSUMES_PORT",
+      "target": "messaging/engine/producers/event_publisher.py"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "CALLS",
+      "target": "src/infra/clients/.gitkeep"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "CALLS",
+      "target": "src/infra/observability/tracer.py"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "DEPENDS_ON",
+      "target": "src/shared/constants/system.constants.py"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "DEPENDS_ON",
+      "target": "src/shared/errors/application.error.py"
+    },
+    {
+      "source": "src/features/.gitkeep",
+      "rel_type": "DEPENDS_ON",
+      "target": "src/shared/types/envelope.types.py"
+    },
+    {
+      "source": "deploy/docker/service/Dockerfile",
+      "rel_type": "RUNS_WORKFLOW",
+      "target": "src/main.py"
+    },
+    {
+      "source": "deploy/docker/compose/docker-compose.single.yml",
+      "rel_type": "DEPLOYS",
+      "target": "deploy/docker/service/Dockerfile"
+    },
+    {
+      "source": "deploy/k8s/base/deployment.yaml",
+      "rel_type": "DEPLOYS",
+      "target": "src/main.py"
+    },
+    {
+      "source": "scripts/run/run.sh",
+      "rel_type": "RUNS_WORKFLOW",
+      "target": "src/main.py"
+    },
+    {
+      "source": "scripts/migrate/migrate.sh",
+      "rel_type": "RUNS_WORKFLOW",
+      "target": "database/engine/runner.py"
+    }
   ],
   "metadata": {
-    "template_version": "1.0.0",
+    "template_version": "3.0.0",
     "created_by": "folder-scaffold-cli",
     "rule_reference": "0-package-folder-writing-rule.md",
-    "total_subsystems": 10
+    "total_nodes": 127,
+    "canonical_roles": 127
   }
 }
