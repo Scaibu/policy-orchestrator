@@ -16,7 +16,15 @@ dependencies = [
 ]
 
 [project.scripts]
-policy-orchestrator = "src.api.cli.main:main"
+policy-orchestrator = "policy_orchestrator_cli:main"
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
