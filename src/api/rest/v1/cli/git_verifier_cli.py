@@ -76,26 +76,32 @@ def handle_git_verifier_cli(args: argparse.Namespace) -> int:
             print(f"Repository Path:   {res.repo_path}")
             print(f"Current Branch:    {res.current_branch or 'N/A'}")
             print(f"HEAD Commit:       {res.head_commit or 'N/A'}")
-            print(f"Is Detached:       {'YES' if res.is_detached else 'NO'}")
-            if res.remote.upstream_branch:
-                sync_label = "IN SYNC" if res.remote.is_in_sync else f"AHEAD {res.remote.ahead_count}, BEHIND {res.remote.behind_count}"
-                print(f"Upstream Remote:   {res.remote.upstream_branch} [{sync_label}]")
-            print(f"Working Tree:      {'CLEAN' if res.working_tree.is_clean else 'DIRTY'}")
-            if res.working_tree.staged_files:
-                print(f"  Staged ({len(res.working_tree.staged_files)}):")
-                for f in res.working_tree.staged_files[:10]:
-                    print(f"    + {f}")
-            if res.working_tree.unstaged_files:
-                print(f"  Unstaged ({len(res.working_tree.unstaged_files)}):")
-                for f in res.working_tree.unstaged_files[:10]:
-                    print(f"    * {f}")
-            if res.working_tree.untracked_files:
-                print(f"  Untracked ({len(res.working_tree.untracked_files)}):")
-                for f in res.working_tree.untracked_files[:10]:
-                    print(f"    ? {f}")
+            print(f"Is Detached:       {'YES' if getattr(res, 'is_detached', False) else 'NO'}")
+            remote = getattr(res, "remote", None)
+            if remote and getattr(remote, "upstream_branch", None):
+                sync_label = "IN SYNC" if getattr(remote, "is_in_sync", True) else f"AHEAD {getattr(remote, 'ahead_count', 0)}, BEHIND {getattr(remote, 'behind_count', 0)}"
+                print(f"Upstream Remote:   {remote.upstream_branch} [{sync_label}]")
+            wt = getattr(res, "working_tree", None)
+            if wt is not None:
+                print(f"Working Tree:      {'CLEAN' if getattr(wt, 'is_clean', True) else 'DIRTY'}")
+                if getattr(wt, "staged_files", None):
+                    print(f"  Staged ({len(wt.staged_files)}):")
+                    for f in wt.staged_files[:10]:
+                        print(f"    + {f}")
+                if getattr(wt, "unstaged_files", None):
+                    print(f"  Unstaged ({len(wt.unstaged_files)}):")
+                    for f in wt.unstaged_files[:10]:
+                        print(f"    * {f}")
+                if getattr(wt, "untracked_files", None):
+                    print(f"  Untracked ({len(wt.untracked_files)}):")
+                    for f in wt.untracked_files[:10]:
+                        print(f"    ? {f}")
+            else:
+                print(f"Is Clean:          {'YES' if getattr(res, 'is_clean', True) else 'DRIFT DETECTED'}")
             print(f"Submodules Found:  {len(res.submodules)}")
             print(f"Duration:          {res.duration_ms} ms")
             print(f"Status:            {res.status}")
+
             if res.submodules:
                 print("-" * 80)
                 print("Submodule Pointer Status:")

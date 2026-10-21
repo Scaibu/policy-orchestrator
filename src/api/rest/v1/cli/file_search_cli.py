@@ -172,7 +172,15 @@ def handle_file_search_cli(args: argparse.Namespace) -> int:
                 print("GIT STATE & SUBMODULES:")
                 print(f"  Branch:          {git_val.current_branch}")
                 print(f"  HEAD Commit:     {git_val.head_commit or 'N/A'}")
-                print(f"  Is Clean:        {'YES' if git_val.is_clean else 'DRIFT DETECTED'}")
+                wt = getattr(git_val, "working_tree", None)
+                if wt is not None:
+                    print(f"  Working Tree:    {'CLEAN' if wt.is_clean else 'DIRTY'}")
+                else:
+                    print(f"  Is Clean:        {'YES' if git_val.is_clean else 'DRIFT DETECTED'}")
+                remote = getattr(git_val, "remote", None)
+                if remote and remote.upstream_branch:
+                    sync_tag = "IN SYNC" if remote.is_in_sync else f"AHEAD {remote.ahead_count}, BEHIND {remote.behind_count}"
+                    print(f"  Upstream Remote: {remote.upstream_branch} [{sync_tag}]")
                 print(f"  Submodules:      {len(git_val.submodules)}")
 
             if res.tree:
