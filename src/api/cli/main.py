@@ -6,12 +6,16 @@ ALGORITHM & ARCHITECTURE BLUEPRINT: ERGONOMIC POLICY ORCHESTRATOR CLI
 
 1. OVERVIEW & OBJECTIVE:
    Provides a clean, intuitive CLI for database migrations, folder scaffolding,
-   and FastAPI server management.
+   file search, code search, module resolution, git verification, and FastAPI server.
 
 2. SUBCOMMANDS:
    - `migrate`: Runs/rolls back SQL & Neo4j graph migrations.
    - `create-file`: Scaffolds architecturally linked files.
    - `link-file`: Links nodes with graph relationships.
+   - `file-search`: Traverses directory trees with DFS/BFS algorithms.
+   - `code-search`: Multi-pattern search via Aho-Corasick DFA / Boyer-Moore.
+   - `resolve-module`: Resolves Python modules and audits collisions (PEP 302/451).
+   - `verify-git`: Audits Git Merkle tree and submodule commit pointers.
    - `serve`: Launches FastAPI REST server via Uvicorn.
 
 3. ARCHITECTURAL INVARIANTS:
@@ -78,7 +82,7 @@ def handle_serve_command(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="policy-orchestrator",
-        description="Policy Orchestrator CLI for migrations, scaffolding, and service hosting",
+        description="Policy Orchestrator CLI for migrations, scaffolding, code intelligence, and service hosting",
     )
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
@@ -90,6 +94,32 @@ def build_parser() -> argparse.ArgumentParser:
 
     from src.api.cli.scaffold_cli import register_scaffold_subparsers
     register_scaffold_subparsers(subparsers)
+
+    file_search_p = subparsers.add_parser("file-search", help="Traverse directory trees via DFS/BFS")
+    file_search_p.add_argument("--root", "--dir", dest="root", required=True, help="Root directory path to traverse")
+    file_search_p.add_argument("--pattern", default=None, help="Pattern or extension filter (e.g. .py)")
+    file_search_p.add_argument("--algorithm", choices=["DFS", "BFS"], default="DFS", help="Traversal algorithm")
+    file_search_p.add_argument("--max-depth", type=int, default=10, help="Maximum traversal depth")
+    file_search_p.add_argument("--exclude", nargs="*", default=None, help="Directories to prune")
+    file_search_p.add_argument("--json", action="store_true", help="Output results in JSON format")
+
+    code_search_p = subparsers.add_parser("code-search", help="Multi-pattern code search via Aho-Corasick / Boyer-Moore")
+    code_search_p.add_argument("--patterns", "-p", nargs="+", required=True, help="Patterns to search for")
+    code_search_p.add_argument("--files", "-f", nargs="+", required=True, help="Target files to scan")
+    code_search_p.add_argument("--algorithm", choices=["AHO_CORASICK", "BOYER_MOORE"], default="AHO_CORASICK", help="Algorithm")
+    code_search_p.add_argument("--case-insensitive", "-i", action="store_true", help="Case-insensitive search")
+    code_search_p.add_argument("--max-matches", type=int, default=100, help="Max matches per file")
+    code_search_p.add_argument("--json", action="store_true", help="Output results in JSON format")
+
+    module_res_p = subparsers.add_parser("resolve-module", help="Resolve Python module imports per PEP 302/451")
+    module_res_p.add_argument("--module", "-m", required=True, help="Dotted module path")
+    module_res_p.add_argument("--search-paths", "-s", nargs="+", default=[REPO_ROOT], help="Directories simulating sys.path")
+    module_res_p.add_argument("--json", action="store_true", help="Output results in JSON format")
+
+    git_ver_p = subparsers.add_parser("verify-git", help="Audit Git Merkle tree and submodule commit pointers")
+    git_ver_p.add_argument("--repo", "-r", default=".", help="Root path of git repository")
+    git_ver_p.add_argument("--no-submodules", action="store_true", help="Skip checking submodule pointers")
+    git_ver_p.add_argument("--json", action="store_true", help="Output results in JSON format")
 
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI REST server")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Bind host")
@@ -106,6 +136,11 @@ def main() -> None:
         handle_create_file,
         handle_link_file,
     )
+    from src.api.rest.v1.cli.file_search_cli import handle_file_search_cli
+    from src.api.rest.v1.cli.code_search_cli import handle_code_search_cli
+    from src.api.rest.v1.cli.module_resolver_cli import handle_module_resolver_cli
+    from src.api.rest.v1.cli.git_verifier_cli import handle_git_verifier_cli
+
     parser = build_parser()
     args = parser.parse_args()
 
@@ -116,6 +151,10 @@ def main() -> None:
         "link-file": handle_link_file,
         "link-nodes": handle_link_file,
         "connect-files": handle_link_file,
+        "file-search": handle_file_search_cli,
+        "code-search": handle_code_search_cli,
+        "resolve-module": handle_module_resolver_cli,
+        "verify-git": handle_git_verifier_cli,
         "serve": handle_serve_command,
     }
 
