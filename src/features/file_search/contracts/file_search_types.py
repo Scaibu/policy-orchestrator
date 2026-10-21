@@ -4,7 +4,8 @@ BLUEPRINT: FILE SEARCH DOMAIN MODELS & DTO CONTRACTS
 ================================================================================
 1. OVERVIEW:
    Declares immutable Pydantic schemas and DTOs for the file search domain.
-   Includes traversal requests, file metadata node descriptors, and execution results.
+   Includes flat file listings as well as full recursive tree node hierarchies
+   (directory -> children nodes with type, size, depth, and child arrays).
 2. ZERO-INLINE-COMMENT DOCTRINE:
    All field specifications, default values, and schema invariants are defined here.
    Class bodies remain strictly comment-free.
@@ -24,6 +25,7 @@ class FileSearchCommand(BaseModel):
         default_factory=lambda: [".git", "__pycache__", "node_modules", ".venv", "venv", ".idea", ".vscode"],
         description="Directory names to prune",
     )
+    include_dirs: bool = Field(default=True, description="Whether to include directory nodes in the response")
 
 
 class FileNodeItem(BaseModel):
@@ -35,10 +37,26 @@ class FileNodeItem(BaseModel):
     depth: int
 
 
+class TreeNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    path: str
+    name: str
+    is_dir: bool
+    size_bytes: int
+    depth: int
+    children: List["TreeNode"] = Field(default_factory=list)
+
+
+TreeNode.model_rebuild()
+
+
 class FileSearchResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
     root_path: str
     total_found: int
+    total_dirs: int = 0
+    total_files: int = 0
     files: List[FileNodeItem]
+    tree: Optional[TreeNode] = None
     duration_ms: float
     status: str
