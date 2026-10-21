@@ -11,29 +11,42 @@ from src.features.module_resolver.domain.rules.module_resolver_rules import (
 
 def test_resolve_existing_module():
     repo_root = str(Path(__file__).resolve().parents[4])
-    resolved, pkg_type, shadowed, has_collision = resolve_module_cascade(
+    resolved, pkg_type, shadowed, has_collision, dist_name, version, is_builtin, is_stdlib = resolve_module_cascade(
         module_name="src.features.module_resolver.domain.rules.module_resolver_rules",
         search_paths=[repo_root],
     )
     assert resolved is not None
     assert pkg_type == PKG_TYPE_MODULE
     assert has_collision is False
+    assert is_builtin is False
 
 
 def test_resolve_package_init():
     repo_root = str(Path(__file__).resolve().parents[4])
-    resolved, pkg_type, shadowed, has_collision = resolve_module_cascade(
+    resolved, pkg_type, shadowed, has_collision, dist_name, version, is_builtin, is_stdlib = resolve_module_cascade(
         module_name="src.features.module_resolver",
         search_paths=[repo_root],
     )
     assert resolved is not None
     assert pkg_type in (PKG_TYPE_NAMESPACE, PKG_TYPE_REGULAR)
+    assert is_builtin is False
+
+
+def test_resolve_builtin_module():
+    resolved, pkg_type, shadowed, has_collision, dist_name, version, is_builtin, is_stdlib = resolve_module_cascade(
+        module_name="sys",
+        search_paths=["/tmp"],
+    )
+    assert is_builtin is True
+    assert pkg_type == "BUILTIN_MODULE"
+    assert is_stdlib is True
 
 
 def test_resolve_nonexistent():
-    resolved, pkg_type, shadowed, has_collision = resolve_module_cascade(
+    resolved, pkg_type, shadowed, has_collision, dist_name, version, is_builtin, is_stdlib = resolve_module_cascade(
         module_name="non_existent.package.path",
         search_paths=["/tmp"],
     )
     assert resolved is None
     assert pkg_type == PKG_TYPE_NOT_FOUND
+

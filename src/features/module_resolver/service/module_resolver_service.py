@@ -52,7 +52,16 @@ class ModuleResolverDomainService(AbstractTracedComponent):
 
         try:
             state = transition_to(STATE_PENDING, STATE_RESOLVING)
-            resolved_path, pkg_type, shadowed, has_collision = resolve_module_cascade(
+            (
+                resolved_path,
+                pkg_type,
+                shadowed,
+                has_collision,
+                dist_name,
+                version,
+                is_builtin,
+                is_stdlib,
+            ) = resolve_module_cascade(
                 module_name=cmd.module_name,
                 search_paths=cmd.search_paths,
             )
@@ -61,7 +70,7 @@ class ModuleResolverDomainService(AbstractTracedComponent):
             state = transition_to(state, STATE_COMPLETED)
             duration_ms = (time.perf_counter() - start) * 1000
 
-            is_valid = resolved_path is not None and pkg_type != PKG_TYPE_NOT_FOUND
+            is_valid = (resolved_path is not None or is_builtin) and pkg_type != PKG_TYPE_NOT_FOUND
 
             record_id = f"modres_{uuid.uuid4().hex[:12]}"
             self._repository.record_resolution(
@@ -77,6 +86,10 @@ class ModuleResolverDomainService(AbstractTracedComponent):
                 is_valid=is_valid,
                 resolved_path=resolved_path,
                 package_type=pkg_type,
+                distribution_name=dist_name,
+                version=version,
+                is_builtin=is_builtin,
+                is_stdlib=is_stdlib,
                 shadowed_paths=shadowed,
                 has_collision=has_collision,
                 duration_ms=round(duration_ms, 2),
@@ -89,3 +102,4 @@ class ModuleResolverDomainService(AbstractTracedComponent):
         finally:
             if span:
                 span.end()
+

@@ -77,12 +77,16 @@ def handle_module_resolver_cli(args: argparse.Namespace) -> int:
             print(json.dumps(ModuleResolverSchema.to_api_resolve_module(res), indent=2))
         else:
             print("=" * 80)
-            print("MODULE RESOLUTION REPORT (PEP 302/451)")
+            print("MODULE RESOLUTION REPORT (PEP 302/451/566)")
             print("=" * 80)
             print(f"Module Name:       {res.module_name}")
             print(f"Is Valid:          {'YES' if res.is_valid else 'NO'}")
-            print(f"Resolved Path:     {res.resolved_path or 'NOT FOUND'}")
             print(f"Package Type:      {res.package_type}")
+            print(f"Resolved Path:     {res.resolved_path or 'BUILTIN / NOT FOUND'}")
+            print(f"Distribution:      {res.distribution_name or 'N/A'}")
+            print(f"Installed Version: {res.version or 'N/A'}")
+            print(f"Is Builtin:        {'YES' if res.is_builtin else 'NO'}")
+            print(f"Is Standard Lib:   {'YES' if res.is_stdlib else 'NO'}")
             print(f"Has Collision:     {'YES (SHADOWED)' if res.has_collision else 'NO'}")
             if res.shadowed_paths:
                 print("Shadowed Paths:")
