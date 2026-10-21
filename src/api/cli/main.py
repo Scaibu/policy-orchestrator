@@ -6,13 +6,15 @@ ALGORITHM & ARCHITECTURE BLUEPRINT: ERGONOMIC POLICY ORCHESTRATOR CLI
 
 1. OVERVIEW & OBJECTIVE:
    Provides a clean, intuitive CLI for database migrations, folder scaffolding,
-   file search, code search, module resolution, git verification, and FastAPI server.
+   codebase inspection (file tree, code search, module resolution, git verification),
+   and FastAPI server hosting.
 
 2. SUBCOMMANDS:
+   - `file-search`: Unified codebase inspection tool (full file tree, pattern search,
+     module resolution, git verification).
    - `migrate`: Runs/rolls back SQL & Neo4j graph migrations.
    - `create-file`: Scaffolds architecturally linked files.
    - `link-file`: Links nodes with graph relationships.
-   - `file-search`: Traverses directory trees with DFS/BFS algorithms.
    - `code-search`: Multi-pattern search via Aho-Corasick DFA / Boyer-Moore.
    - `resolve-module`: Resolves Python modules and audits collisions (PEP 302/451).
    - `verify-git`: Audits Git Merkle tree and submodule commit pointers.
@@ -95,12 +97,17 @@ def build_parser() -> argparse.ArgumentParser:
     from src.api.cli.scaffold_cli import register_scaffold_subparsers
     register_scaffold_subparsers(subparsers)
 
-    file_search_p = subparsers.add_parser("file-search", help="Traverse directory trees via DFS/BFS")
-    file_search_p.add_argument("--root", "--dir", dest="root", required=True, help="Root directory path to traverse")
+    file_search_p = subparsers.add_parser("file-search", help="Complete codebase inspection (file tree, code search, module resolution, git verification)")
+    file_search_p.add_argument("--root", "--dir", dest="root", default=".", help="Root directory path (default: current directory)")
     file_search_p.add_argument("--pattern", default=None, help="Pattern or extension filter (e.g. .py)")
     file_search_p.add_argument("--algorithm", choices=["DFS", "BFS"], default="DFS", help="Traversal algorithm")
     file_search_p.add_argument("--max-depth", type=int, default=10, help="Maximum traversal depth")
     file_search_p.add_argument("--exclude", nargs="*", default=None, help="Directories to prune")
+    file_search_p.add_argument("--tree", action="store_true", default=True, help="Print complete visual hierarchical file tree")
+    file_search_p.add_argument("--code-search", "-p", nargs="*", default=None, help="Patterns to search in found files")
+    file_search_p.add_argument("--resolve-module", "-m", nargs="*", default=None, help="Python modules to resolve")
+    file_search_p.add_argument("--verify-git", action="store_true", help="Verify Git state and submodule pointers")
+    file_search_p.add_argument("--all", action="store_true", help="Execute complete scan: file tree, git verification, and module checks")
     file_search_p.add_argument("--json", action="store_true", help="Output results in JSON format")
 
     code_search_p = subparsers.add_parser("code-search", help="Multi-pattern code search via Aho-Corasick / Boyer-Moore")
