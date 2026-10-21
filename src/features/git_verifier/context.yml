@@ -1,0 +1,51 @@
+feature: git_verifier
+mode: stateless_hexagonal
+version: "1.0.0"
+
+responsibilities:
+  - "Verify Git repository state, commit DAG traversal, and submodule commit pointers (mode 160000 gitlinks)"
+  - "Traverse Merkle Tree commit DAG to detect branch drift and uncommitted changes"
+  - "Inspect and parse .git/index and .gitmodules for submodule tracking"
+  - "Detect detached HEAD states and submodule SHA pointer mismatches"
+  - "Persist verification audit records to AlloyDB"
+
+ports:
+  driving:
+    - name: "GitVerifierServicePort"
+      role: "Driving port exposed to delivery handlers and CLI"
+  driven:
+    - name: "GitVerifierRepositoryPort"
+      role: "AlloyDB SQL persistence port"
+
+inheritance_chain:
+  class: "GitVerifierDomainService"
+  parents:
+    - "AbstractTracedComponent"
+  linearization:
+    - "GitVerifierDomainService"
+    - "AbstractTracedComponent"
+    - "GitVerifierServicePort"
+    - "ABC"
+    - "object"
+  shared_ancestors:
+    - "AbstractTracedComponent"
+  ports:
+    driving:
+      - "GitVerifierServicePort"
+    driven:
+      - "GitVerifierRepositoryPort"
+
+entities:
+  - entity: git_verification_records
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK (git_verification_records_id_pk)
+      - name: repo_path      type: text          null: no
+      - name: is_clean       type: boolean       null: no   default: true
+      - name: submodules_count type: integer     null: no   default: 0
+      - name: execution_ms   type: double        null: no   default: 0.0
+      - name: created_at     type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "repo_path must be non-empty"
+    pii: [none]
+    source_of_truth: db

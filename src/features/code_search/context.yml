@@ -1,0 +1,50 @@
+feature: code_search
+mode: stateless_hexagonal
+version: "1.0.0"
+
+responsibilities:
+  - "Multi-pattern text search across codebases using Aho-Corasick DFA and Boyer-Moore-Horspool algorithms"
+  - "Precompute bad-character shift tables for sublinear single-string scanning"
+  - "Compile multi-pattern finite state machines with failure transitions"
+  - "Stream search results with line numbers and character offsets"
+  - "Persist search telemetry to AlloyDB"
+
+ports:
+  driving:
+    - name: "CodeSearchServicePort"
+      role: "Driving port exposed to delivery handlers and CLI"
+  driven:
+    - name: "CodeSearchRepositoryPort"
+      role: "AlloyDB SQL persistence port"
+
+inheritance_chain:
+  class: "CodeSearchDomainService"
+  parents:
+    - "AbstractTracedComponent"
+  linearization:
+    - "CodeSearchDomainService"
+    - "AbstractTracedComponent"
+    - "CodeSearchServicePort"
+    - "ABC"
+    - "object"
+  shared_ancestors:
+    - "AbstractTracedComponent"
+  ports:
+    driving:
+      - "CodeSearchServicePort"
+    driven:
+      - "CodeSearchRepositoryPort"
+
+entities:
+  - entity: code_search_records
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK (code_search_records_id_pk)
+      - name: pattern_count  type: integer       null: no   default: 1
+      - name: matches_found  type: integer       null: no   default: 0
+      - name: execution_ms   type: double        null: no   default: 0.0
+      - name: created_at     type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "matches_found is never negative"
+    pii: [none]
+    source_of_truth: db

@@ -7,6 +7,18 @@ endpoints:
     link_files: "/link-files"
     scaffold_feature: "/scaffold-feature"
     scaffold_package: "/scaffold-package"
+  file_search:
+    base: "/file-search"
+    scan: "/scan"
+  code_search:
+    base: "/code-search"
+    scan: "/scan"
+  module_resolver:
+    base: "/module-resolver"
+    resolve: "/resolve"
+  git_verifier:
+    base: "/git-verifier"
+    verify: "/verify"
   health:
     base: "/health"
     live: "/health/live"

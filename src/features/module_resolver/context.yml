@@ -1,0 +1,51 @@
+feature: module_resolver
+mode: stateless_hexagonal
+version: "1.0.0"
+
+responsibilities:
+  - "Verify Python import paths and resolve modules adhering to PEP 302 and PEP 451"
+  - "Traverse dynamic sys.path cascade (current_dir -> PYTHONPATH -> site-packages)"
+  - "Detect namespace package vs regular package collisions (shadowing)"
+  - "Build import dependency DAGs and verify cyclic import invariants"
+  - "Persist resolution audits to AlloyDB"
+
+ports:
+  driving:
+    - name: "ModuleResolverServicePort"
+      role: "Driving port exposed to delivery handlers and CLI"
+  driven:
+    - name: "ModuleResolverRepositoryPort"
+      role: "AlloyDB SQL persistence port"
+
+inheritance_chain:
+  class: "ModuleResolverDomainService"
+  parents:
+    - "AbstractTracedComponent"
+  linearization:
+    - "ModuleResolverDomainService"
+    - "AbstractTracedComponent"
+    - "ModuleResolverServicePort"
+    - "ABC"
+    - "object"
+  shared_ancestors:
+    - "AbstractTracedComponent"
+  ports:
+    driving:
+      - "ModuleResolverServicePort"
+    driven:
+      - "ModuleResolverRepositoryPort"
+
+entities:
+  - entity: module_resolution_records
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK (module_resolution_records_id_pk)
+      - name: module_name    type: text          null: no
+      - name: is_valid       type: boolean       null: no   default: false
+      - name: collision_detected type: boolean   null: no   default: false
+      - name: execution_ms   type: double        null: no   default: 0.0
+      - name: created_at     type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "module_name must be non-empty"
+    pii: [none]
+    source_of_truth: db
