@@ -20,11 +20,16 @@ from src.features.git_verifier.contracts.git_verifier_types import (
     VerifyGitCommand,
     GitVerificationResult,
     SubmoduleStatus,
+    WorkingTreeStatus,
+    RemoteTrackingStatus,
 )
 from src.features.git_verifier.domain.rules.git_verifier_rules import (
     read_git_head,
     parse_gitmodules,
     resolve_submodule_commit,
+    get_gitlink_expected_commit,
+    inspect_working_tree,
+    inspect_remote_tracking,
 )
 from src.features.git_verifier.domain.machines.git_verifier_machine import (
     STATE_PENDING,
@@ -70,37 +75,60 @@ class GitVerifierDomainService(AbstractTracedComponent):
                 if content.startswith("gitdir:"):
                     real_git_dir = (repo_root / content.split(":", 1)[1].strip()).resolve()
 
-            branch, head_commit = read_git_head(real_git_dir)
+            branch, head_commit, is_detached = read_git_head(real_git_dir)
 
             state = transition_to(state, STATE_INSPECTING)
+            upstream, ahead, behind, is_in_sync = inspect_remote_tracking(repo_root, branch)
+            remote_status = RemoteTrackingStatus(
+                upstream_branch=upstream,
+                ahead_count=ahead,
+                behind_count=behind,
+                is_in_sync=is_in_sync,
+            )
+
+            staged, unstaged, untracked, is_wt_clean = ([], [], [], True)
+            if cmd.check_working_tree:
+                staged, unstaged, untracked, is_wt_clean = inspect_working_tree(repo_root)
+
+            working_tree_status = WorkingTreeStatus(
+                staged_files=staged,
+                unstaged_files=unstaged,
+                untracked_files=untracked,
+                is_clean=is_wt_clean,
+            )
+
             submodules_status: List[SubmoduleStatus] = []
             has_mismatch = False
 
             if cmd.check_submodules:
                 declared_submodules = parse_gitmodules(repo_root)
                 for sub in declared_submodules:
-                    actual_commit = resolve_submodule_commit(repo_root, sub["path"])
-                    is_synced = actual_commit is not None
-                    if not is_synced:
+                    actual_commit, is_sub_dirty = resolve_submodule_commit(repo_root, sub["path"])
+                    expected_gitlink = get_gitlink_expected_commit(repo_root, sub["path"])
+                    is_synced = (actual_commit is not None and (expected_gitlink is None or expected_gitlink == actual_commit))
+                    if not is_synced or is_sub_dirty:
                         has_mismatch = True
                     submodules_status.append(
                         SubmoduleStatus(
                             name=sub["name"],
                             path=sub["path"],
-                            expected_commit="HEAD",
+                            expected_commit=expected_gitlink,
                             actual_commit=actual_commit,
                             is_synchronized=is_synced,
+                            is_dirty=is_sub_dirty,
                         )
                     )
 
             state = transition_to(state, STATE_COMPLETED)
             duration_ms = (time.perf_counter() - start) * 1000
 
+            overall_clean = is_wt_clean and not has_mismatch
+
             record_id = f"gitver_{uuid.uuid4().hex[:12]}"
             self._repository.record_verification(
                 record_id=record_id,
                 repo_path=str(repo_root),
-                is_clean=not has_mismatch,
+                is_clean=overall_clean,
                 submodules_count=len(submodules_status),
                 duration_ms=duration_ms,
             )
@@ -109,13 +137,17 @@ class GitVerifierDomainService(AbstractTracedComponent):
                 repo_path=str(repo_root),
                 current_branch=branch,
                 head_commit=head_commit,
-                is_clean=not has_mismatch,
+                is_detached=is_detached,
+                is_clean=overall_clean,
+                remote=remote_status,
+                working_tree=working_tree_status,
                 submodules=submodules_status,
                 has_submodule_mismatch=has_mismatch,
                 duration_ms=round(duration_ms, 2),
                 status=state,
             )
             return Result.ok(result)
+
         except Exception as exc:
             mapped = self.mapFailure(exc)
             return Result.err(mapped)

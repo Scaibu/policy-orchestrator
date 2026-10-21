@@ -76,7 +76,23 @@ def handle_git_verifier_cli(args: argparse.Namespace) -> int:
             print(f"Repository Path:   {res.repo_path}")
             print(f"Current Branch:    {res.current_branch or 'N/A'}")
             print(f"HEAD Commit:       {res.head_commit or 'N/A'}")
-            print(f"Is Clean:          {'YES' if res.is_clean else 'DRIFT DETECTED'}")
+            print(f"Is Detached:       {'YES' if res.is_detached else 'NO'}")
+            if res.remote.upstream_branch:
+                sync_label = "IN SYNC" if res.remote.is_in_sync else f"AHEAD {res.remote.ahead_count}, BEHIND {res.remote.behind_count}"
+                print(f"Upstream Remote:   {res.remote.upstream_branch} [{sync_label}]")
+            print(f"Working Tree:      {'CLEAN' if res.working_tree.is_clean else 'DIRTY'}")
+            if res.working_tree.staged_files:
+                print(f"  Staged ({len(res.working_tree.staged_files)}):")
+                for f in res.working_tree.staged_files[:10]:
+                    print(f"    + {f}")
+            if res.working_tree.unstaged_files:
+                print(f"  Unstaged ({len(res.working_tree.unstaged_files)}):")
+                for f in res.working_tree.unstaged_files[:10]:
+                    print(f"    * {f}")
+            if res.working_tree.untracked_files:
+                print(f"  Untracked ({len(res.working_tree.untracked_files)}):")
+                for f in res.working_tree.untracked_files[:10]:
+                    print(f"    ? {f}")
             print(f"Submodules Found:  {len(res.submodules)}")
             print(f"Duration:          {res.duration_ms} ms")
             print(f"Status:            {res.status}")
@@ -85,7 +101,8 @@ def handle_git_verifier_cli(args: argparse.Namespace) -> int:
                 print("Submodule Pointer Status:")
                 for sub in res.submodules:
                     sync_icon = "SYNCED" if sub.is_synchronized else "MISMATCH"
-                    print(f"  [{sync_icon}] {sub.name} ({sub.path}) -> {sub.actual_commit or 'MISSING'}")
+                    dirty_tag = " (DIRTY)" if sub.is_dirty else ""
+                    print(f"  [{sync_icon}] {sub.name} ({sub.path}){dirty_tag} -> {sub.actual_commit or 'MISSING'}")
             print("=" * 80)
         return 0 if res.is_clean else 1
     except Exception as exc:

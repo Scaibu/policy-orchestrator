@@ -10,8 +10,9 @@ def test_read_git_head():
     repo_root = Path(__file__).resolve().parents[4]
     git_dir = repo_root / ".git"
     if git_dir.exists():
-        branch, commit = read_git_head(git_dir)
+        branch, commit, is_detached = read_git_head(git_dir)
         assert branch is not None
+
 
 
 def test_parse_gitmodules():
