@@ -1,0 +1,26 @@
+from typing import Dict, Set
+
+STATE_IDLE = "IDLE"
+STATE_FETCHING_TREE = "FETCHING_TREE"
+STATE_FILTERING_NODES = "FILTERING_NODES"
+STATE_FETCHING_CONTENT = "FETCHING_CONTENT"
+STATE_COMPARING_DIFF = "COMPARING_DIFF"
+STATE_COMPLETED = "COMPLETED"
+STATE_FAILED = "FAILED"
+
+_VALID_TRANSITIONS: Dict[str, Set[str]] = {
+    STATE_IDLE: {STATE_FETCHING_TREE, STATE_FETCHING_CONTENT, STATE_COMPARING_DIFF, STATE_FAILED},
+    STATE_FETCHING_TREE: {STATE_FILTERING_NODES, STATE_FAILED},
+    STATE_FILTERING_NODES: {STATE_COMPLETED, STATE_FAILED},
+    STATE_FETCHING_CONTENT: {STATE_COMPLETED, STATE_FAILED},
+    STATE_COMPARING_DIFF: {STATE_COMPLETED, STATE_FAILED},
+    STATE_COMPLETED: set(),
+    STATE_FAILED: set(),
+}
+
+
+def transition_to(current_state: str, next_state: str) -> str:
+    valid_targets = _VALID_TRANSITIONS.get(current_state, set())
+    if next_state not in valid_targets:
+        raise ValueError(f"Invalid state transition from {current_state} to {next_state}")
+    return next_state

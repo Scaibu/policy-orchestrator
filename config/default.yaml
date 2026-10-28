@@ -62,3 +62,9 @@ scaffold:
     - "src/features"
     - "src/api"
     - "scripts"
+
+github:
+  api_base_url: "https://api.github.com"
+  token: ""
+  timeout_seconds: 30
+  max_retries: 3

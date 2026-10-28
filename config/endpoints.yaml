@@ -19,6 +19,19 @@ endpoints:
   git_verifier:
     base: "/git-verifier"
     verify: "/verify"
+  git_remote_inspector:
+    base: "/git-remote-inspector"
+    search: "/search"
+    content: "/content"
+    diff: "/diff"
+  git_remote_mutator:
+    base: "/git-remote-mutator"
+    commit: "/commit"
+  git_branch_lifecycle:
+    base: "/git-branch-lifecycle"
+    create_branch: "/branches"
+    merge: "/merge"
+    create_repo: "/repositories"
   health:
     base: "/health"
     live: "/health/live"

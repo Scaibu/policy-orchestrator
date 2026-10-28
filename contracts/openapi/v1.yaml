@@ -399,6 +399,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/git-remote-inspector/search:
+    post:
+      summary: Search Remote Repository Files
+      operationId: search_remote_files_api_v1_git_remote_inspector_search_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchFilesCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+        '400':
+          description: Remote Inspection Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/content:
+    post:
+      summary: Get Remote File Content
+      operationId: get_remote_file_content_api_v1_git_remote_inspector_content_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetFileContentCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+        '400':
+          description: Remote File Content Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/diff:
+    post:
+      summary: Get Remote Diff Comparison
+      operationId: get_remote_diff_api_v1_git_remote_inspector_diff_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDiffCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+        '400':
+          description: Remote Diff Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
 components:
   schemas:
     APIResponseEnvelope:
@@ -838,3 +913,75 @@ components:
       - msg
       - type
       title: ValidationError
+    SearchFilesCommand:
+      properties:
+        repo_url:
+          type: string
+          title: Repo Url
+        ref_name:
+          type: string
+          default: main
+          title: Ref Name
+        path_pattern:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Path Pattern
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      type: object
+      required:
+      - repo_url
+      title: SearchFilesCommand
+    GetFileContentCommand:
+      properties:
+        repo_url:
+          type: string
+          title: Repo Url
+        file_path:
+          type: string
+          title: File Path
+        ref_name:
+          type: string
+          default: main
+          title: Ref Name
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      type: object
+      required:
+      - repo_url
+      - file_path
+      title: GetFileContentCommand
+    GetDiffCommand:
+      properties:
+        repo_url:
+          type: string
+          title: Repo Url
+        base_ref:
+          type: string
+          title: Base Ref
+        head_ref:
+          type: string
+          title: Head Ref
+        path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Path
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      type: object
+      required:
+      - repo_url
+      - base_ref
+      - head_ref
+      title: GetDiffCommand

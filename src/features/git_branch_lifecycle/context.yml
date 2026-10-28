@@ -1,0 +1,59 @@
+feature: git_branch_lifecycle
+mode: stateless_hexagonal
+version: "1.0.0"
+
+responsibilities:
+  - "Create, delete, and manage remote Git branch references without local cloning"
+  - "Execute fast-forward, squash, or automated Pull Request merges into target branches"
+  - "Detect mergeability, potential merge conflicts, and diverging commit histories"
+  - "Initialize and provision brand new remote repositories with baseline configurations"
+  - "Verify branch protection rules, required reviews, and status checks prior to ref updates"
+  - "Persist branch lifecycle and merge audit ledger records to AlloyDB"
+
+ports:
+  driving:
+    - name: "GitBranchLifecycleServicePort"
+      role: "Driving port exposed to delivery handlers and CLI"
+  driven:
+    - name: "GitRemoteClientPort"
+      role: "Outbound port for remote Git tree, blob, ref, and repository operations"
+    - name: "GitBranchLifecycleRepositoryPort"
+      role: "AlloyDB SQL persistence port"
+
+inheritance_chain:
+  class: "GitBranchLifecycleDomainService"
+  parents:
+    - "AbstractTracedComponent"
+  linearization:
+    - "GitBranchLifecycleDomainService"
+    - "AbstractTracedComponent"
+    - "GitBranchLifecycleServicePort"
+    - "ABC"
+    - "object"
+  shared_ancestors:
+    - "AbstractTracedComponent"
+  ports:
+    driving:
+      - "GitBranchLifecycleServicePort"
+    driven:
+      - "GitRemoteClientPort"
+      - "GitBranchLifecycleRepositoryPort"
+
+entities:
+  - entity: git_branch_lifecycle_records
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK (git_branch_lifecycle_records_id_pk)
+      - name: repo_url      type: text          null: no
+      - name: action        type: text          null: no   constraint: CHECK (action IN ('CREATE_BRANCH', 'MERGE_BRANCH', 'DELETE_BRANCH', 'CREATE_REPO'))
+      - name: source_ref    type: text          null: yes
+      - name: target_ref    type: text          null: yes
+      - name: result_sha    type: text          null: yes
+      - name: is_success    type: boolean       null: no   default: true
+      - name: execution_ms  type: double        null: no   default: 0.0
+      - name: created_at    type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "repo_url must be non-empty"
+      - "action must be one of permitted lifecycle action enums"
+    pii: [none]
+    source_of_truth: db

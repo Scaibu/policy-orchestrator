@@ -83,6 +83,12 @@ class AppConfigLoader:
         if "NEO4J_PASSWORD" in os.environ:
             graph_section["password"] = os.environ["NEO4J_PASSWORD"]
 
+        github_section = data.setdefault("github", {})
+        if "GITHUB_TOKEN" in os.environ:
+            github_section["token"] = os.environ["GITHUB_TOKEN"]
+        if "GITHUB_API_URL" in os.environ:
+            github_section["api_base_url"] = os.environ["GITHUB_API_URL"]
+
         cls._cached_config = data
         return data
 
@@ -162,4 +168,9 @@ class AppConfigLoader:
     def get_scaffold_config(cls) -> Dict[str, Any]:
         cfg = cls.load_config()
         return dict(cfg.get("scaffold", {}))
+
+    @classmethod
+    def get_github_config(cls) -> Dict[str, Any]:
+        cfg = cls.load_config()
+        return dict(cfg.get("github", {}))
 
