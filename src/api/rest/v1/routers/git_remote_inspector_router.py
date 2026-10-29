@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Request, Depends, status
 from src.infra.config.config_loader import AppConfigLoader
 from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
@@ -47,20 +48,29 @@ def get_git_remote_inspector_handler() -> GitRemoteInspectorRestHandler:
     gh_cfg = AppConfigLoader.get_github_config()
     gl_cfg = AppConfigLoader.get_gitlab_config()
     bb_cfg = AppConfigLoader.get_bitbucket_config()
-    repo = AlloyDBGitRemoteInspectorRepositoryAdapter(db_url=db_url)
+
+    graph_backend = os.environ.get("GRAPH_BACKEND", "neo4j")
+    if graph_backend == "neo4j":
+        from src.features.git_remote_inspector.infrastructure.adapters.neo4j_git_remote_inspector_repository_adapter import (
+            Neo4jGitRemoteInspectorRepositoryAdapter,
+        )
+        repo = Neo4jGitRemoteInspectorRepositoryAdapter()
+    else:
+        repo = AlloyDBGitRemoteInspectorRepositoryAdapter(db_url=db_url)
+
     gh_client = GitHubRemoteClientAdapter(
-        api_base_url=gh_cfg.get("api_base_url", "https://api.github.com"),
-        default_token=gh_cfg.get("token", ""),
+        api_base_url=str(gh_cfg.get("api_base_url", "")),
+        default_token=str(gh_cfg.get("token", "")),
         timeout_seconds=int(gh_cfg.get("timeout_seconds", 30)),
     )
     gl_client = GitLabRemoteClientAdapter(
-        api_base_url=gl_cfg.get("api_base_url", "https://gitlab.com"),
-        default_token=gl_cfg.get("token", ""),
+        api_base_url=str(gl_cfg.get("api_base_url", "")),
+        default_token=str(gl_cfg.get("token", "")),
         timeout_seconds=int(gl_cfg.get("timeout_seconds", 30)),
     )
     bb_client = BitbucketRemoteClientAdapter(
-        api_base_url=bb_cfg.get("api_base_url", "https://api.bitbucket.org/2.0"),
-        default_token=bb_cfg.get("token", ""),
+        api_base_url=str(bb_cfg.get("api_base_url", "")),
+        default_token=str(bb_cfg.get("token", "")),
         timeout_seconds=int(bb_cfg.get("timeout_seconds", 30)),
     )
     composite_client = CompositeGitRemoteClientAdapter(

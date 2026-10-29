@@ -59,6 +59,44 @@ entities:
     pii: [none]
     source_of_truth: db
 
+  - entity: git_remote_merkle_graph
+    owner: "@platform-architecture-team"
+    storage: "neo4j"
+    nodes:
+      - label: "GitRepository"
+        constraints: ["UNIQUE(url)"]
+      - label: "GitCommit"
+        constraints: ["UNIQUE(sha, repo_url)"]
+      - label: "GitBranch"
+        constraints: ["UNIQUE(name, repo_url)"]
+      - label: "GitEndpoint"
+        constraints: ["UNIQUE(target, repo_url)"]
+      - label: "AuthScheme"
+        constraints: ["UNIQUE(name)"]
+      - label: "GitInspectionLedger"
+        constraints: ["UNIQUE(id)"]
+    relationships:
+      - type: "HAS_COMMIT"
+        from: "GitRepository"
+        to: "GitCommit"
+      - type: "POINTS_TO"
+        from: "GitBranch"
+        to: "GitCommit"
+      - type: "EXPOSES"
+        from: "GitCommit"
+        to: "GitEndpoint"
+        properties: ["match_type", "contract_file", "updated_at"]
+      - type: "AUTH_BY"
+        from: "GitEndpoint"
+        to: "AuthScheme"
+      - type: "USES_DTO"
+        from: "GitEndpoint"
+        to: "DataTransferObject"
+    invariants:
+      - "Commit relationships are immutable per commit SHA"
+      - "Branch references point dynamically to latest HEAD commit"
+    source_of_truth: neo4j
+
 usage:
   environment_variables:
     GITHUB_TOKEN: "Optional GitHub personal access token to prevent API rate limits (60/hr -> 5000/hr)"

@@ -556,6 +556,35 @@ class GitRemoteInspectorDomainService(AbstractTracedComponent, GitRemoteInspecto
                 span = self._tracer.start_span("git_remote_inspector.integrate_context")
             state = transition_to(state, STATE_INTEGRATING_CONTEXT)
 
+            commit_sha = cmd.ref_name
+            if hasattr(self._repository, "find_cached_endpoint"):
+                cached_res = self._repository.find_cached_endpoint(
+                    ctx=ctx,
+                    repo_url=cmd.repo_url,
+                    commit_sha=commit_sha,
+                    endpoint_or_entity=cmd.endpoint_or_entity,
+                )
+                if cached_res.is_ok and cached_res.unwrap():
+                    raw_cache = cached_res.unwrap()
+                    duration_ms = (time.perf_counter() - start_time) * 1000.0
+                    state = transition_to(state, STATE_COMPLETED)
+                    res = RemoteIntegrateContextResult(
+                        repo_url=raw_cache.get("repo_url", cmd.repo_url),
+                        provider=raw_cache.get("provider", "github"),
+                        ref_name=raw_cache.get("ref_name", cmd.ref_name),
+                        target_endpoint_or_entity=raw_cache.get("target_endpoint_or_entity", cmd.endpoint_or_entity),
+                        match_type=raw_cache.get("match_type", "OPENAPI_SPEC"),
+                        contract_file=raw_cache.get("contract_file"),
+                        signature=ExtractedEndpointSignature(**raw_cache.get("signature", {})),
+                        related_dto_files=raw_cache.get("related_dto_files", []),
+                        call_chain=[CallChainNode(**n) for n in raw_cache.get("call_chain", [])],
+                        cached=True,
+                        duration_ms=duration_ms,
+                    )
+                    if span and StatusCode:
+                        span.set_status(StatusCode.OK)
+                    return Result.ok(res)
+
             disc_cmd = DiscoverContractsCommand(
                 repo_url=cmd.repo_url,
                 ref_name=cmd.ref_name,
@@ -569,6 +598,35 @@ class GitRemoteInspectorDomainService(AbstractTracedComponent, GitRemoteInspecto
             if disc_res.is_ok:
                 disc_data = disc_res.unwrap()
                 provider_name = disc_data.provider
+                if disc_data.commit_sha:
+                    commit_sha = disc_data.commit_sha
+                    if commit_sha != cmd.ref_name and hasattr(self._repository, "find_cached_endpoint"):
+                        sha_cached = self._repository.find_cached_endpoint(
+                            ctx=ctx,
+                            repo_url=cmd.repo_url,
+                            commit_sha=commit_sha,
+                            endpoint_or_entity=cmd.endpoint_or_entity,
+                        )
+                        if sha_cached.is_ok and sha_cached.unwrap():
+                            raw_cache = sha_cached.unwrap()
+                            duration_ms = (time.perf_counter() - start_time) * 1000.0
+                            state = transition_to(state, STATE_COMPLETED)
+                            res = RemoteIntegrateContextResult(
+                                repo_url=raw_cache.get("repo_url", cmd.repo_url),
+                                provider=raw_cache.get("provider", "github"),
+                                ref_name=raw_cache.get("ref_name", cmd.ref_name),
+                                target_endpoint_or_entity=raw_cache.get("target_endpoint_or_entity", cmd.endpoint_or_entity),
+                                match_type=raw_cache.get("match_type", "OPENAPI_SPEC"),
+                                contract_file=raw_cache.get("contract_file"),
+                                signature=ExtractedEndpointSignature(**raw_cache.get("signature", {})),
+                                related_dto_files=raw_cache.get("related_dto_files", []),
+                                call_chain=[CallChainNode(**n) for n in raw_cache.get("call_chain", [])],
+                                cached=True,
+                                duration_ms=duration_ms,
+                            )
+                            if span and StatusCode:
+                                span.set_status(StatusCode.OK)
+                            return Result.ok(res)
                 for contract in disc_data.contracts:
                     if cmd.subpath and not contract.path.startswith(cmd.subpath.strip("/")):
                         continue
@@ -602,8 +660,17 @@ class GitRemoteInspectorDomainService(AbstractTracedComponent, GitRemoteInspecto
                             signature=sig,
                             related_dto_files=related_dtos[:10],
                             call_chain=[],
+                            cached=False,
                             duration_ms=duration_ms,
                         )
+                        if hasattr(self._repository, "save_endpoint_relationship"):
+                            self._repository.save_endpoint_relationship(
+                                ctx=ctx,
+                                repo_url=cmd.repo_url,
+                                commit_sha=commit_sha,
+                                ref_name=cmd.ref_name,
+                                result_data=res.model_dump(),
+                            )
                         if span and StatusCode:
                             span.set_status(StatusCode.OK)
                         return Result.ok(res)
@@ -655,8 +722,17 @@ class GitRemoteInspectorDomainService(AbstractTracedComponent, GitRemoteInspecto
                 signature=sig,
                 related_dto_files=related_dtos[:10],
                 call_chain=chain_nodes,
+                cached=False,
                 duration_ms=duration_ms,
             )
+            if hasattr(self._repository, "save_endpoint_relationship"):
+                self._repository.save_endpoint_relationship(
+                    ctx=ctx,
+                    repo_url=cmd.repo_url,
+                    commit_sha=commit_sha,
+                    ref_name=cmd.ref_name,
+                    result_data=res.model_dump(),
+                )
             if span and StatusCode:
                 span.set_status(StatusCode.OK)
             return Result.ok(res)

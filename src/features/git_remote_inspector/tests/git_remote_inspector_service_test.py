@@ -1,3 +1,4 @@
+import unittest
 from typing import Dict, Any, Optional
 from src.shared.types.envelope_types import TraceContext
 from src.shared.kernel.result import Result
@@ -253,5 +254,131 @@ def test_service_integrate_context():
     assert data.target_endpoint_or_entity == "search_files"
     assert data.signature.http_method in ("GET", "POST")
     assert data.signature.path is not None
+    assert data.cached is False
+
+
+def test_service_integrate_context_cache_miss_then_hit():
+    from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+        IntegrateContextCommand,
+    )
+    from src.features.git_remote_inspector.infrastructure.adapters.neo4j_git_remote_inspector_repository_adapter import (
+        Neo4jGitRemoteInspectorRepositoryAdapter,
+    )
+    mock_neo4j = unittest.mock.MagicMock()
+    mock_neo4j.query_cypher.return_value = unittest.mock.MagicMock(records=[])
+
+    neo4j_repo = Neo4jGitRemoteInspectorRepositoryAdapter(graph_client=mock_neo4j)
+    deps = GitRemoteInspectorServiceDeps(
+        repository=neo4j_repo,
+        remote_client=MockRemoteClient(),
+        config={},
+    )
+    service = GitRemoteInspectorDomainService(deps=deps)
+    ctx = TraceContext(trace_id="trace-cache", request_id="req-cache", correlation_id="corr-cache")
+    cmd = IntegrateContextCommand(repo_url="org/repo", endpoint_or_entity="search_files", ref_name="main")
+
+    first_res = service.integrate_context(ctx, cmd)
+    assert first_res.is_ok
+    first_data = first_res.unwrap()
+    assert first_data.cached is False
+
+    second_res = service.integrate_context(ctx, cmd)
+    assert second_res.is_ok
+    second_data = second_res.unwrap()
+    assert second_data.cached is True
+    assert second_data.signature.path == first_data.signature.path
+
+
+def test_neo4j_adapter_normalized_reconstruction():
+    import json
+    from src.features.git_remote_inspector.infrastructure.adapters.neo4j_git_remote_inspector_repository_adapter import (
+        Neo4jGitRemoteInspectorRepositoryAdapter,
+    )
+    mock_neo4j = unittest.mock.MagicMock()
+    fake_record = {
+        "repo_url": "https://github.com/org/service",
+        "commit_sha": "abc1234",
+        "target_endpoint_or_entity": "/api/v1/auth",
+        "http_method": "POST",
+        "path": "/api/v1/auth",
+        "protocol": "HTTP_REST",
+        "summary": "Authenticate user",
+        "is_deprecated": False,
+        "sample_curl": "curl -X POST https://example.com/api/v1/auth",
+        "client_code_snippet": "client.post('/api/v1/auth')",
+        "request_body_schema": json.dumps({"type": "object"}),
+        "sample_request_payload": json.dumps({"user": "admin"}),
+        "response_200_schema": json.dumps({"token": "jwt"}),
+        "auth_scheme": "BearerAuth",
+        "contract_file": "openapi.yaml",
+        "match_type": "OPENAPI_SPEC",
+        "related_dto_files": ["dto/auth.ts"],
+    }
+    mock_neo4j.query_cypher.return_value = unittest.mock.MagicMock(records=[fake_record])
+
+    adapter = Neo4jGitRemoteInspectorRepositoryAdapter(graph_client=mock_neo4j)
+    ctx = TraceContext(trace_id="t1", request_id="r1", correlation_id="c1")
+    cached = adapter.find_cached_endpoint(ctx, "https://github.com/org/service", "abc1234", "/api/v1/auth")
+
+    assert cached.is_ok
+    data = cached.unwrap()
+    assert data is not None
+    assert data["signature"]["auth_scheme"] == "BearerAuth"
+    assert data["signature"]["path"] == "/api/v1/auth"
+    assert data["related_dto_files"] == ["dto/auth.ts"]
+    assert data["cached"] is True
+
+
+def test_commit_invariance_preserves_distinct_cache_entries():
+    from src.features.git_remote_inspector.infrastructure.adapters.neo4j_git_remote_inspector_repository_adapter import (
+        Neo4jGitRemoteInspectorRepositoryAdapter,
+    )
+    mock_neo4j = unittest.mock.MagicMock()
+    mock_neo4j.query_cypher.return_value = unittest.mock.MagicMock(records=[])
+    adapter = Neo4jGitRemoteInspectorRepositoryAdapter(graph_client=mock_neo4j)
+    ctx = TraceContext(trace_id="t_inv", request_id="r_inv", correlation_id="c_inv")
+
+    commit_a_data = {
+        "repo_url": "https://github.com/org/service",
+        "target_endpoint_or_entity": "/users",
+        "match_type": "OPENAPI_SPEC",
+        "contract_file": "openapi.yaml",
+        "signature": {
+            "http_method": "GET",
+            "path": "/users",
+            "protocol": "HTTP_REST",
+            "summary": "v1 list users",
+            "auth_scheme": "BearerAuth",
+        },
+        "related_dto_files": ["dto/user.ts"],
+    }
+    commit_b_data = {
+        "repo_url": "https://github.com/org/service",
+        "target_endpoint_or_entity": "/users",
+        "match_type": "OPENAPI_SPEC",
+        "contract_file": "openapi.yaml",
+        "signature": {
+            "http_method": "GET",
+            "path": "/users",
+            "protocol": "HTTP_REST",
+            "summary": "v2 list users with pagination",
+            "auth_scheme": "BearerAuth",
+        },
+        "related_dto_files": ["dto/user_v2.ts"],
+    }
+
+    save_a = adapter.save_endpoint_relationship(ctx, "https://github.com/org/service", "sha_commit_1", "main", commit_a_data)
+    save_b = adapter.save_endpoint_relationship(ctx, "https://github.com/org/service", "sha_commit_2", "main", commit_b_data)
+    assert save_a.is_ok
+    assert save_b.is_ok
+
+    hit_a = adapter.find_cached_endpoint(ctx, "https://github.com/org/service", "sha_commit_1", "/users")
+    hit_b = adapter.find_cached_endpoint(ctx, "https://github.com/org/service", "sha_commit_2", "/users")
+
+    assert hit_a.is_ok and hit_b.is_ok
+    assert hit_a.unwrap()["signature"]["summary"] == "v1 list users"
+    assert hit_b.unwrap()["signature"]["summary"] == "v2 list users with pagination"
+    assert hit_a.unwrap()["related_dto_files"] == ["dto/user.ts"]
+    assert hit_b.unwrap()["related_dto_files"] == ["dto/user_v2.ts"]
 
 

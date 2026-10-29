@@ -175,6 +175,7 @@ class RemoteIntegrateContextResult(BaseModel):
     signature: ExtractedEndpointSignature
     related_dto_files: List[str] = Field(default_factory=list)
     call_chain: List[CallChainNode] = Field(default_factory=list)
+    cached: bool = False
     duration_ms: float = 0.0
 
 
@@ -218,14 +219,12 @@ class RemoteDiffResult(BaseModel):
 
 
 
-class GitRemoteBaseError(Exception):
+from src.shared.errors.application_error import ApplicationError
+
+
+class GitRemoteBaseError(ApplicationError):
     def __init__(self, message: str, status_code: int = 500, canonical_code: str = "INTERNAL_SERVER_ERROR", retryable: bool = False, details: Optional[Any] = None) -> None:
-        super().__init__(message)
-        self.message: str = message
-        self.status_code: int = status_code
-        self.canonical_code: str = canonical_code
-        self.retryable: bool = retryable
-        self.details: Optional[Any] = details
+        super().__init__(message=message, status_code=status_code, canonical_code=canonical_code, retryable=retryable, details=details)
 
 
 class InvalidRepositoryUrlError(GitRemoteBaseError):

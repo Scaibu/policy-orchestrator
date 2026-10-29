@@ -62,11 +62,46 @@ class DatabaseMigrationRunner:
                     password=cfg.get("password"),
                     database=cfg.get("database", "neo4j"),
                 )
-            for stmt in FLOW_GRAPH_SCHEMA_MIGRATION_STATEMENTS:
-                adapter.query_cypher(stmt)
+
+            adapter.query_cypher(
+                "CREATE CONSTRAINT schema_migration_version_unique IF NOT EXISTS "
+                "FOR (m:SchemaMigration) REQUIRE m.version IS UNIQUE"
+            )
+
+            res = adapter.query_cypher("MATCH (m:SchemaMigration) RETURN m.version AS version")
+            applied_versions = {str(r.get("version")) for r in res.records}
+
+            cypher_files = sorted(
+                [f for f in self.migrations_dir.glob("*.cypher") if not f.name.endswith(".rollback.cypher")]
+            )
+
+            applied = []
+            for file in cypher_files:
+                version = file.stem.split("_")[0]
+                if version in applied_versions:
+                    continue
+                content = file.read_text(encoding="utf-8")
+                statements = [
+                    line.strip()
+                    for line in content.split(";")
+                    if line.strip() and not line.strip().startswith("//")
+                ]
+                for stmt in statements:
+                    clean_stmt = "\n".join(
+                        l for l in stmt.splitlines() if not l.strip().startswith("//")
+                    ).strip()
+                    if clean_stmt:
+                        adapter.query_cypher(clean_stmt)
+                adapter.query_cypher(
+                    "MERGE (m:SchemaMigration {version: $version}) "
+                    "ON CREATE SET m.name = $name, m.applied_at = datetime()",
+                    {"version": version, "name": file.stem},
+                )
+                applied.append(version)
+
             return {
                 "status": "success",
-                "applied_statements_count": len(FLOW_GRAPH_SCHEMA_MIGRATION_STATEMENTS),
+                "applied_versions": applied,
                 "db": "neo4j",
             }
         except Exception as exc:
@@ -74,10 +109,6 @@ class DatabaseMigrationRunner:
 
     def rollback_graph_migrations(self, graph_port: Optional[Any] = None) -> Dict[str, Any]:
         try:
-            from src.domain.ports.graph_port import GraphStorePort
-            from src.features.folder_scaffold.infrastructure.queries.folder_scaffold_graph_queries import (
-                FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS,
-            )
             adapter = graph_port
             if adapter is None:
                 from src.infra.config.config_loader import AppConfigLoader
@@ -89,11 +120,36 @@ class DatabaseMigrationRunner:
                     password=cfg.get("password"),
                     database=cfg.get("database", "neo4j"),
                 )
-            for stmt in FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS:
-                adapter.query_cypher(stmt)
+
+            rollback_files = sorted(
+                [f for f in self.migrations_dir.glob("*.rollback.cypher")],
+                reverse=True,
+            )
+
+            rolled_back = []
+            for file in rollback_files:
+                version = file.name.split("_")[0]
+                content = file.read_text(encoding="utf-8")
+                statements = [
+                    line.strip()
+                    for line in content.split(";")
+                    if line.strip() and not line.strip().startswith("//")
+                ]
+                for stmt in statements:
+                    clean_stmt = "\n".join(
+                        l for l in stmt.splitlines() if not l.strip().startswith("//")
+                    ).strip()
+                    if clean_stmt:
+                        adapter.query_cypher(clean_stmt)
+                adapter.query_cypher(
+                    "MATCH (m:SchemaMigration {version: $version}) DETACH DELETE m",
+                    {"version": version},
+                )
+                rolled_back.append(version)
+
             return {
                 "status": "success",
-                "rolled_back_statements_count": len(FLOW_GRAPH_SCHEMA_ROLLBACK_STATEMENTS),
+                "rolled_back_versions": rolled_back,
                 "db": "neo4j",
             }
         except Exception as exc:
