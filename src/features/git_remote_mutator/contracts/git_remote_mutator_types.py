@@ -7,7 +7,8 @@ class FileMutationEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
     path: str = Field(..., description="Target repository relative file path")
     content: str = Field(default="", description="UTF-8 or raw string content for the file")
-    mode: str = Field(default="100644", description="Git file mode (e.g. 100644 for blob, 100755 for executable)")
+    encoding: str = Field(default="utf-8", description="Encoding format: utf-8 or base64")
+    mode: Optional[str] = Field(default=None, description="Git file mode (e.g. 100644 for blob, 100755 for executable)")
     is_deleted: bool = Field(default=False, description="Whether this entry marks a file deletion")
 
 
@@ -17,6 +18,8 @@ class MutateFileCommand(BaseModel):
     branch: str = Field(default="main", description="Target branch name to mutate")
     file_path: str = Field(..., description="Relative file path to create, update, or overwrite")
     content: str = Field(..., description="New file content string")
+    encoding: str = Field(default="utf-8", description="Encoding format: utf-8 or base64")
+    mode: Optional[str] = Field(default=None, description="Optional Git file mode override")
     commit_message: str = Field(..., description="Authoritative Git commit message")
     expected_parent_sha: Optional[str] = Field(default=None, description="Optional parent commit SHA for Optimistic Concurrency Control")
     author_name: Optional[str] = Field(default=None, description="Optional commit author name")
@@ -64,6 +67,7 @@ class RemoteMutationResult(BaseModel):
     tree_sha: str
     files_mutated_count: int
     commit_message: str
+    is_noop: bool = False
     blobs_created: List[RemoteBlobCreatedResult] = Field(default_factory=list)
     duration_ms: float = 0.0
 

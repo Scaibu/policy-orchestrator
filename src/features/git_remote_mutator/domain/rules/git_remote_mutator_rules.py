@@ -40,6 +40,28 @@ def verify_optimistic_concurrency(current_head_sha: str, expected_parent_sha: Op
             )
 
 
+def calculate_git_blob_sha(content: str, encoding: str = "utf-8") -> str:
+    import hashlib
+    import base64
+    if encoding == "base64":
+        raw_bytes = base64.b64decode(content)
+    else:
+        raw_bytes = content.encode("utf-8")
+    header = f"blob {len(raw_bytes)}\0".encode("ascii")
+    return hashlib.sha1(header + raw_bytes).hexdigest()
+
+
+def infer_git_file_mode(path: str, content: str = "", explicit_mode: Optional[str] = None) -> str:
+    if explicit_mode and explicit_mode in ("100644", "100755", "120000", "160000"):
+        return explicit_mode
+    lower_path = path.lower()
+    if lower_path.endswith((".sh", ".bash", ".zsh", ".command")):
+        return "100755"
+    if content.startswith("#!/") or content.startswith("#! /"):
+        return "100755"
+    return "100644"
+
+
 def build_tree_nodes_payload(
     mutations: List[FileMutationEntry],
     blob_shas: Dict[str, str],
@@ -47,10 +69,11 @@ def build_tree_nodes_payload(
     tree_nodes: List[Dict[str, Any]] = []
     for entry in mutations:
         clean_path = sanitize_relative_path(entry.path)
+        resolved_mode = infer_git_file_mode(clean_path, entry.content, entry.mode)
         if entry.is_deleted:
             tree_nodes.append({
                 "path": clean_path,
-                "mode": entry.mode or "100644",
+                "mode": resolved_mode,
                 "type": "blob",
                 "sha": None,
             })
@@ -59,7 +82,7 @@ def build_tree_nodes_payload(
             if sha:
                 tree_nodes.append({
                     "path": clean_path,
-                    "mode": entry.mode or "100644",
+                    "mode": resolved_mode,
                     "type": "blob",
                     "sha": sha,
                 })

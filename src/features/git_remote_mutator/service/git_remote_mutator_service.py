@@ -92,6 +92,8 @@ class GitRemoteMutatorDomainService(AbstractTracedComponent, GitRemoteMutatorSer
         entry = FileMutationEntry(
             path=cmd.file_path,
             content=cmd.content,
+            encoding=cmd.encoding,
+            mode=cmd.mode,
             is_deleted=False,
         )
         batch_cmd = MutateBatchCommand(
@@ -167,7 +169,7 @@ class GitRemoteMutatorDomainService(AbstractTracedComponent, GitRemoteMutatorSer
                         ctx=ctx,
                         repo=cmd.repo_url,
                         content=entry.content,
-                        encoding="utf-8",
+                        encoding=entry.encoding or "utf-8",
                         token=cmd.token,
                     )
                     if blob_res.is_err:
@@ -178,11 +180,16 @@ class GitRemoteMutatorDomainService(AbstractTracedComponent, GitRemoteMutatorSer
                     b_data = blob_res.unwrap()
                     b_sha = str(b_data.get("sha", ""))
                     blob_shas[clean_path] = b_sha
+                    content_size = (
+                        len(entry.content)
+                        if entry.encoding == "base64"
+                        else len(entry.content.encode("utf-8"))
+                    )
                     created_blobs.append(
                         RemoteBlobCreatedResult(
                             path=clean_path,
                             sha=b_sha,
-                            size=len(entry.content.encode("utf-8")),
+                            size=content_size,
                         )
                     )
 
@@ -203,6 +210,26 @@ class GitRemoteMutatorDomainService(AbstractTracedComponent, GitRemoteMutatorSer
 
             tree_data = tree_res.unwrap()
             new_tree_sha = str(tree_data.get("sha", ""))
+            parent_tree_sha = str(tree_data.get("base_tree", current_head_sha))
+
+            if new_tree_sha and parent_tree_sha and new_tree_sha == parent_tree_sha:
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                state = transition_to(state, STATE_COMPLETED)
+                result = RemoteMutationResult(
+                    repo_url=cmd.repo_url,
+                    branch=cmd.branch,
+                    parent_commit_sha=current_head_sha,
+                    new_commit_sha=current_head_sha,
+                    tree_sha=new_tree_sha,
+                    files_mutated_count=0,
+                    commit_message=cmd.commit_message,
+                    is_noop=True,
+                    blobs_created=created_blobs,
+                    duration_ms=duration_ms,
+                )
+                if span and StatusCode:
+                    span.set_status(StatusCode.OK)
+                return Result.ok(result)
 
             state = transition_to(state, STATE_CREATING_COMMIT)
             commit_res = self._mutation_client.create_commit(
@@ -275,6 +302,7 @@ class GitRemoteMutatorDomainService(AbstractTracedComponent, GitRemoteMutatorSer
                 tree_sha=new_tree_sha,
                 files_mutated_count=len(cmd.mutations),
                 commit_message=cmd.commit_message,
+                is_noop=False,
                 blobs_created=created_blobs,
                 duration_ms=duration_ms,
             )

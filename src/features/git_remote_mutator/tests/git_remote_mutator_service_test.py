@@ -269,3 +269,71 @@ def test_empty_mutation_batch_fails():
     res = service.mutate_batch(ctx, cmd)
     assert res.is_err
     assert isinstance(res.error(), EmptyMutationBatchError)
+
+
+def test_mutate_noop_detection_skips_commit():
+    class NoOpMockClient(MockMutationClient):
+        def create_tree(self, ctx, repo, base_tree_sha, tree_nodes, token=None):
+            return Result.ok({"sha": base_tree_sha, "base_tree": base_tree_sha, "tree": tree_nodes})
+
+    client = NoOpMockClient(initial_head_sha="a" * 40)
+    repo = MockMutationRepository()
+    deps = GitRemoteMutatorServiceDeps(repository=repo, mutation_client=client, config={})
+    service = GitRemoteMutatorDomainService(deps=deps)
+    ctx = TraceContext(trace_id="trace-noop", request_id="req-noop", correlation_id="corr-noop")
+
+    cmd = MutateFileCommand(
+        repo_url="owner/my-service",
+        branch="main",
+        file_path="README.md",
+        content="unchanged content",
+        commit_message="chore: no-op commit",
+    )
+    res = service.mutate_file(ctx, cmd)
+    assert res.is_ok
+    data = res.unwrap()
+    assert data.is_noop is True
+    assert data.files_mutated_count == 0
+    assert data.new_commit_sha == "a" * 40
+    assert client.refs["main"] == "a" * 40
+
+
+def test_file_mode_inference_executable():
+    from src.features.git_remote_mutator.domain.rules.git_remote_mutator_rules import (
+        infer_git_file_mode,
+        calculate_git_blob_sha,
+    )
+    assert infer_git_file_mode("deploy.sh", "echo 1") == "100755"
+    assert infer_git_file_mode("bin/run.bash", "echo 1") == "100755"
+    assert infer_git_file_mode("scripts/task", "#!/usr/bin/env python3\nprint(1)") == "100755"
+    assert infer_git_file_mode("docs/README.md", "# Hello") == "100644"
+    assert infer_git_file_mode("arbitrary.txt", "# Hello", explicit_mode="100755") == "100755"
+
+    sha_text = calculate_git_blob_sha("hello world\n", encoding="utf-8")
+    assert isinstance(sha_text, str)
+    assert len(sha_text) == 40
+
+
+def test_mutate_file_base64_encoding():
+    client = MockMutationClient(initial_head_sha="a" * 40)
+    repo = MockMutationRepository()
+    deps = GitRemoteMutatorServiceDeps(repository=repo, mutation_client=client, config={})
+    service = GitRemoteMutatorDomainService(deps=deps)
+    ctx = TraceContext(trace_id="trace-b64", request_id="req-b64", correlation_id="corr-b64")
+
+    import base64
+    b64_content = base64.b64encode(b"\x00\x01\x02\x03\x04\xff").decode("ascii")
+    cmd = MutateFileCommand(
+        repo_url="owner/my-service",
+        branch="main",
+        file_path="assets/binary.bin",
+        content=b64_content,
+        encoding="base64",
+        commit_message="feat: upload binary asset via base64",
+    )
+    res = service.mutate_file(ctx, cmd)
+    assert res.is_ok
+    data = res.unwrap()
+    assert data.is_noop is False
+    assert len(data.blobs_created) == 1
+    assert data.blobs_created[0].size == len(b64_content)
