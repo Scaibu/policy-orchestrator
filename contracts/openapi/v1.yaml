@@ -637,6 +637,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-branch-lifecycle/branches:
+    post:
+      summary: Create Remote Branch
+      operationId: create_branch_api_v1_git_branch_lifecycle_branches_post
+      tags:
+      - Git Branch Lifecycle (Zero-Clone Branch & Repo Management)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+    delete:
+      summary: Delete Remote Branch
+      operationId: delete_branch_api_v1_git_branch_lifecycle_branches_delete
+      tags:
+      - Git Branch Lifecycle (Zero-Clone Branch & Repo Management)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-branch-lifecycle/merge:
+    post:
+      summary: Merge Remote Branches
+      operationId: merge_branches_api_v1_git_branch_lifecycle_merge_post
+      tags:
+      - Git Branch Lifecycle (Zero-Clone Branch & Repo Management)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-branch-lifecycle/repositories:
+    post:
+      summary: Create Remote Repository
+      operationId: create_repository_api_v1_git_branch_lifecycle_repositories_post
+      tags:
+      - Git Branch Lifecycle (Zero-Clone Branch & Repo Management)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
 components:
   schemas:
     APIResponseEnvelope:
