@@ -50,7 +50,76 @@ We require a zero-disk, sub-second **Microservice Integration Engine** that extr
    └──────────────────────────────────┴─────────────────────────────────────┴────────────────────────────────────┘
 ```
 
+### 2.1 In-Depth Production Walkthroughs
+
+#### Scenario 1: Pre-Release Feature Branch Integration
+* **Context:** Team B implements an updated endpoint with required tenant flags (`tenant_tier`) on a feature branch (`feature/v2-tiers`). The changes are not yet merged to `main` or deployed to staging.
+* **Problem:** Team A cannot generate client requests without cloning Team B's 2GB repository and checking out their branch.
+* **Engine Execution:**
+  ```bash
+  python3 src/api/cli/main.py remote-inspect integrate \
+    --repo org/billing-service \
+    --target checkout \
+    --ref feature/v2-tiers
+  ```
+  The engine queries GitHub/GitLab's Git Database API directly for the commit tree pinned to `feature/v2-tiers`. It resolves the updated schema and returns the required payload and client code in **1.1 seconds** with **0 bytes of local disk written**.
+
+#### Scenario 2: Legacy Undocumented Service (Zero OpenAPI)
+* **Context:** Integrating with a legacy service written in TypeScript (NestJS) or Go (Gin) that has no Swagger/OpenAPI documentation.
+* **Problem:** Engineers spend 30–60 minutes grepping controllers, routing files, and data transfer objects to figure out what headers and body fields are expected.
+* **Engine Execution:**
+  The engine activates its **Polyglot AST Traversal Fallback**:
+  1. Identifies the routing controller file via file keyword matching.
+  2. Inspects AST invocations and import statements.
+  3. Recursively fetches TypeScript interfaces (`interface CreateUserDto`), Go structs (`type Req struct`), or Protobuf definitions.
+  4. Synthesizes a valid JSON request shape, detects auth guards (`@UseGuards(JwtAuthGuard)`), and formats a ready-to-run cURL command.
+
+#### Scenario 3: Autonomous LLM Agent Grounding (Zero Hallucination)
+* **Context:** An automated agent is tasked with building integration adapters or mock tests between microservices.
+* **Problem:** Dumping entire repositories into an LLM context saturates context limits (100k+ tokens), costs dollars per run, leaks internal private classes, and causes parameter hallucinations.
+* **Engine Execution:**
+  The LLM agent calls `POST /api/v1/git-remote-inspector/integrate-context`. It receives a 15KB dereferenced JSON response containing:
+  - Exact HTTP method & path
+  - Fully resolved JSON Schema (all multi-level `$ref` pointers inlined)
+  - Concrete sample payload with mock data
+  - Expected 200 response envelope
+  The LLM writes the client adapter in a single inference pass with zero hallucinations.
+
+#### Scenario 4: Enterprise Monorepo Scoping (>100,000 files)
+* **Context:** An organization maintains 40 microservices inside a single massive monorepo.
+* **Problem:** Remote Git APIs truncate recursive tree scans at 100,000 objects (`truncated: true`). A root scan times out or misses files.
+* **Engine Execution:**
+  Engine passes the `--subpath` filter:
+  ```bash
+  python3 src/api/cli/main.py remote-inspect integrate \
+    --repo org/enterprise-monorepo \
+    --subpath services/auth \
+    --target login \
+    --ref release/v2.1
+  ```
+  Contract discovery and call-chain matching are scoped strictly to the `services/auth` path boundary, bypassing the 100k tree truncation limit.
+
+#### Scenario 5: High-Throughput gRPC / Protobuf Microservices
+* **Context:** Microservice fleet communicates internally over gRPC and Protobuf rather than HTTP/JSON.
+* **Problem:** Standard REST API searchers find zero OpenAPI specs.
+* **Engine Execution:**
+  The engine detects `.proto` contracts under `RPC_GRAPHQL_SCHEMA`, parses `service` RPC definitions (`rpc StreamEvents(EventRequest) returns (EventResponse)`), extracts message fields, and sets `protocol: "GRPC"`.
+
+#### Scenario 6: Auth Scheme Injection & Security Shielding
+* **Context:** Developers execute test calls against microservices but receive initial `401 Unauthorized` errors because auth requirements are buried in headers.
+* **Problem:** Unclear whether the service requires OAuth2, Bearer JWT, or static API Keys.
+* **Engine Execution:**
+  Engine inspects OpenAPI `securitySchemes` and code decorators. It sets `auth_scheme: "BearerAuth"` or `ApiKeyAuth` and injects `-H 'Authorization: Bearer <TOKEN>'` directly into the generated cURL command and client snippet.
+
+#### Scenario 7: Upstream Deprecation Warning
+* **Context:** An upstream team marks an endpoint as deprecated in preparation for decommission next quarter.
+* **Problem:** Downstream teams unknowingly integrate with an endpoint scheduled for deletion.
+* **Engine Execution:**
+  Engine checks `deprecated: true` flags. It outputs a prominent alert banner:
+  `WARNING: This endpoint is marked as DEPRECATED by upstream service.`
+
 ---
+
 
 ## 3. High-Level Architecture (HLD)
 
