@@ -128,6 +128,9 @@ def build_parser() -> argparse.ArgumentParser:
     git_ver_p.add_argument("--no-submodules", action="store_true", help="Skip checking submodule pointers")
     git_ver_p.add_argument("--json", action="store_true", help="Output results in JSON format")
 
+    from src.api.rest.v1.cli.git_remote_inspector_cli import register_git_remote_inspector_subparser
+    register_git_remote_inspector_subparser(subparsers)
+
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI REST server")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     serve_parser.add_argument("--port", type=int, default=8000, help="Bind port")
@@ -147,6 +150,7 @@ def main() -> None:
     from src.api.rest.v1.cli.code_search_cli import handle_code_search_cli
     from src.api.rest.v1.cli.module_resolver_cli import handle_module_resolver_cli
     from src.api.rest.v1.cli.git_verifier_cli import handle_git_verifier_cli
+    from src.api.rest.v1.cli.git_remote_inspector_cli import handle_git_remote_inspector_cli
 
     parser = build_parser()
     args = parser.parse_args()
@@ -162,6 +166,7 @@ def main() -> None:
         "code-search": handle_code_search_cli,
         "resolve-module": handle_module_resolver_cli,
         "verify-git": handle_git_verifier_cli,
+        "remote-inspect": handle_git_remote_inspector_cli,
         "serve": handle_serve_command,
     }
 

@@ -47,3 +47,13 @@ class GitRemoteClientPort(ABC):
         token: Optional[str] = None,
     ) -> Result[Dict[str, Any], Exception]:
         pass
+
+    @abstractmethod
+    def fetch_branches(
+        self,
+        ctx: TraceContext,
+        repo: str,
+        token: Optional[str] = None,
+    ) -> Result[Dict[str, Any], Exception]:
+        pass
+

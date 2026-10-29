@@ -4,6 +4,11 @@ from src.shared.kernel.result import Result
 from src.features.git_remote_inspector.infrastructure.ports.git_remote_inspector_repository_port import (
     GitRemoteInspectorRepositoryPort,
 )
+from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+    DatabaseConnectionError,
+    DatabaseConstraintViolationError,
+    DatabaseTimeoutError,
+)
 from src.features.git_remote_inspector.infrastructure.queries.git_remote_inspector_queries import (
     FLOW_INSERT_REMOTE_INSPECTION_RECORD,
     FLOW_SELECT_REMOTE_INSPECTION_RECORD_BY_ID,
@@ -15,6 +20,17 @@ class AlloyDBGitRemoteInspectorRepositoryAdapter(GitRemoteInspectorRepositoryPor
         self._db_url: str = db_url.replace("@localhost:", "@127.0.0.1:")
         self._conn = None
         self._memory_fallback: Dict[str, Dict[str, Any]] = {}
+
+    def _map_db_exception(self, exc: Exception) -> Exception:
+        import psycopg2
+        if isinstance(exc, psycopg2.IntegrityError):
+            return DatabaseConstraintViolationError(str(exc))
+        if isinstance(exc, psycopg2.OperationalError):
+            msg = str(exc)
+            if "timeout" in msg.lower():
+                return DatabaseTimeoutError(msg)
+            return DatabaseConnectionError(msg)
+        return exc
 
     def _get_connection(self):
         import psycopg2
@@ -57,7 +73,8 @@ class AlloyDBGitRemoteInspectorRepositoryAdapter(GitRemoteInspectorRepositoryPor
                 conn.commit()
             return Result.ok(True)
         except Exception as exc:
-            return Result.ok(True)
+            mapped = self._map_db_exception(exc)
+            return Result.err(mapped)
 
     def get_inspection_record(
         self,
@@ -83,4 +100,5 @@ class AlloyDBGitRemoteInspectorRepositoryAdapter(GitRemoteInspectorRepositoryPor
                     })
             return Result.ok(None)
         except Exception as exc:
-            return Result.ok(self._memory_fallback.get(record_id))
+            mapped = self._map_db_exception(exc)
+            return Result.err(mapped)

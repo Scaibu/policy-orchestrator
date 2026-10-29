@@ -68,3 +68,16 @@ github:
   token: ""
   timeout_seconds: 30
   max_retries: 3
+
+gitlab:
+  api_base_url: "https://gitlab.com"
+  token: ""
+  timeout_seconds: 30
+  max_retries: 3
+
+bitbucket:
+  api_base_url: "https://api.bitbucket.org/2.0"
+  token: ""
+  timeout_seconds: 30
+  max_retries: 3
+

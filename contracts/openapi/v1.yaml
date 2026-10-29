@@ -474,6 +474,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/tree:
+    post:
+      summary: Get Remote Folder and File Tree Hierarchy
+      operationId: get_remote_tree_api_v1_git_remote_inspector_tree_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetTreeHierarchyCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+        '400':
+          description: Remote Tree Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/branches:
+    post:
+      summary: List Remote Repository Branches
+      operationId: list_remote_branches_api_v1_git_remote_inspector_branches_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListBranchesCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+        '400':
+          description: Remote Branches Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/discover-contracts:
+    post:
+      summary: Discover and Prioritize Remote Interface Contracts
+      operationId: discover_remote_contracts_api_v1_git_remote_inspector_discover_contracts_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoverContractsCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+        '400':
+          description: Discovery Failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
 components:
   schemas:
     APIResponseEnvelope:
@@ -985,3 +1060,361 @@ components:
       - base_ref
       - head_ref
       title: GetDiffCommand
+    RemoteTreeItem:
+      properties:
+        path:
+          type: string
+          title: Path
+        mode:
+          type: string
+          default: '100644'
+          title: Mode
+        item_type:
+          type: string
+          default: blob
+          title: Item Type
+        sha:
+          type: string
+          title: Sha
+        size:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size
+      type: object
+      required:
+      - path
+      - sha
+      title: RemoteTreeItem
+    RemoteInspectionResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        provider:
+          type: string
+          default: github
+          title: Provider
+        refName:
+          type: string
+          title: Ref Name
+        commitSha:
+          type: string
+          title: Commit Sha
+        totalFound:
+          type: integer
+          title: Total Found
+        truncated:
+          type: boolean
+          default: false
+          title: Truncated
+        files:
+          items:
+            $ref: '#/components/schemas/RemoteTreeItem'
+          type: array
+          title: Files
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - provider
+      - refName
+      - commitSha
+      - totalFound
+      title: RemoteInspectionResult
+    RemoteFileContentResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        provider:
+          type: string
+          default: github
+          title: Provider
+        refName:
+          type: string
+          title: Ref Name
+        filePath:
+          type: string
+          title: File Path
+        blobSha:
+          type: string
+          title: Blob Sha
+        content:
+          type: string
+          title: Content
+        encoding:
+          type: string
+          default: utf-8
+          title: Encoding
+        sizeBytes:
+          type: integer
+          default: 0
+          title: Size Bytes
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - provider
+      - refName
+      - filePath
+      - blobSha
+      - content
+      title: RemoteFileContentResult
+    RemoteDiffResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        provider:
+          type: string
+          default: github
+          title: Provider
+        baseRef:
+          type: string
+          title: Base Ref
+        headRef:
+          type: string
+          title: Head Ref
+        filesChangedCount:
+          type: integer
+          default: 0
+          title: Files Changed Count
+        diffPatch:
+          type: string
+          default: ''
+          title: Diff Patch
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - provider
+      - baseRef
+      - headRef
+      title: RemoteDiffResult
+    GetTreeHierarchyCommand:
+      properties:
+        repo_url:
+          type: string
+          title: Repo Url
+        ref_name:
+          type: string
+          default: main
+          title: Ref Name
+        max_depth:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max Depth
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      type: object
+      required:
+      - repo_url
+      title: GetTreeHierarchyCommand
+    RemoteFolderHierarchyResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        provider:
+          type: string
+          default: github
+          title: Provider
+        refName:
+          type: string
+          title: Ref Name
+        commitSha:
+          type: string
+          title: Commit Sha
+        totalFiles:
+          type: integer
+          title: Total Files
+        totalDirectories:
+          type: integer
+          title: Total Directories
+        truncated:
+          type: boolean
+          default: false
+          title: Truncated
+        treeHierarchy:
+          type: object
+          additionalProperties: true
+          title: Tree Hierarchy
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - provider
+      - refName
+      - commitSha
+      - totalFiles
+      - totalDirectories
+      title: RemoteFolderHierarchyResult
+    ListBranchesCommand:
+      properties:
+        repo_url:
+          type: string
+          title: Repo Url
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      type: object
+      required:
+      - repo_url
+      title: ListBranchesCommand
+    RemoteBranchItem:
+      properties:
+        name:
+          type: string
+          title: Name
+        commitSha:
+          type: string
+          title: Commit Sha
+        isDefault:
+          type: boolean
+          default: false
+          title: Is Default
+        protected:
+          type: boolean
+          default: false
+          title: Protected
+      type: object
+      required:
+      - name
+      - commitSha
+      title: RemoteBranchItem
+    RemoteBranchesResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        provider:
+          type: string
+          default: github
+          title: Provider
+        defaultBranch:
+          type: string
+          title: Default Branch
+        totalBranches:
+          type: integer
+          title: Total Branches
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteBranchItem'
+          title: Branches
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - provider
+      - defaultBranch
+      - totalBranches
+      - branches
+      title: RemoteBranchesResult
+    DiscoverContractsCommand:
+      properties:
+        repo_url:
+          type: string
+          title: Repo Url
+        ref_name:
+          type: string
+          default: main
+          title: Ref Name
+        token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      type: object
+      required:
+      - repo_url
+      title: DiscoverContractsCommand
+    DiscoveredContractItem:
+      properties:
+        category:
+          type: string
+          title: Category
+        priority:
+          type: integer
+          title: Priority
+        path:
+          type: string
+          title: Path
+        sha:
+          type: string
+          title: Sha
+        size:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size
+      type: object
+      required:
+      - category
+      - priority
+      - path
+      - sha
+      title: DiscoveredContractItem
+    RemoteDiscoveredContractsResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        provider:
+          type: string
+          default: github
+          title: Provider
+        refName:
+          type: string
+          title: Ref Name
+        commitSha:
+          type: string
+          title: Commit Sha
+        primaryLanguage:
+          type: string
+          title: Primary Language
+        totalContracts:
+          type: integer
+          title: Total Contracts
+        contracts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiscoveredContractItem'
+          title: Contracts
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - provider
+      - refName
+      - commitSha
+      - primaryLanguage
+      - totalContracts
+      - contracts
+      title: RemoteDiscoveredContractsResult
+

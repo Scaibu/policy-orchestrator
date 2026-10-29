@@ -34,6 +34,8 @@ class MockRemoteClient(GitRemoteClientPort):
             "tree": [
                 {"path": "README.md", "type": "blob", "sha": "blob-1", "size": 10},
                 {"path": "src/main.py", "type": "blob", "sha": "blob-2", "size": 50},
+                {"path": "src/types.py", "type": "blob", "sha": "blob-types", "size": 60},
+                {"path": "contracts/openapi.yaml", "type": "blob", "sha": "blob-oas", "size": 150},
                 {"path": "src", "type": "tree", "sha": "tree-2"},
             ],
         })
@@ -81,6 +83,21 @@ class MockRemoteClient(GitRemoteClientPort):
             ]
         })
 
+    def fetch_branches(
+        self,
+        ctx: TraceContext,
+        repo: str,
+        token: Optional[str] = None,
+    ) -> Result[Dict[str, Any], Exception]:
+        return Result.ok({
+            "provider": "github",
+            "default_branch": "main",
+            "branches": [
+                {"name": "main", "commit_sha": "sha-main", "is_default": True, "protected": False},
+                {"name": "feature", "commit_sha": "sha-feat", "is_default": False, "protected": False},
+            ],
+        })
+
 
 class MockRepository(GitRemoteInspectorRepositoryPort):
     def __init__(self) -> None:
@@ -111,8 +128,9 @@ def test_service_search_files():
     res = service.search_files(ctx, cmd)
     assert res.is_ok
     data = res.unwrap()
-    assert data.total_found == 1
-    assert data.files[0].path == "src/main.py"
+    assert data.total_found == 2
+    assert any(f.path == "src/main.py" for f in data.files)
+    assert any(f.path == "src/types.py" for f in data.files)
     assert data.commit_sha == "tree-sha-123"
 
 
@@ -148,3 +166,70 @@ def test_service_get_diff():
     data = res.unwrap()
     assert data.files_changed_count == 1
     assert "print('hello')" in data.diff_patch
+
+
+def test_composite_client_dispatch():
+    from src.features.git_remote_inspector.infrastructure.adapters.composite_git_remote_client_adapter import (
+        CompositeGitRemoteClientAdapter,
+    )
+    mock_gh = MockRemoteClient()
+    mock_gl = MockRemoteClient()
+    mock_bb = MockRemoteClient()
+    composite = CompositeGitRemoteClientAdapter(
+        github_client=mock_gh,
+        gitlab_client=mock_gl,
+        bitbucket_client=mock_bb,
+    )
+    ctx = TraceContext(trace_id="test-trace", request_id="req-1", correlation_id="corr-1")
+    assert composite.fetch_tree(ctx, "https://gitlab.com/org/proj", "main").is_ok
+    assert composite.fetch_tree(ctx, "https://bitbucket.org/ws/repo", "main").is_ok
+    assert composite.fetch_tree(ctx, "https://github.com/org/repo", "main").is_ok
+
+
+def test_service_error_propagation():
+    class FailingClient(GitRemoteClientPort):
+        def fetch_tree(self, ctx, repo, ref, recursive=True, token=None):
+            from src.features.git_remote_inspector.contracts.git_remote_inspector_types import AuthenticationError
+            return Result.err(AuthenticationError("Bad credentials"))
+        def fetch_blob(self, ctx, repo, blob_sha, token=None):
+            return Result.err(RuntimeError())
+        def fetch_file_content(self, ctx, repo, path, ref, token=None):
+            return Result.err(RuntimeError())
+        def fetch_diff(self, ctx, repo, base_ref, head_ref, token=None):
+            return Result.err(RuntimeError())
+        def fetch_branches(self, ctx, repo, token=None):
+            return Result.err(RuntimeError())
+
+    deps = GitRemoteInspectorServiceDeps(
+        repository=MockRepository(),
+        remote_client=FailingClient(),
+        config={},
+    )
+    service = GitRemoteInspectorDomainService(deps=deps)
+    ctx = TraceContext(trace_id="trace-err", request_id="req-err", correlation_id="corr-err")
+    cmd = SearchFilesCommand(repo_url="org/repo", ref_name="main")
+    res = service.search_files(ctx, cmd)
+    assert res.is_err
+    assert res.error().status_code == 401
+
+
+def test_service_discover_contracts():
+    from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+        DiscoverContractsCommand,
+    )
+    deps = GitRemoteInspectorServiceDeps(
+        repository=MockRepository(),
+        remote_client=MockRemoteClient(),
+        config={},
+    )
+    service = GitRemoteInspectorDomainService(deps=deps)
+    ctx = TraceContext(trace_id="trace-disc", request_id="req-disc", correlation_id="corr-disc")
+    cmd = DiscoverContractsCommand(repo_url="org/repo", ref_name="main")
+    res = service.discover_contracts(ctx, cmd)
+    assert res.is_ok
+    data = res.unwrap()
+    assert data.repo_url == "org/repo"
+    assert data.primary_language == "python"
+    assert data.total_contracts >= 1
+    assert any(c.category == "DATA_CONTRACT_TYPES" for c in data.contracts)
+

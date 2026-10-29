@@ -12,8 +12,9 @@ except ImportError:
 
 
 class AbstractTracedComponent(ABC):
-    def __init__(self) -> None:
-        self._tracer = get_tracer("folder_scaffold")
+    def __init__(self, component_name: str = "policy_orchestrator") -> None:
+        self._tracer = get_tracer(component_name)
+
 
     @abstractmethod
     def mapFailure(self, cause: Exception) -> Exception:

@@ -47,3 +47,64 @@ def test_extract_diff_patch():
     assert count == 1
     assert "diff --git a/src/app.py" in patch
     assert "+new" in patch
+
+
+def test_map_network_exception():
+    import requests
+    from src.features.git_remote_inspector.domain.rules.git_remote_inspector_rules import (
+        map_network_exception,
+    )
+    from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+        SSLError,
+        ConnectionTimeoutError,
+        ReadTimeoutError,
+    )
+    ssl_err = requests.exceptions.SSLError("bad cert")
+    assert isinstance(map_network_exception(ssl_err), SSLError)
+    conn_err = requests.exceptions.ConnectionError("failed to connect")
+    assert isinstance(map_network_exception(conn_err), ConnectionTimeoutError)
+    timeout_err = requests.exceptions.Timeout("timed out")
+    assert isinstance(map_network_exception(timeout_err), ReadTimeoutError)
+
+
+def test_map_http_status_error():
+    from src.features.git_remote_inspector.domain.rules.git_remote_inspector_rules import (
+        map_http_status_error,
+    )
+    from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+        AuthenticationError,
+        RateLimitExceededError,
+        RefNotFoundError,
+        FileNotFoundError,
+        ProviderServerError,
+    )
+    assert isinstance(map_http_status_error(401, "unauthorized", "GitHub"), AuthenticationError)
+    assert isinstance(map_http_status_error(403, "rate limit exceeded", "GitLab"), RateLimitExceededError)
+    assert isinstance(map_http_status_error(404, "not found", "Bitbucket", "ref"), RefNotFoundError)
+    assert isinstance(map_http_status_error(404, "not found", "GitHub", "file"), FileNotFoundError)
+    assert isinstance(map_http_status_error(503, "unavailable", "GitLab"), ProviderServerError)
+
+
+def test_categorize_contract_nodes():
+    from src.features.git_remote_inspector.domain.rules.git_remote_inspector_rules import (
+        categorize_contract_nodes,
+    )
+    tree = [
+        {"path": "contracts/openapi/v1.yaml", "type": "blob", "sha": "sha-oas", "size": 1000},
+        {"path": "proto/service.proto", "type": "blob", "sha": "sha-proto", "size": 500},
+        {"path": "src/features/auth/types.ts", "type": "blob", "sha": "sha-types", "size": 300},
+        {"path": "src/features/auth/router.ts", "type": "blob", "sha": "sha-router", "size": 400},
+        {"path": "src/events/kafka_consumer.go", "type": "blob", "sha": "sha-event", "size": 600},
+        {"path": "lib/domain/models.dart", "type": "blob", "sha": "sha-dart", "size": 250},
+        {"path": "src/models/user.rs", "type": "blob", "sha": "sha-rust", "size": 350},
+        {"path": "migrations/001_init.sql", "type": "blob", "sha": "sha-sql", "size": 800},
+        {"path": "README.md", "type": "blob", "sha": "sha-md", "size": 100},
+    ]
+    lang, contracts = categorize_contract_nodes(tree)
+    assert len(contracts) == 8
+    assert contracts[0]["category"] == "API_SPECIFICATION"
+    assert contracts[0]["priority"] == 1
+    assert any(c["category"] == "RPC_GRAPHQL_SCHEMA" for c in contracts)
+    assert any(c["path"] == "lib/domain/models.dart" for c in contracts)
+    assert any(c["path"] == "src/models/user.rs" for c in contracts)
+

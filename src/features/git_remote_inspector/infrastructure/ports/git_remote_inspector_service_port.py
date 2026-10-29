@@ -5,9 +5,17 @@ from src.features.git_remote_inspector.contracts.git_remote_inspector_types impo
     SearchFilesCommand,
     GetFileContentCommand,
     GetDiffCommand,
+    GetTreeHierarchyCommand,
+    ListBranchesCommand,
+    DiscoverContractsCommand,
+    TraceCallChainCommand,
     RemoteInspectionResult,
     RemoteFileContentResult,
     RemoteDiffResult,
+    RemoteFolderHierarchyResult,
+    RemoteBranchesResult,
+    RemoteDiscoveredContractsResult,
+    RemoteCallChainResult,
 )
 
 
@@ -29,3 +37,28 @@ class GitRemoteInspectorServicePort(ABC):
         self, ctx: TraceContext, cmd: GetDiffCommand
     ) -> Result[RemoteDiffResult, Exception]:
         pass
+
+    @abstractmethod
+    def get_tree_hierarchy(
+        self, ctx: TraceContext, cmd: GetTreeHierarchyCommand
+    ) -> Result[RemoteFolderHierarchyResult, Exception]:
+        pass
+
+    @abstractmethod
+    def list_branches(
+        self, ctx: TraceContext, cmd: ListBranchesCommand
+    ) -> Result[RemoteBranchesResult, Exception]:
+        pass
+
+    @abstractmethod
+    def discover_contracts(
+        self, ctx: TraceContext, cmd: DiscoverContractsCommand
+    ) -> Result[RemoteDiscoveredContractsResult, Exception]:
+        pass
+
+    @abstractmethod
+    def trace_call_chain(
+        self, ctx: TraceContext, cmd: TraceCallChainCommand
+    ) -> Result[RemoteCallChainResult, Exception]:
+        pass
+

@@ -22,8 +22,14 @@ endpoints:
   git_remote_inspector:
     base: "/git-remote-inspector"
     search: "/search"
+    tree: "/tree"
+    branches: "/branches"
     content: "/content"
     diff: "/diff"
+    discover_contracts: "/discover-contracts"
+    trace_call_chain: "/trace-call-chain"
+
+
   git_remote_mutator:
     base: "/git-remote-mutator"
     commit: "/commit"

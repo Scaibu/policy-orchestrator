@@ -89,6 +89,19 @@ class AppConfigLoader:
         if "GITHUB_API_URL" in os.environ:
             github_section["api_base_url"] = os.environ["GITHUB_API_URL"]
 
+        gitlab_section = data.setdefault("gitlab", {})
+        if "GITLAB_TOKEN" in os.environ:
+            gitlab_section["token"] = os.environ["GITLAB_TOKEN"]
+        if "GITLAB_API_URL" in os.environ:
+            gitlab_section["api_base_url"] = os.environ["GITLAB_API_URL"]
+
+        bitbucket_section = data.setdefault("bitbucket", {})
+        if "BITBUCKET_TOKEN" in os.environ:
+            bitbucket_section["token"] = os.environ["BITBUCKET_TOKEN"]
+        if "BITBUCKET_API_URL" in os.environ:
+            bitbucket_section["api_base_url"] = os.environ["BITBUCKET_API_URL"]
+
+
         cls._cached_config = data
         return data
 
@@ -173,4 +186,14 @@ class AppConfigLoader:
     def get_github_config(cls) -> Dict[str, Any]:
         cfg = cls.load_config()
         return dict(cfg.get("github", {}))
+
+    @classmethod
+    def get_gitlab_config(cls) -> Dict[str, Any]:
+        cfg = cls.load_config()
+        return dict(cfg.get("gitlab", {}))
+
+    @classmethod
+    def get_bitbucket_config(cls) -> Dict[str, Any]:
+        cfg = cls.load_config()
+        return dict(cfg.get("bitbucket", {}))
 

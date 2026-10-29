@@ -9,6 +9,7 @@ responsibilities:
   - "Generate unified diffs between commits, branches, or tree snapshots"
   - "Inspect commit DAG history, commit author attribution, and ref state"
   - "Persist remote inspection audit ledger records to AlloyDB"
+  - "Support multi-provider dispatch for GitHub, GitLab, Bitbucket, and self-hosted instances"
 
 ports:
   driving:
@@ -16,7 +17,7 @@ ports:
       role: "Driving port exposed to delivery handlers and CLI"
   driven:
     - name: "GitRemoteClientPort"
-      role: "Outbound port for remote Git tree, blob, and ref operations"
+      role: "Outbound port for remote Git tree, blob, and ref operations (GitHub, GitLab, Bitbucket)"
     - name: "GitRemoteInspectorRepositoryPort"
       role: "AlloyDB SQL persistence port"
 
@@ -45,6 +46,7 @@ entities:
     fields:
       - name: id             type: text          null: no   constraint: PK (git_remote_inspection_records_id_pk)
       - name: repo_url      type: text          null: no
+      - name: provider      type: text          null: no   default: 'github'
       - name: ref_name      type: text          null: no
       - name: path_pattern  type: text          null: yes
       - name: total_found   type: integer       null: no   default: 0
@@ -56,3 +58,4 @@ entities:
       - "total_found is never negative"
     pii: [none]
     source_of_truth: db
+
