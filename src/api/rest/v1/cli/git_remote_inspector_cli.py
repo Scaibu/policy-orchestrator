@@ -31,6 +31,7 @@ from src.features.git_remote_inspector.contracts.git_remote_inspector_types impo
     ListBranchesCommand,
     DiscoverContractsCommand,
     TraceCallChainCommand,
+    IntegrateContextCommand,
 )
 from src.features.git_remote_inspector.contracts.git_remote_inspector_deps import (
     GitRemoteInspectorServiceDeps,
@@ -141,6 +142,14 @@ def register_git_remote_inspector_subparser(subparsers: argparse._SubParsersActi
     trace_p.add_argument("--max-depth", type=int, default=3, help="Max call stack depth (default: 3)")
     trace_p.add_argument("--token", default=None, help="Personal access token")
     trace_p.add_argument("--json", action="store_true", help="Output in JSON format")
+
+    integrate_p = inspect_subs.add_parser("integrate", help="One-shot microservice integration context (OpenAPI or static call chain)")
+    integrate_p.add_argument("--repo", "-r", required=True, help="Target repository")
+    integrate_p.add_argument("--target", "-t", required=True, help="API endpoint (e.g. /login) or entity/symbol name")
+    integrate_p.add_argument("--ref", default="main", help="Branch or commit SHA")
+    integrate_p.add_argument("--subpath", "-s", default=None, help="Optional monorepo subfolder path filter")
+    integrate_p.add_argument("--token", default=None, help="Personal access token")
+    integrate_p.add_argument("--json", action="store_true", help="Output in JSON format")
 
 
 def handle_git_remote_inspector_cli(args: argparse.Namespace) -> int:
@@ -293,4 +302,51 @@ def handle_git_remote_inspector_cli(args: argparse.Namespace) -> int:
                     print(f"   {'  ' * node['depth']} calls: {symbols}")
         return 0
 
+    elif action == "integrate":
+        cmd = IntegrateContextCommand(
+            repo_url=args.repo,
+            endpoint_or_entity=args.target,
+            ref_name=getattr(args, "ref", "main"),
+            subpath=getattr(args, "subpath", None),
+            token=getattr(args, "token", None),
+        )
+        res = service.integrate_context(ctx, cmd)
+        if res.is_err:
+            print(f"Error: {res.error()}", file=sys.stderr)
+            return 1
+        data = res.unwrap().model_dump()
+        if getattr(args, "json", False):
+            print(json.dumps(data, indent=2))
+        else:
+            sig = data["signature"]
+            print(f"Integration Context for: {data['target_endpoint_or_entity']} ({data['match_type']})")
+            print(f"Repo: {data['repo_url']} ({data['provider']}) | Ref: {data['ref_name']}")
+            if data["contract_file"]:
+                print(f"Contract Source: {data['contract_file']}")
+            print(f"\nProtocol: {sig.get('protocol', 'HTTP_REST')} | Endpoint: {sig['http_method']} {sig['path']}")
+            if sig.get("auth_scheme"):
+                print(f"Auth Scheme: {sig['auth_scheme']}")
+            if sig.get("is_deprecated"):
+                print(f"WARNING: This endpoint is marked as DEPRECATED by upstream service.")
+            if sig.get("summary"):
+                print(f"Summary: {sig['summary']}")
+            if sig.get("request_headers"):
+                print(f"Headers: {', '.join(sig['request_headers'])}")
+            if sig.get("path_params"):
+                print(f"Path Params: {', '.join(sig['path_params'])}")
+            if sig.get("query_params"):
+                print(f"Query Params: {', '.join(sig['query_params'])}")
+            if sig.get("sample_request_payload"):
+                print(f"\nSample Request Payload:\n{json.dumps(sig['sample_request_payload'], indent=2)}")
+            if sig.get("sample_curl"):
+                print(f"\nReady-to-Run cURL Command:\n{sig['sample_curl']}")
+            if sig.get("client_code_snippet"):
+                print(f"\nReady-to-Use Python Client Snippet:\n{sig['client_code_snippet']}")
+            if data.get("related_dto_files"):
+                print(f"\nRelated DTO / Contract Files:")
+                for f in data["related_dto_files"]:
+                    print(f"  - {f}")
+        return 0
+
     return 1
+

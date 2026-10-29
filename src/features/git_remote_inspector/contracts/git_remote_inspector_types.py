@@ -137,6 +137,46 @@ class RemoteCallChainResult(BaseModel):
     call_chain: List[CallChainNode] = Field(default_factory=list)
     total_depth_reached: int = 0
     duration_ms: float = 0.0
+class IntegrateContextCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repo_url: str = Field(..., description="Target repository URL")
+    endpoint_or_entity: str = Field(..., description="Target API endpoint (e.g. /login) or entity/symbol name")
+    ref_name: str = Field(default="main", description="Branch name or commit SHA")
+    subpath: Optional[str] = Field(default=None, description="Optional monorepo subfolder path filter (e.g. services/auth)")
+    token: Optional[str] = Field(default=None, description="Optional per-request override access token")
+
+
+class ExtractedEndpointSignature(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    protocol: str = "HTTP_REST"
+    http_method: str = "POST"
+    path: str = ""
+    summary: Optional[str] = None
+    auth_scheme: Optional[str] = None
+    is_deprecated: bool = False
+    path_params: List[str] = Field(default_factory=list)
+    query_params: List[str] = Field(default_factory=list)
+    request_headers: List[str] = Field(default_factory=list)
+    request_body_schema: Dict[str, Any] = Field(default_factory=dict)
+    sample_request_payload: Dict[str, Any] = Field(default_factory=dict)
+    response_200_schema: Dict[str, Any] = Field(default_factory=dict)
+    sample_curl: str = ""
+    client_code_snippet: str = ""
+
+
+class RemoteIntegrateContextResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    repo_url: str
+    provider: str = "github"
+    ref_name: str
+    target_endpoint_or_entity: str
+    match_type: str = "OPENAPI_SPEC"
+    contract_file: Optional[str] = None
+    signature: ExtractedEndpointSignature
+    related_dto_files: List[str] = Field(default_factory=list)
+    call_chain: List[CallChainNode] = Field(default_factory=list)
+    duration_ms: float = 0.0
+
 
 
 class RemoteInspectionResult(BaseModel):

@@ -59,3 +59,71 @@ entities:
     pii: [none]
     source_of_truth: db
 
+usage:
+  environment_variables:
+    GITHUB_TOKEN: "Optional GitHub personal access token to prevent API rate limits (60/hr -> 5000/hr)"
+    GITLAB_TOKEN: "Optional GitLab personal access token for private repositories"
+    BITBUCKET_TOKEN: "Optional Bitbucket app password or token"
+
+  cli:
+    branches:
+      description: "List remote branches and default ref pointer"
+      command: "python3 src/api/cli/main.py remote-inspect branches --repo <repo_url> [--token <token>] [--json]"
+      example: "python3 src/api/cli/main.py remote-inspect branches --repo octocat/Hello-World"
+
+    tree:
+      description: "Inspect remote directory and file hierarchy as a structured tree"
+      command: "python3 src/api/cli/main.py remote-inspect tree --repo <repo_url> [--ref <ref>] [--token <token>] [--json]"
+      example: "python3 src/api/cli/main.py remote-inspect tree --repo octocat/Hello-World --ref master"
+
+    search:
+      description: "Search and filter files across remote tree using glob patterns"
+      command: "python3 src/api/cli/main.py remote-inspect search --repo <repo_url> --pattern <glob> [--ref <ref>] [--token <token>] [--json]"
+      example: "python3 src/api/cli/main.py remote-inspect search --repo octocat/Hello-World --pattern '*.md'"
+
+    content:
+      description: "Fetch decoded text content of a remote file without local clone"
+      command: "python3 src/api/cli/main.py remote-inspect content --repo <repo_url> --path <file_path> [--ref <ref>] [--token <token>]"
+      example: "python3 src/api/cli/main.py remote-inspect content --repo octocat/Hello-World --ref master --path README"
+
+    diff:
+      description: "Generate a unified diff between two branches or commit SHAs"
+      command: "python3 src/api/cli/main.py remote-inspect diff --repo <repo_url> --base <base_ref> --head <head_ref> [--token <token>]"
+      example: "python3 src/api/cli/main.py remote-inspect diff --repo octocat/Hello-World --base master --head test"
+
+    discover_contracts:
+      description: "Discover OpenAPI, DTO data models, routers, and DB migrations remotely"
+      command: "python3 src/api/cli/main.py remote-inspect discover-contracts --repo <repo_url> [--ref <ref>] [--token <token>] [--json]"
+      example: "python3 src/api/cli/main.py remote-inspect discover-contracts --repo Scaibu/policy-orchestrator --ref main"
+
+    trace_call_chain:
+      description: "Trace entrypoint and multi-depth architectural call chain statically"
+      command: "python3 src/api/cli/main.py remote-inspect trace-call-chain --repo <repo_url> --target <symbol_or_endpoint> [--ref <ref>] [--depth <int>] [--json]"
+      example: "python3 src/api/cli/main.py remote-inspect trace-call-chain --repo Scaibu/policy-orchestrator --target create_app"
+
+  rest_api:
+    base_prefix: "/api/v1/git-remote-inspector"
+    endpoints:
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/branches"
+        body: '{"repo_url": "octocat/Hello-World"}'
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/tree"
+        body: '{"repo_url": "octocat/Hello-World", "ref_name": "master"}'
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/search"
+        body: '{"repo_url": "octocat/Hello-World", "ref_name": "master", "path_pattern": "*.md"}'
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/content"
+        body: '{"repo_url": "octocat/Hello-World", "ref_name": "master", "file_path": "README"}'
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/diff"
+        body: '{"repo_url": "octocat/Hello-World", "base_ref": "master", "head_ref": "test"}'
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/discover-contracts"
+        body: '{"repo_url": "Scaibu/policy-orchestrator", "ref_name": "main"}'
+      - method: "POST"
+        path: "/api/v1/git-remote-inspector/trace-call-chain"
+        body: '{"repo_url": "Scaibu/policy-orchestrator", "ref_name": "main", "endpoint_or_symbol": "create_app", "max_depth": 3}'
+
+

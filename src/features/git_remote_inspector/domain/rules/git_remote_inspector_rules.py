@@ -355,3 +355,313 @@ def extract_symbols_and_imports(content: str, file_path: str) -> Tuple[List[str]
 
     return unique_invoked, unique_imports, layer
 
+
+def _resolve_schema_ref(schema: Any, components: Dict[str, Any], depth: int = 0) -> Any:
+    if depth > 5 or not isinstance(schema, dict):
+        return schema
+    if "$ref" in schema:
+        ref_path = str(schema["$ref"]).replace("#/components/schemas/", "").replace("#/components/", "")
+        resolved = components.get(ref_path) or components.get(ref_path.split("/")[-1])
+        if resolved and isinstance(resolved, dict):
+            return _resolve_schema_ref(resolved, components, depth + 1)
+        return schema
+    resolved_schema: Dict[str, Any] = {}
+    for k, v in schema.items():
+        if k == "properties" and isinstance(v, dict):
+            resolved_schema[k] = {prop_k: _resolve_schema_ref(prop_v, components, depth + 1) for prop_k, prop_v in v.items()}
+        elif k == "items" and isinstance(v, dict):
+            resolved_schema[k] = _resolve_schema_ref(v, components, depth + 1)
+        elif k in ("anyOf", "oneOf", "allOf") and isinstance(v, list):
+            resolved_schema[k] = [_resolve_schema_ref(item, components, depth + 1) for item in v if item != {"type": "null"}]
+        else:
+            resolved_schema[k] = v
+    return resolved_schema
+
+
+def _generate_sample_payload(schema: Any) -> Any:
+    if not isinstance(schema, dict):
+        return {}
+    if "properties" in schema and isinstance(schema["properties"], dict):
+        sample = {}
+        for prop_name, prop_def in schema["properties"].items():
+            if not isinstance(prop_def, dict):
+                sample[prop_name] = "string"
+                continue
+            prop_type = prop_def.get("type", "string")
+            default_val = prop_def.get("default")
+            if default_val is not None:
+                sample[prop_name] = default_val
+            elif prop_type == "string":
+                sample[prop_name] = prop_def.get("example", f"sample_{prop_name}")
+            elif prop_type in ("integer", "number"):
+                sample[prop_name] = prop_def.get("example", 1)
+            elif prop_type == "boolean":
+                sample[prop_name] = prop_def.get("example", True)
+            elif prop_type == "array":
+                item_schema = prop_def.get("items", {})
+                sample[prop_name] = [_generate_sample_payload(item_schema)] if item_schema else []
+            elif prop_type == "object":
+                sample[prop_name] = _generate_sample_payload(prop_def)
+            else:
+                sample[prop_name] = "string"
+        return sample
+    return {}
+
+
+def _generate_client_snippet(
+    method: str, path: str, sample_body: Dict[str, Any], auth_scheme: Optional[str] = None
+) -> Tuple[str, str]:
+    import json
+    json_body = json.dumps(sample_body, indent=2) if sample_body else ""
+    curl_body = f"  -d '{json.dumps(sample_body)}' \\\n" if sample_body else ""
+
+    auth_header_curl = ""
+    auth_header_py = ""
+    if auth_scheme == "BearerAuth" or auth_scheme == "OAuth2":
+        auth_header_curl = "  -H 'Authorization: Bearer <TOKEN>' \\\n"
+        auth_header_py = "        'Authorization': 'Bearer <TOKEN>',\n"
+    elif auth_scheme == "ApiKeyAuth":
+        auth_header_curl = "  -H 'X-API-KEY: <API_KEY>' \\\n"
+        auth_header_py = "        'X-API-KEY': '<API_KEY>',\n"
+
+    curl_cmd = (
+        f"curl -X {method} 'http://<service-host>{path}' \\\n"
+        f"  -H 'Content-Type: application/json' \\\n"
+        f"  -H 'traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' \\\n"
+        f"  -H 'x-request-id: req-integration-sample' \\\n"
+        f"{auth_header_curl}"
+        f"{curl_body}"
+        f"  | jq ."
+    )
+
+    code_snippet = (
+        f"import requests\n\n"
+        f"def call_{method.lower()}_{path.strip('/').replace('/', '_').replace('-', '_')}():\n"
+        f"    url = f'http://{{HOST}}{path}'\n"
+        f"    headers = {{\n"
+        f"        'Content-Type': 'application/json',\n"
+        f"        'traceparent': '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',\n"
+        f"        'x-request-id': 'req-integ-client',\n"
+        f"{auth_header_py}"
+        f"    }}\n"
+    )
+    if sample_body:
+        code_snippet += f"    payload = {json_body}\n"
+        code_snippet += f"    response = requests.{method.lower()}(url, json=payload, headers=headers, timeout=10)\n"
+    else:
+        code_snippet += f"    response = requests.{method.lower()}(url, headers=headers, timeout=10)\n"
+    code_snippet += f"    response.raise_for_status()\n    return response.json()\n"
+
+    return curl_cmd, code_snippet
+
+
+
+def extract_openapi_endpoint_signature(
+    spec_text: str, target: str
+) -> Optional[Dict[str, Any]]:
+    import yaml
+    try:
+        data = yaml.safe_load(spec_text)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    paths = data.get("paths", {})
+    components = data.get("components", {}).get("schemas", {})
+    if not isinstance(paths, dict):
+        return None
+
+    norm_target = target.strip().lower()
+    matched_path = None
+    matched_method = None
+    matched_operation = None
+
+    for path_str, path_item in paths.items():
+        if not isinstance(path_item, dict):
+            continue
+        clean_path = path_str.strip().lower()
+        if clean_path == norm_target or norm_target in clean_path:
+            for method in ("get", "post", "put", "patch", "delete", "options", "head"):
+                op = path_item.get(method)
+                if op and isinstance(op, dict):
+                    matched_path = path_str
+                    matched_method = method.upper()
+                    matched_operation = op
+                    break
+        if matched_operation:
+            break
+
+    if not matched_operation:
+        for path_str, path_item in paths.items():
+            if not isinstance(path_item, dict):
+                continue
+            for method in ("get", "post", "put", "patch", "delete"):
+                op = path_item.get(method)
+                if isinstance(op, dict):
+                    op_id = str(op.get("operationId", "")).lower()
+                    summary = str(op.get("summary", "")).lower()
+                    if norm_target in op_id or norm_target in summary:
+                        matched_path = path_str
+                        matched_method = method.upper()
+                        matched_operation = op
+                        break
+            if matched_operation:
+                break
+
+    if not matched_operation or not matched_path:
+        return None
+
+    path_params: List[str] = []
+    query_params: List[str] = []
+    headers: List[str] = []
+
+    for param in matched_operation.get("parameters", []):
+        if not isinstance(param, dict):
+            continue
+        p_in = param.get("in")
+        p_name = param.get("name", "")
+        if p_in == "path":
+            path_params.append(p_name)
+        elif p_in == "query":
+            query_params.append(p_name)
+        elif p_in == "header":
+            headers.append(p_name)
+
+    body_schema: Dict[str, Any] = {}
+    req_body = matched_operation.get("requestBody", {})
+    if isinstance(req_body, dict):
+        content = req_body.get("content", {})
+        if isinstance(content, dict):
+            app_json = content.get("application/json", {})
+            if isinstance(app_json, dict) and "schema" in app_json:
+                body_schema = _resolve_schema_ref(app_json["schema"], components)
+
+    resp_schema: Dict[str, Any] = {}
+    responses = matched_operation.get("responses", {})
+    if isinstance(responses, dict):
+        resp_200 = responses.get("200") or responses.get("201") or responses.get(200) or responses.get(201)
+        if isinstance(resp_200, dict):
+            content = resp_200.get("content", {})
+            if isinstance(content, dict):
+                app_json = content.get("application/json", {})
+                if isinstance(app_json, dict) and "schema" in app_json:
+                    resp_schema = _resolve_schema_ref(app_json["schema"], components)
+
+    is_deprecated = bool(matched_operation.get("deprecated", False))
+    auth_scheme = None
+    security_reqs = matched_operation.get("security") or data.get("security", [])
+    if isinstance(security_reqs, list) and security_reqs:
+        first_sec = security_reqs[0]
+        if isinstance(first_sec, dict) and first_sec:
+            sec_name = list(first_sec.keys())[0]
+            sec_def = data.get("components", {}).get("securitySchemes", {}).get(sec_name, {})
+            sec_type = sec_def.get("type", "")
+            sec_scheme = sec_def.get("scheme", "").lower()
+            if sec_type == "http" and sec_scheme == "bearer":
+                auth_scheme = "BearerAuth"
+            elif sec_type == "apiKey":
+                auth_scheme = "ApiKeyAuth"
+            elif sec_type == "oauth2":
+                auth_scheme = "OAuth2"
+            else:
+                auth_scheme = sec_name
+
+    sample_payload = _generate_sample_payload(body_schema)
+    curl_cmd, code_snippet = _generate_client_snippet(matched_method, matched_path, sample_payload, auth_scheme)
+
+    return {
+        "protocol": "HTTP_REST",
+        "http_method": matched_method,
+        "path": matched_path,
+        "summary": matched_operation.get("summary"),
+        "auth_scheme": auth_scheme,
+        "is_deprecated": is_deprecated,
+        "path_params": path_params,
+        "query_params": query_params,
+        "request_headers": headers,
+        "request_body_schema": body_schema,
+        "sample_request_payload": sample_payload,
+        "response_200_schema": resp_schema,
+        "sample_curl": curl_cmd,
+        "client_code_snippet": code_snippet,
+    }
+
+
+
+def synthesize_endpoint_signature_from_chain(
+    target: str,
+    chain_nodes: List[Dict[str, Any]],
+    code_blobs: Dict[str, str],
+) -> Dict[str, Any]:
+    import re
+    http_method = "POST" if any(w in target.lower() for w in ("create", "add", "post", "save", "scan", "search")) else "GET"
+    path = f"/{target.lstrip('/')}"
+    headers = ["traceparent", "x-request-id", "x-correlation-id"]
+    body_fields: Dict[str, Any] = {}
+
+    for node in chain_nodes:
+        fp = node.get("file_path", "")
+        code = code_blobs.get(fp, "")
+        if not code:
+            continue
+        pydantic_fields = re.findall(r"(\w+)\s*:\s*([A-Za-z0-9_\[\],\s]+)(?:\s*=\s*Field\(.*?\))?", code)
+        for field_name, field_type in pydantic_fields:
+            if field_name not in ("model_config", "self", "cls"):
+                clean_type = field_type.split("=")[0].strip()
+                body_fields[field_name] = clean_type
+
+        ts_fields = re.findall(r"(\w+)\s*(\??)\s*:\s*([A-Za-z0-9_<>,\[\]\s]+);?", code)
+        for f_name, opt, f_type in ts_fields:
+            if f_name not in body_fields and f_name not in ("constructor", "return", "if", "for"):
+                body_fields[f_name] = f_type.strip()
+
+        go_fields = re.findall(r"(\w+)\s+([A-Za-z0-9_\[\]*]+)\s+`json:\"([a-zA-Z0-9_-]+)\"", code)
+        for _, g_type, j_name in go_fields:
+            body_fields[j_name] = g_type
+
+        java_fields = re.findall(r"private\s+([A-Za-z0-9_<>]+)\s+(\w+);", code)
+        for j_type, j_name in java_fields:
+            body_fields[j_name] = j_type
+
+        proto_fields = re.findall(r"\s*(?:optional|repeated)?\s*([a-zA-Z0-9_]+)\s+([a-zA-Z0-9_]+)\s*=\s*\d+;", code)
+        for p_type, p_name in proto_fields:
+            body_fields[p_name] = p_type
+
+    body_schema = {
+        "type": "object",
+        "properties": {k: {"type": v} for k, v in list(body_fields.items())[:10]},
+    } if body_fields else {}
+
+    auth_scheme = None
+    for code in code_blobs.values():
+        if any(kw in code for kw in ("JwtAuthGuard", "get_current_user", "BearerAuth", "Authorize")):
+            auth_scheme = "BearerAuth"
+            break
+        elif any(kw in code for kw in ("ApiKeyAuth", "x-api-key", "X-API-KEY")):
+            auth_scheme = "ApiKeyAuth"
+            break
+
+    protocol = "GRPC" if any(fp.endswith(".proto") for fp in code_blobs.keys()) else "HTTP_REST"
+    sample_payload = {k: f"sample_{k}" if any(t in str(v).lower() for t in ("str", "string")) else 1 if any(t in str(v).lower() for t in ("int", "num", "float", "double")) else True for k, v in body_fields.items()}
+    curl_cmd, code_snippet = _generate_client_snippet(http_method, path, sample_payload, auth_scheme)
+
+    return {
+        "protocol": protocol,
+        "http_method": http_method,
+        "path": path,
+        "summary": f"Synthesized integration signature for {target} ({protocol})",
+        "auth_scheme": auth_scheme,
+        "is_deprecated": False,
+        "path_params": [],
+        "query_params": [],
+        "request_headers": headers,
+        "request_body_schema": body_schema,
+        "sample_request_payload": sample_payload,
+        "response_200_schema": {"type": "object", "properties": {"success": {"type": "boolean"}, "data": {"type": "object"}}},
+        "sample_curl": curl_cmd,
+        "client_code_snippet": code_snippet,
+    }
+
+
+

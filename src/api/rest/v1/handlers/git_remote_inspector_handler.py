@@ -265,3 +265,29 @@ class GitRemoteInspectorRestHandler:
             correlation_id=correlation_id,
             execution_time_ms=exec_ms,
         )
+
+    def handle_integrate_context(self, req: Request, payload: "IntegrateContextCommand") -> Dict[str, Any]:
+        start = time.perf_counter()
+        ctx, trace_id, request_id, correlation_id = self._extract_trace_context(req)
+        logger.info(f"Integrating context: repo={payload.repo_url} target={payload.endpoint_or_entity} trace_id={trace_id}")
+        result = self.service.integrate_context(ctx, payload)
+        exec_ms = int((time.perf_counter() - start) * 1000)
+        if result.is_ok:
+            data = GitRemoteInspectorSchema.to_api_integrate_context(result.unwrap())
+            return build_success_envelope(
+                data=data,
+                status_code=200,
+                trace_id=trace_id,
+                request_id=request_id,
+                correlation_id=correlation_id,
+                execution_time_ms=exec_ms,
+            )
+        return self._map_error_to_envelope(
+            exc=result.error(),
+            fallback_code="GIT_REMOTE_INTEGRATE_CONTEXT_FAILED",
+            trace_id=trace_id,
+            request_id=request_id,
+            correlation_id=correlation_id,
+            execution_time_ms=exec_ms,
+        )
+

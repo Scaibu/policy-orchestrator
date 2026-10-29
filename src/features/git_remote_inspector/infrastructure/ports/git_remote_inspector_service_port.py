@@ -9,6 +9,7 @@ from src.features.git_remote_inspector.contracts.git_remote_inspector_types impo
     ListBranchesCommand,
     DiscoverContractsCommand,
     TraceCallChainCommand,
+    IntegrateContextCommand,
     RemoteInspectionResult,
     RemoteFileContentResult,
     RemoteDiffResult,
@@ -16,6 +17,7 @@ from src.features.git_remote_inspector.contracts.git_remote_inspector_types impo
     RemoteBranchesResult,
     RemoteDiscoveredContractsResult,
     RemoteCallChainResult,
+    RemoteIntegrateContextResult,
 )
 
 
@@ -60,5 +62,11 @@ class GitRemoteInspectorServicePort(ABC):
     def trace_call_chain(
         self, ctx: TraceContext, cmd: TraceCallChainCommand
     ) -> Result[RemoteCallChainResult, Exception]:
+        pass
+
+    @abstractmethod
+    def integrate_context(
+        self, ctx: TraceContext, cmd: "IntegrateContextCommand"
+    ) -> Result["RemoteIntegrateContextResult", Exception]:
         pass
 

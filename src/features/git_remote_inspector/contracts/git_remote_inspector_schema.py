@@ -161,6 +161,29 @@ def to_api_trace_call_chain(result: RemoteCallChainResult) -> Dict[str, Any]:
     return dict_to_camel_case(result.model_dump())
 
 
+def from_api_integrate_context(payload: Dict[str, Any]) -> Result["IntegrateContextCommand", ValidationError]:
+    try:
+        from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+            IntegrateContextCommand,
+        )
+        cmd = IntegrateContextCommand.model_validate(payload)
+        return Result.ok(cmd)
+    except PydanticValidationError as exc:
+        details = [
+            {
+                "field": ".".join(str(loc) for loc in err["loc"]),
+                "issue": err["msg"],
+                "rule": err["type"],
+            }
+            for err in exc.errors()
+        ]
+        return Result.err(ValidationError(message="Validation failed for integrate context payload", details=details))
+
+
+def to_api_integrate_context(result: "RemoteIntegrateContextResult") -> Dict[str, Any]:
+    return dict_to_camel_case(result.model_dump())
+
+
 class GitRemoteInspectorSchema:
     from_api_search_files = staticmethod(from_api_search_files)
     to_api_search_files = staticmethod(to_api_search_files)
@@ -176,4 +199,6 @@ class GitRemoteInspectorSchema:
     to_api_discover_contracts = staticmethod(to_api_discover_contracts)
     from_api_trace_call_chain = staticmethod(from_api_trace_call_chain)
     to_api_trace_call_chain = staticmethod(to_api_trace_call_chain)
+    from_api_integrate_context = staticmethod(from_api_integrate_context)
+    to_api_integrate_context = staticmethod(to_api_integrate_context)
 

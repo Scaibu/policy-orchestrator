@@ -233,3 +233,25 @@ def test_service_discover_contracts():
     assert data.total_contracts >= 1
     assert any(c.category == "DATA_CONTRACT_TYPES" for c in data.contracts)
 
+
+def test_service_integrate_context():
+    from src.features.git_remote_inspector.contracts.git_remote_inspector_types import (
+        IntegrateContextCommand,
+    )
+    deps = GitRemoteInspectorServiceDeps(
+        repository=MockRepository(),
+        remote_client=MockRemoteClient(),
+        config={},
+    )
+    service = GitRemoteInspectorDomainService(deps=deps)
+    ctx = TraceContext(trace_id="trace-integ", request_id="req-integ", correlation_id="corr-integ")
+    cmd = IntegrateContextCommand(repo_url="org/repo", endpoint_or_entity="search_files", ref_name="main")
+    res = service.integrate_context(ctx, cmd)
+    assert res.is_ok
+    data = res.unwrap()
+    assert data.repo_url == "org/repo"
+    assert data.target_endpoint_or_entity == "search_files"
+    assert data.signature.http_method in ("GET", "POST")
+    assert data.signature.path is not None
+
+

@@ -28,6 +28,7 @@ endpoints:
     diff: "/diff"
     discover_contracts: "/discover-contracts"
     trace_call_chain: "/trace-call-chain"
+    integrate_context: "/integrate-context"
 
 
   git_remote_mutator:

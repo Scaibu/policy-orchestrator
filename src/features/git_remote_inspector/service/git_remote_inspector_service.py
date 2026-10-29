@@ -20,6 +20,9 @@ from src.features.git_remote_inspector.contracts.git_remote_inspector_types impo
     DiscoveredContractItem,
     TraceCallChainCommand,
     CallChainNode,
+    IntegrateContextCommand,
+    ExtractedEndpointSignature,
+    RemoteIntegrateContextResult,
     RemoteInspectionResult,
     RemoteFileContentResult,
     RemoteDiffResult,
@@ -35,6 +38,8 @@ from src.features.git_remote_inspector.domain.rules.git_remote_inspector_rules i
     filter_tree_nodes,
     sanitize_file_path,
     extract_diff_patch,
+    extract_openapi_endpoint_signature,
+    synthesize_endpoint_signature_from_chain,
 )
 from src.features.git_remote_inspector.domain.machines.git_remote_inspector_machine import (
     STATE_IDLE,
@@ -43,6 +48,7 @@ from src.features.git_remote_inspector.domain.machines.git_remote_inspector_mach
     STATE_FETCHING_CONTENT,
     STATE_COMPARING_DIFF,
     STATE_FETCHING_BRANCHES,
+    STATE_INTEGRATING_CONTEXT,
     STATE_COMPLETED,
     STATE_FAILED,
     transition_to,
@@ -538,4 +544,128 @@ class GitRemoteInspectorDomainService(AbstractTracedComponent, GitRemoteInspecto
         finally:
             if span:
                 span.end()
+
+    def integrate_context(
+        self, ctx: TraceContext, cmd: IntegrateContextCommand
+    ) -> Result[RemoteIntegrateContextResult, Exception]:
+        start_time = time.perf_counter()
+        span = None
+        state = STATE_IDLE
+        try:
+            if self._tracer:
+                span = self._tracer.start_span("git_remote_inspector.integrate_context")
+            state = transition_to(state, STATE_INTEGRATING_CONTEXT)
+
+            disc_cmd = DiscoverContractsCommand(
+                repo_url=cmd.repo_url,
+                ref_name=cmd.ref_name,
+                token=cmd.token,
+            )
+            disc_res = self.discover_contracts(ctx, disc_cmd)
+            provider_name = "github"
+            openapi_contract = None
+            related_dtos: List[str] = []
+
+            if disc_res.is_ok:
+                disc_data = disc_res.unwrap()
+                provider_name = disc_data.provider
+                for contract in disc_data.contracts:
+                    if cmd.subpath and not contract.path.startswith(cmd.subpath.strip("/")):
+                        continue
+                    if contract.category == "API_SPECIFICATION" and not openapi_contract:
+                        openapi_contract = contract.path
+                    elif contract.category == "DATA_CONTRACT_TYPES":
+                        related_dtos.append(contract.path)
+
+            if openapi_contract:
+                content_cmd = GetFileContentCommand(
+                    repo_url=cmd.repo_url,
+                    file_path=openapi_contract,
+                    ref_name=cmd.ref_name,
+                    token=cmd.token,
+                )
+                content_res = self.get_file_content(ctx, content_cmd)
+                if content_res.is_ok:
+                    spec_text = content_res.unwrap().content
+                    parsed_sig = extract_openapi_endpoint_signature(spec_text, cmd.endpoint_or_entity)
+                    if parsed_sig:
+                        sig = ExtractedEndpointSignature(**parsed_sig)
+                        duration_ms = (time.perf_counter() - start_time) * 1000.0
+                        state = transition_to(state, STATE_COMPLETED)
+                        res = RemoteIntegrateContextResult(
+                            repo_url=cmd.repo_url,
+                            provider=provider_name,
+                            ref_name=cmd.ref_name,
+                            target_endpoint_or_entity=cmd.endpoint_or_entity,
+                            match_type="OPENAPI_SPEC",
+                            contract_file=openapi_contract,
+                            signature=sig,
+                            related_dto_files=related_dtos[:10],
+                            call_chain=[],
+                            duration_ms=duration_ms,
+                        )
+                        if span and StatusCode:
+                            span.set_status(StatusCode.OK)
+                        return Result.ok(res)
+
+            chain_cmd = TraceCallChainCommand(
+                repo_url=cmd.repo_url,
+                endpoint_or_symbol=cmd.endpoint_or_entity,
+                ref_name=cmd.ref_name,
+                max_depth=3,
+                token=cmd.token,
+            )
+            chain_res = self.trace_call_chain(ctx, chain_cmd)
+            chain_nodes: List[CallChainNode] = []
+            code_blobs: Dict[str, str] = {}
+
+            if chain_res.is_ok:
+                chain_data = chain_res.unwrap()
+                provider_name = chain_data.provider
+                chain_nodes = chain_data.call_chain
+                for node in chain_nodes[:3]:
+                    c_res = self.get_file_content(
+                        ctx,
+                        GetFileContentCommand(
+                            repo_url=cmd.repo_url,
+                            file_path=node.file_path,
+                            ref_name=cmd.ref_name,
+                            token=cmd.token,
+                        ),
+                    )
+                    if c_res.is_ok:
+                        code_blobs[node.file_path] = c_res.unwrap().content
+
+            synthesized = synthesize_endpoint_signature_from_chain(
+                target=cmd.endpoint_or_entity,
+                chain_nodes=[n.model_dump() for n in chain_nodes],
+                code_blobs=code_blobs,
+            )
+            sig = ExtractedEndpointSignature(**synthesized)
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
+            state = transition_to(state, STATE_COMPLETED)
+
+            res = RemoteIntegrateContextResult(
+                repo_url=cmd.repo_url,
+                provider=provider_name,
+                ref_name=cmd.ref_name,
+                target_endpoint_or_entity=cmd.endpoint_or_entity,
+                match_type="STATIC_CALL_CHAIN",
+                contract_file=chain_nodes[0].file_path if chain_nodes else None,
+                signature=sig,
+                related_dto_files=related_dtos[:10],
+                call_chain=chain_nodes,
+                duration_ms=duration_ms,
+            )
+            if span and StatusCode:
+                span.set_status(StatusCode.OK)
+            return Result.ok(res)
+        except Exception as exc:
+            state = STATE_FAILED
+            self._record_span_error(span, exc)
+            return Result.err(exc)
+        finally:
+            if span:
+                span.end()
+
 

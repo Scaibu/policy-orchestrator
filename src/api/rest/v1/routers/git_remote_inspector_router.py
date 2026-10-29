@@ -8,6 +8,7 @@ from src.features.git_remote_inspector.contracts.git_remote_inspector_types impo
     ListBranchesCommand,
     DiscoverContractsCommand,
     TraceCallChainCommand,
+    IntegrateContextCommand,
 )
 from src.features.git_remote_inspector.contracts.git_remote_inspector_deps import (
     GitRemoteInspectorServiceDeps,
@@ -166,3 +167,17 @@ def trace_remote_call_chain(
     handler: GitRemoteInspectorRestHandler = Depends(get_git_remote_inspector_handler),
 ):
     return handler.handle_trace_call_chain(req=req, payload=payload)
+
+
+@router.post(
+    AppConfigLoader.get_endpoint("git_remote_inspector", "integrate_context") or "/integrate-context",
+    response_model=APIResponseEnvelope,
+    status_code=status.HTTP_200_OK,
+)
+def integrate_remote_context(
+    payload: IntegrateContextCommand,
+    req: Request,
+    handler: GitRemoteInspectorRestHandler = Depends(get_git_remote_inspector_handler),
+):
+    return handler.handle_integrate_context(req=req, payload=payload)
+

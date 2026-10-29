@@ -549,6 +549,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/trace-call-chain:
+    post:
+      summary: Trace Remote Static Call Chain
+      operationId: trace_remote_call_chain_api_v1_git_remote_inspector_trace_call_chain_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceCallChainCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-inspector/integrate-context:
+    post:
+      summary: One-Shot Remote Microservice Integration Context
+      operationId: integrate_remote_context_api_v1_git_remote_inspector_integrate_context_post
+      tags:
+      - Git Remote Inspector (Zero-Clone Search & Diffs)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IntegrateContextCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
 components:
   schemas:
     APIResponseEnvelope:
