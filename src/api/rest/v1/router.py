@@ -42,6 +42,9 @@ router.include_router(git_verifier_router)
 from .routers.git_remote_inspector_router import router as git_remote_inspector_router
 router.include_router(git_remote_inspector_router)
 
+from .routers.git_remote_mutator_router import router as git_remote_mutator_router
+router.include_router(git_remote_mutator_router)
+
 from .routers.system_router import (
     health_check,
 )

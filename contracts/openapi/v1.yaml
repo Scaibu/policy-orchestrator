@@ -580,6 +580,56 @@ paths:
             schema:
               $ref: '#/components/schemas/IntegrateContextCommand'
         required: true
+  /api/v1/git-remote-mutator/mutate-file:
+    post:
+      summary: Mutate Single Remote File (Zero-Clone Git Blob & Tree Plumbing)
+      operationId: mutate_single_remote_file_api_v1_git_remote_mutator_mutate_file_post
+      tags:
+      - Git Remote Mutator (Zero-Clone Git Merkle Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MutateFileCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-mutator/mutate-batch:
+    post:
+      summary: Mutate Batch Remote Files (Atomic Multi-File Tree Plumbing)
+      operationId: mutate_batch_remote_files_api_v1_git_remote_mutator_mutate_batch_post
+      tags:
+      - Git Remote Mutator (Zero-Clone Git Merkle Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MutateBatchCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-remote-mutator/delete-file:
+    post:
+      summary: Delete Single Remote File (Sparse Tree Removal)
+      operationId: delete_remote_file_api_v1_git_remote_mutator_delete_file_post
+      tags:
+      - Git Remote Mutator (Zero-Clone Git Merkle Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteFileCommand'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -1455,4 +1505,190 @@ components:
       - totalContracts
       - contracts
       title: RemoteDiscoveredContractsResult
+    FileMutationEntry:
+      properties:
+        path:
+          type: string
+          title: Path
+        content:
+          type: string
+          default: ""
+          title: Content
+        mode:
+          type: string
+          default: "100644"
+          title: Mode
+        isDeleted:
+          type: boolean
+          default: false
+          title: Isdeleted
+      type: object
+      required:
+      - path
+      title: FileMutationEntry
+    MutateFileCommand:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        branch:
+          type: string
+          default: main
+          title: Branch
+        filePath:
+          type: string
+          title: File Path
+        content:
+          type: string
+          title: Content
+        commitMessage:
+          type: string
+          title: Commit Message
+        expectedParentSha:
+          type: string
+          title: Expected Parent Sha
+        authorName:
+          type: string
+          title: Author Name
+        authorEmail:
+          type: string
+          title: Author Email
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - repoUrl
+      - filePath
+      - content
+      - commitMessage
+      title: MutateFileCommand
+    MutateBatchCommand:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        branch:
+          type: string
+          default: main
+          title: Branch
+        mutations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileMutationEntry'
+          title: Mutations
+        commitMessage:
+          type: string
+          title: Commit Message
+        expectedParentSha:
+          type: string
+          title: Expected Parent Sha
+        authorName:
+          type: string
+          title: Author Name
+        authorEmail:
+          type: string
+          title: Author Email
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - repoUrl
+      - mutations
+      - commitMessage
+      title: MutateBatchCommand
+    DeleteFileCommand:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        branch:
+          type: string
+          default: main
+          title: Branch
+        filePath:
+          type: string
+          title: File Path
+        commitMessage:
+          type: string
+          title: Commit Message
+        expectedParentSha:
+          type: string
+          title: Expected Parent Sha
+        authorName:
+          type: string
+          title: Author Name
+        authorEmail:
+          type: string
+          title: Author Email
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - repoUrl
+      - filePath
+      - commitMessage
+      title: DeleteFileCommand
+    RemoteBlobCreatedResult:
+      properties:
+        path:
+          type: string
+          title: Path
+        sha:
+          type: string
+          title: Sha
+        size:
+          type: integer
+          title: Size
+      type: object
+      required:
+      - path
+      - sha
+      - size
+      title: RemoteBlobCreatedResult
+    RemoteMutationResult:
+      properties:
+        repoUrl:
+          type: string
+          title: Repo Url
+        branch:
+          type: string
+          title: Branch
+        parentCommitSha:
+          type: string
+          title: Parent Commit Sha
+        newCommitSha:
+          type: string
+          title: New Commit Sha
+        treeSha:
+          type: string
+          title: Tree Sha
+        filesMutatedCount:
+          type: integer
+          title: Files Mutated Count
+        commitMessage:
+          type: string
+          title: Commit Message
+        blobsCreated:
+          type: array
+          items:
+            $ref: '#/components/schemas/RemoteBlobCreatedResult'
+          title: Blobs Created
+        durationMs:
+          type: number
+          default: 0.0
+          title: Duration Ms
+      type: object
+      required:
+      - repoUrl
+      - branch
+      - parentCommitSha
+      - newCommitSha
+      - treeSha
+      - filesMutatedCount
+      - commitMessage
+      title: RemoteMutationResult
+
 

@@ -34,6 +34,9 @@ endpoints:
   git_remote_mutator:
     base: "/git-remote-mutator"
     commit: "/commit"
+    mutate_file: "/mutate-file"
+    mutate_batch: "/mutate-batch"
+    delete_file: "/delete-file"
   git_branch_lifecycle:
     base: "/git-branch-lifecycle"
     create_branch: "/branches"
