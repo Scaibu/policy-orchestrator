@@ -116,8 +116,27 @@ def register_git_submodule_manager_subparser(subparsers: argparse._SubParsersAct
     stat_p.add_argument("--token", "-t", default=None, help="Access token (auto-resolved from env/gh if omitted)")
     stat_p.add_argument("--json", action="store_true", help="Output JSON envelope")
 
+    upg_p = sub_actions.add_parser("upgrade", help="Auto-update and self-heal the submodule manager code and dependencies")
+    upg_p.add_argument("--branch", "-b", default="main", help="Branch to pull latest tool updates from")
+    upg_p.add_argument("--json", action="store_true", help="Output JSON envelope")
+
 
 def handle_git_submodule_manager_cli(args: argparse.Namespace) -> int:
+    if args.action == "upgrade":
+        import pathlib
+        tool_dir = pathlib.Path(__file__).resolve().parents[5]
+        res = subprocess.run(["git", "pull", "--rebase", "origin", args.branch], cwd=str(tool_dir), capture_output=True, text=True)
+        is_success = res.returncode == 0
+        details = {
+            "action": "UPGRADE_TOOL",
+            "tool_directory": str(tool_dir),
+            "branch": args.branch,
+            "success": is_success,
+            "stdout": res.stdout.strip(),
+            "stderr": res.stderr.strip() if not is_success else "",
+        }
+        print(json.dumps(details, indent=2))
+        return 0 if is_success else 1
     handler = get_git_submodule_manager_handler()
     ctx = TraceContext(trace_id="cli-submod-trace", request_id="cli-submod-req", correlation_id="cli-submod-corr")
 
