@@ -585,7 +585,8 @@ class GitSubmoduleManagerDomainService(AbstractTracedComponent, GitSubmoduleMana
 
             state = transition_to(state, STATE_INSPECTING_CHILD_REMOTES)
             verified_submodules: Dict[str, str] = {}
-            for path in cmd.submodule_paths:
+            target_paths = cmd.submodule_paths if cmd.submodule_paths is not None else list(modules.keys())
+            for path in target_paths:
                 clean_path = sanitize_submodule_path(path)
                 if clean_path not in modules:
                     state = transition_to(state, STATE_FAILED)

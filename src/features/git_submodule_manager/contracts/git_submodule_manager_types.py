@@ -65,7 +65,7 @@ class PushMultiRepoCommand(BaseModel):
     model_config = ConfigDict(extra="forbid")
     parent_repo_url: str = Field(..., description="Target parent repository URL")
     parent_branch: str = Field(default="main", description="Target parent branch name")
-    submodule_paths: List[str] = Field(..., description="List of submodule paths whose commits must precede parent push")
+    submodule_paths: Optional[List[str]] = Field(default=None, description="List of submodule paths whose commits must precede parent push; if None, checks all")
     verify_remote_exists: bool = Field(default=True, description="Verify child commits are already pushed to remote remotes before updating parent")
     commit_message: str = Field(default="chore: synchronize multi-repo submodules", description="Parent commit message")
     expected_parent_sha: Optional[str] = Field(default=None, description="Optional parent commit SHA for OCC")
