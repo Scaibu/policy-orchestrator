@@ -60,6 +60,14 @@ def _resolve_token(cli_token: Optional[str]) -> Optional[str]:
             return out
     except Exception:
         pass
+    try:
+        import re
+        out = subprocess.check_output(["gh", "auth", "status", "-t"], text=True, stderr=subprocess.STDOUT)
+        match = re.search(r"Token:\s*(\S+)", out)
+        if match:
+            return match.group(1)
+    except Exception:
+        pass
     return None
 
 
