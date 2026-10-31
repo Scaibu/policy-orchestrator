@@ -42,6 +42,13 @@ endpoints:
     create_branch: "/branches"
     merge: "/merge"
     create_repo: "/repositories"
+  git_submodule_manager:
+    base: "/git-submodule-manager"
+    add: "/add"
+    update: "/update"
+    pull: "/pull"
+    push: "/push"
+    sync_status: "/sync-status"
   health:
     base: "/health"
     live: "/health/live"

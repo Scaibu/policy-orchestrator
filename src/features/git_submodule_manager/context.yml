@@ -1,0 +1,64 @@
+feature: git_submodule_manager
+mode: stateless_hexagonal
+version: "1.0.0"
+
+responsibilities:
+  - "Manage multi-repository Git submodule lifecycle without local cloning"
+  - "Add submodules by updating .gitmodules and registering 160000 gitlink commit pointers"
+  - "Update and pull submodules to sync latest upstream child commits into parent tree"
+  - "Push multi-repo transactions ensuring child commits exist on remotes before updating parent references"
+  - "Audit submodule synchronization drift between parent gitlink and child remote branches"
+  - "Persist submodule mutation records in AlloyDB and sync (:GitSubmodule) graph nodes in Neo4j"
+
+ports:
+  driving:
+    - name: "GitSubmoduleManagerServicePort"
+      role: "Driving port exposed to delivery handlers and CLI"
+  driven:
+    - name: "GitRemoteMutationClientPort"
+      role: "Outbound port for remote Git tree, blob, commit, and ref updates"
+    - name: "GitRemoteClientPort"
+      role: "Outbound port for remote Git content inspection and tree queries"
+    - name: "GitSubmoduleManagerRepositoryPort"
+      role: "AlloyDB and Neo4j persistence port"
+
+inheritance_chain:
+  class: "GitSubmoduleManagerDomainService"
+  parents:
+    - "AbstractTracedComponent"
+  linearization:
+    - "GitSubmoduleManagerDomainService"
+    - "AbstractTracedComponent"
+    - "GitSubmoduleManagerServicePort"
+    - "ABC"
+    - "object"
+  shared_ancestors:
+    - "AbstractTracedComponent"
+  ports:
+    driving:
+      - "GitSubmoduleManagerServicePort"
+    driven:
+      - "GitRemoteMutationClientPort"
+      - "GitRemoteClientPort"
+      - "GitSubmoduleManagerRepositoryPort"
+
+entities:
+  - entity: git_submodule_records
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id              type: text          null: no   constraint: PK (git_submodule_records_id_pk)
+      - name: repo_url       type: text          null: no
+      - name: branch         type: text          null: no
+      - name: action         type: text          null: no   constraint: CHECK (action IN ('ADD_SUBMODULE', 'UPDATE_SUBMODULE', 'PULL_SUBMODULES', 'PUSH_MULTI_REPO', 'SYNC_STATUS'))
+      - name: submodule_path type: text          null: no
+      - name: submodule_url  type: text          null: yes
+      - name: gitlink_sha    type: text          null: yes
+      - name: is_success     type: boolean       null: no   default: true
+      - name: execution_ms   type: double        null: no   default: 0.0
+      - name: created_at     type: timestamptz   null: no   default: NOW()
+    invariants:
+      - "repo_url must be non-empty"
+      - "branch must be non-empty"
+      - "action must be one of permitted submodule lifecycle action enums"
+    pii: [none]
+    source_of_truth: db

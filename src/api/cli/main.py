@@ -134,6 +134,9 @@ def build_parser() -> argparse.ArgumentParser:
     from src.api.rest.v1.cli.git_remote_mutator_cli import register_git_remote_mutator_subparser
     register_git_remote_mutator_subparser(subparsers)
 
+    from src.api.rest.v1.cli.git_submodule_manager_cli import register_git_submodule_manager_subparser
+    register_git_submodule_manager_subparser(subparsers)
+
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI REST server")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     serve_parser.add_argument("--port", type=int, default=8000, help="Bind port")
@@ -155,6 +158,7 @@ def main() -> None:
     from src.api.rest.v1.cli.git_verifier_cli import handle_git_verifier_cli
     from src.api.rest.v1.cli.git_remote_inspector_cli import handle_git_remote_inspector_cli
     from src.api.rest.v1.cli.git_remote_mutator_cli import handle_git_remote_mutator_cli
+    from src.api.rest.v1.cli.git_submodule_manager_cli import handle_git_submodule_manager_cli
 
     parser = build_parser()
     args = parser.parse_args()
@@ -172,6 +176,7 @@ def main() -> None:
         "verify-git": handle_git_verifier_cli,
         "remote-inspect": handle_git_remote_inspector_cli,
         "remote-mutate": handle_git_remote_mutator_cli,
+        "submodule": handle_git_submodule_manager_cli,
         "serve": handle_serve_command,
     }
 

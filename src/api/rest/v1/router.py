@@ -48,6 +48,9 @@ router.include_router(git_remote_mutator_router)
 from .routers.git_branch_lifecycle_router import router as git_branch_lifecycle_router
 router.include_router(git_branch_lifecycle_router)
 
+from .routers.git_submodule_manager_router import router as git_submodule_manager_router
+router.include_router(git_submodule_manager_router)
+
 from .routers.system_router import (
     health_check,
 )

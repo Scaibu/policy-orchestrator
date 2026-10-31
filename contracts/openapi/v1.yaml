@@ -636,6 +636,100 @@ paths:
           content:
             application/json:
               schema:
+  /api/v1/git-submodule-manager/add:
+    post:
+      summary: Add Git Submodule (Zero-Clone Gitlink & .gitmodules Plumbing)
+      operationId: add_submodule_api_v1_git_submodule_manager_add_post
+      tags:
+      - Git Submodule Manager (Multi-Repo Zero-Clone Git Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSubmoduleCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-submodule-manager/update:
+    post:
+      summary: Update Git Submodule Pointer
+      operationId: update_submodule_api_v1_git_submodule_manager_update_post
+      tags:
+      - Git Submodule Manager (Multi-Repo Zero-Clone Git Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubmoduleCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-submodule-manager/pull:
+    post:
+      summary: Pull and Sync Git Submodules
+      operationId: pull_submodules_api_v1_git_submodule_manager_pull_post
+      tags:
+      - Git Submodule Manager (Multi-Repo Zero-Clone Git Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PullSubmodulesCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-submodule-manager/push:
+    post:
+      summary: Push Multi-Repo Submodules with Child Remote Verification
+      operationId: push_multi_repo_api_v1_git_submodule_manager_push_post
+      tags:
+      - Git Submodule Manager (Multi-Repo Zero-Clone Git Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushMultiRepoCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIResponseEnvelope'
+  /api/v1/git-submodule-manager/sync-status:
+    post:
+      summary: Audit Submodule Drift and Synchronization Status
+      operationId: sync_status_api_v1_git_submodule_manager_sync_status_post
+      tags:
+      - Git Submodule Manager (Multi-Repo Zero-Clone Git Plumbing)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmoduleSyncStatusCommand'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
                 $ref: '#/components/schemas/APIResponseEnvelope'
   /api/v1/git-branch-lifecycle/branches:
     post:
