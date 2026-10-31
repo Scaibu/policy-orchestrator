@@ -44,9 +44,17 @@ def sanitize_submodule_path(path: str) -> str:
 def parse_gitmodules_content(content: str) -> Dict[str, Dict[str, str]]:
     if not content or not content.strip():
         return {}
+    clean_text = content.strip()
+    if not clean_text.startswith("["):
+        try:
+            import base64
+            decoded = base64.b64decode(clean_text).decode("utf-8")
+            clean_text = decoded
+        except Exception:
+            pass
     config = configparser.ConfigParser()
     try:
-        config.read_string(content)
+        config.read_string(clean_text)
     except Exception:
         return {}
     modules: Dict[str, Dict[str, str]] = {}
