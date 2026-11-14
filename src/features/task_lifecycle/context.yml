@@ -1,0 +1,28 @@
+feature: task_lifecycle
+mode: stateless_hexagonal
+version: "1.0.0"
+
+responsibilities:
+  - "Automate GitHub issue creation and feature branch checkout"
+  - "Enforce pre-merge test verification gates"
+  - "Automate pull request creation, squashing/merging, and issue closure"
+  - "Synchronize parent submodule commit pointers across multi-repo workspaces"
+
+ports:
+  driving:
+    - name: "TaskLifecycleServicePort"
+      role: "Driving port exposed to CLI and REST handlers"
+  driven:
+    - name: "GitTaskExecutionPort"
+      role: "Outbound port for git, gh CLI, and test runner subprocess execution"
+
+entities:
+  - entity: task_lifecycle_records
+    owner: "@platform-architecture-team"
+    fields:
+      - name: id             type: text          null: no   constraint: PK
+      - name: repo           type: text          null: no
+      - name: issue_number   type: integer       null: yes
+      - name: branch_name    type: text          null: no
+      - name: status         type: text          null: no
+

@@ -128,14 +128,18 @@ def build_parser() -> argparse.ArgumentParser:
     git_ver_p.add_argument("--no-submodules", action="store_true", help="Skip checking submodule pointers")
     git_ver_p.add_argument("--json", action="store_true", help="Output results in JSON format")
 
-    from src.api.rest.v1.cli.git_remote_inspector_cli import register_git_remote_inspector_subparser
-    register_git_remote_inspector_subparser(subparsers)
+    from src.api.cli.task_lifecycle_cli import register_task_lifecycle_subparser
+    register_task_lifecycle_subparser(subparsers)
 
-    from src.api.rest.v1.cli.git_remote_mutator_cli import register_git_remote_mutator_subparser
-    register_git_remote_mutator_subparser(subparsers)
-
-    from src.api.rest.v1.cli.git_submodule_manager_cli import register_git_submodule_manager_subparser
-    register_git_submodule_manager_subparser(subparsers)
+    try:
+        from src.api.rest.v1.cli.git_remote_inspector_cli import register_git_remote_inspector_subparser
+        register_git_remote_inspector_subparser(subparsers)
+        from src.api.rest.v1.cli.git_remote_mutator_cli import register_git_remote_mutator_subparser
+        register_git_remote_mutator_subparser(subparsers)
+        from src.api.rest.v1.cli.git_submodule_manager_cli import register_git_submodule_manager_subparser
+        register_git_submodule_manager_subparser(subparsers)
+    except ImportError:
+        pass
 
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI REST server")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Bind host")
@@ -148,41 +152,47 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    from src.api.cli.scaffold_cli import (
-        handle_create_file,
-        handle_link_file,
-    )
-    from src.api.rest.v1.cli.file_search_cli import handle_file_search_cli
-    from src.api.rest.v1.cli.code_search_cli import handle_code_search_cli
-    from src.api.rest.v1.cli.module_resolver_cli import handle_module_resolver_cli
-    from src.api.rest.v1.cli.git_verifier_cli import handle_git_verifier_cli
-    from src.api.rest.v1.cli.git_remote_inspector_cli import handle_git_remote_inspector_cli
-    from src.api.rest.v1.cli.git_remote_mutator_cli import handle_git_remote_mutator_cli
-    from src.api.rest.v1.cli.git_submodule_manager_cli import handle_git_submodule_manager_cli
-
     parser = build_parser()
     args = parser.parse_args()
 
-    dispatch = {
-        "migrate": handle_migrate_command,
-        "create-file": handle_create_file,
-        "add-file": handle_create_file,
-        "link-file": handle_link_file,
-        "link-nodes": handle_link_file,
-        "connect-files": handle_link_file,
-        "file-search": handle_file_search_cli,
-        "code-search": handle_code_search_cli,
-        "resolve-module": handle_module_resolver_cli,
-        "verify-git": handle_git_verifier_cli,
-        "remote-inspect": handle_git_remote_inspector_cli,
-        "remote-mutate": handle_git_remote_mutator_cli,
-        "submodule": handle_git_submodule_manager_cli,
-        "serve": handle_serve_command,
-    }
-
-    handler = dispatch.get(args.subcommand)
-    if handler:
-        sys.exit(handler(args))
+    sub = args.subcommand
+    if sub in ("task", "task-lifecycle"):
+        from src.api.cli.task_lifecycle_cli import handle_unified_task_command
+        sys.exit(handle_unified_task_command(args))
+    elif sub in ("create-file", "add-file"):
+        from src.api.cli.scaffold_cli import handle_create_file
+        sys.exit(handle_create_file(args))
+    elif sub in ("link-file", "link-nodes", "connect-files"):
+        from src.api.cli.scaffold_cli import handle_link_file
+        sys.exit(handle_link_file(args))
+    elif sub == "file-search":
+        from src.api.rest.v1.cli.file_search_cli import handle_file_search_cli
+        sys.exit(handle_file_search_cli(args))
+    elif sub == "code-search":
+        from src.api.rest.v1.cli.code_search_cli import handle_code_search_cli
+        sys.exit(handle_code_search_cli(args))
+    elif sub == "resolve-module":
+        from src.api.rest.v1.cli.module_resolver_cli import handle_module_resolver_cli
+        sys.exit(handle_module_resolver_cli(args))
+    elif sub == "verify-git":
+        from src.api.rest.v1.cli.git_verifier_cli import handle_git_verifier_cli
+        sys.exit(handle_git_verifier_cli(args))
+    elif sub == "remote-inspect":
+        from src.api.rest.v1.cli.git_remote_inspector_cli import handle_git_remote_inspector_cli
+        sys.exit(handle_git_remote_inspector_cli(args))
+    elif sub == "remote-mutate":
+        from src.api.rest.v1.cli.git_remote_mutator_cli import handle_git_remote_mutator_cli
+        sys.exit(handle_git_remote_mutator_cli(args))
+    elif sub == "submodule":
+        from src.api.rest.v1.cli.git_submodule_manager_cli import handle_git_submodule_manager_cli
+        sys.exit(handle_git_submodule_manager_cli(args))
+    elif sub == "migrate":
+        sys.exit(handle_migrate_command(args))
+    elif sub == "serve":
+        sys.exit(handle_serve_command(args))
+    else:
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,19 +1,15 @@
 import argparse
 import json
-from src.features.folder_scaffold.contracts.folder_scaffold_types import (
-    CreateFileCommand,
-    LinkFilesCommand,
-)
-from src.shared.types.envelope_types import TraceContext
-from src.infra.config.config_loader import AppConfigLoader
-from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
-from src.infra.adapters.graph.in_memory_graph_adapter import InMemoryGraphAdapter
-from src.features.folder_scaffold.infrastructure.adapters.folder_scaffold_repository_adapter import AlloyDBFolderScaffoldRepository
-from src.features.folder_scaffold.service.folder_scaffold_service import FolderScaffoldDomainService
-from src.features.folder_scaffold.contracts.folder_scaffold_deps import FolderScaffoldServiceDeps
 
 
-def get_folder_scaffold_service(args: argparse.Namespace) -> FolderScaffoldDomainService:
+def get_folder_scaffold_service(args: argparse.Namespace):
+    from src.features.folder_scaffold.infrastructure.adapters.folder_scaffold_repository_adapter import AlloyDBFolderScaffoldRepository
+    from src.features.folder_scaffold.service.folder_scaffold_service import FolderScaffoldDomainService
+    from src.features.folder_scaffold.contracts.folder_scaffold_deps import FolderScaffoldServiceDeps
+    from src.infra.adapters.graph.neo4j_adapter import Neo4jGraphAdapter
+    from src.infra.adapters.graph.in_memory_graph_adapter import InMemoryGraphAdapter
+    from src.infra.config.config_loader import AppConfigLoader
+
     db_url = AppConfigLoader.get_database_url()
     kg_cfg = AppConfigLoader.get_knowledge_graph_config()
     repo = AlloyDBFolderScaffoldRepository(db_url=db_url)
@@ -40,6 +36,8 @@ def get_folder_scaffold_service(args: argparse.Namespace) -> FolderScaffoldDomai
 
 
 def handle_create_file(args: argparse.Namespace) -> int:
+    from src.features.folder_scaffold.contracts.folder_scaffold_types import CreateFileCommand
+    from src.shared.types.envelope_types import TraceContext
     service = get_folder_scaffold_service(args)
 
     file_path = getattr(args, "path", None) or getattr(args, "file_path", None)
@@ -94,6 +92,8 @@ def handle_create_file(args: argparse.Namespace) -> int:
 
 
 def handle_link_file(args: argparse.Namespace) -> int:
+    from src.features.folder_scaffold.contracts.folder_scaffold_types import LinkFilesCommand
+    from src.shared.types.envelope_types import TraceContext
     service = get_folder_scaffold_service(args)
 
     source = getattr(args, "source", None)
